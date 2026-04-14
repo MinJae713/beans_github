@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"python3 -c \\\"\\nimport pathlib\\n\\ncontent = '''# 07. 샌드박스 옵션 검토 — 쿡싸피 학생 코드 실행 환경\\n\\n> **리서치 날짜**: 2026-04-09\\n> **대상 프로젝트**: 쿡싸피(Cook SSAFY) — SSAFY 2인 팀 자율 프로젝트\\n> **소스 현황**: WebFetch 시도 ...",
+  "error": "Exit code 2\n/usr/bin/bash: -c: line 4: unexpected EOF while looking for matching `''",
+  "timestamp": "2026-04-09T08:56:05.513Z",
+  "retry_count": 1
+}

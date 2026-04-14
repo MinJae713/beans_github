@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-04-09T15:37:42.510250+09:00",
+  "total_count": 1,
+  "evidence_backed_count": 1,
+  "insufficient_evidence_detected": false,
+  "counts": {
+    "critical": 0,
+    "high": 0,
+    "medium": 1,
+    "low": 0
+  },
+  "feedback_loop": {
+    "cadence": "broad_repeat",
+    "rounds": [
+      {
+        "round": 1,
+        "review_phase": "broad_scan",
+        "prompt_strategy": "unknown",
+        "context_excerpt_strategy": "",
+        "execution_ok": true,
+        "findings_count": 2,
+        "material_findings_count": 2,
+        "prompt_chars": 0,
+        "prompt_context_chars": 0,
+        "reused_section_count": 0,
+        "reviewer_model": "",
+        "reviewer_model_reasoning_effort": ""
+      }
+    ],
+    "broad_rounds": 1,
+    "narrow_rounds": 0,
+    "first_narrow_round": 0
+  },
+  "findings": [
+    {
+      "id": "report-missing-conclusion",
+      "severity": "medium",
+      "title": "Final report is missing explicit conclusion",
+      "description": "Final report should provide a clear conclusion or decision statement.",
+      "file": "general_context.txt",
+      "line": 1,
+      "remediation": "Address the issue and re-run review gate."
+    }
+  ],
+  "notes": [
+    "reviewer loop not required by current risk level; heuristic baseline review used. (raw_log=C:\\Users\\SSAFY\\Desktop\\dev\\97_obsidian\\obsidian\\01_Dev\\01_Project\\05_SSAFY_2학기_자율\\_local\\20260409_음식게임_위상정렬_기획\\타당성검토\\review_gate\\reviewer_round_1_exec_raw.log)",
+    "resolved_general_doc_type=final_report",
+    "dedupe_family_collisions=1",
+    "dedupe_family_count=1"
+  ]
+}

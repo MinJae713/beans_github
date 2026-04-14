@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-04-09T15:37:42.074085+09:00",
+  "review_mode": "general",
+  "risk_level": "low",
+  "requires_reviewer_loop": false,
+  "recommended_max_rounds": 1,
+  "trigger_count": 0,
+  "triggers": [],
+  "metrics": {
+    "file_count": 1,
+    "total_churn": 61,
+    "total_added": 61,
+    "total_deleted": 0
+  },
+  "effective_metrics": null
+}

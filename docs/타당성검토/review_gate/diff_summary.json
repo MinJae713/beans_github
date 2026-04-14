@@ -1,0 +1,24 @@
+{
+  "review_mode": "general",
+  "title": "General Task Review",
+  "generated_at": "2026-04-09T15:37:41.950674+09:00",
+  "file_count": 1,
+  "total_added": 61,
+  "total_deleted": 0,
+  "total_churn": 61,
+  "shortstat": "61 lines, 375 words, 1684 chars",
+  "files": [
+    {
+      "status": "M",
+      "path": "_local/20260409_음식게임_위상정렬_기획/타당성검토/00_실험결과_요약.md"
+    }
+  ],
+  "numstat": [
+    {
+      "path": "general_context.txt",
+      "added": 61,
+      "deleted": 0,
+      "churn": 61
+    }
+  ]
+}

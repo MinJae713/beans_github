@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-04-09T15:37:42.510250+09:00",
+  "decision": "pass",
+  "content_verdict": "pass",
+  "review_mode": "general",
+  "task_importance": "medium",
+  "risk_level": "low",
+  "resolved_general_doc_type": "final_report",
+  "resolved_code_change_type": "auto",
+  "quality_score": 90,
+  "quality_thresholds": {
+    "pass": 80,
+    "pass_with_conditions": 65
+  },
+  "rounds_used": 1,
+  "feedback_cadence": "broad_repeat",
+  "feedback_loop": {
+    "cadence": "broad_repeat",
+    "rounds": [
+      {
+        "round": 1,
+        "review_phase": "broad_scan",
+        "prompt_strategy": "unknown",
+        "context_excerpt_strategy": "",
+        "execution_ok": true,
+        "findings_count": 2,
+        "material_findings_count": 2,
+        "prompt_chars": 0,
+        "prompt_context_chars": 0,
+        "reused_section_count": 0,
+        "reviewer_model": "",
+        "reviewer_model_reasoning_effort": ""
+      }
+    ],
+    "broad_rounds": 1,
+    "narrow_rounds": 0,
+    "first_narrow_round": 0
+  },
+  "blocking_findings_count": 0,
+  "medium_findings_count": 1,
+  "evidence_backed_findings_count": 1,
+  "insufficient_evidence_detected": false,
+  "non_trivial_run": true,
+  "non_trivial_reasons": [
+    "general_context_chars=1684"
+  ],
+  "obsidian_sync_required": false,
+  "ops_sync_missing": false,
+  "obsidian_task_hub_sync": "missing",
+  "ops_blockers": [],
+  "hard_fail_reasons": [],
+  "required_actions": []
+}

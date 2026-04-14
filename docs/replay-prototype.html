@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>쿡싸피 — 리플레이</title>
+<style>
+:root{--bg:#1c1a17;--bg2:#252219;--bg3:#2e2a22;--bdr:#3d3830;--cr:#f0e8d0;--cr2:#c8b896;--am:#e8a030;--am2:#f5b84a;--te:#c04830;--gn:#5a9a50;--gn2:#7ab870;--bl:#3878b8;--bl2:#5898d8;--gy:#504840;--yl:#d0a020;--yl2:#e8c840;--rd:#c03828;--fm:Georgia,serif;--mo:'Courier New',monospace;--r:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--cr);font-family:var(--fm);font-size:13px;min-height:100vh;display:grid;grid-template-rows:auto auto auto 1fr auto}
+/* header */
+.hdr{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:9px 14px;display:flex;align-items:center;gap:12px}
+.hdr-t{font-size:17px;font-weight:bold;color:var(--am);letter-spacing:.05em}
+.hdr-s{font-size:10px;color:var(--cr2);font-family:var(--mo)}
+.ch-badge{background:var(--am);color:var(--bg);font-family:var(--mo);font-size:10px;font-weight:bold;padding:2px 8px;border-radius:3px;margin-left:auto}
+/* kpi */
+.kpi{background:var(--bg3);border-bottom:1px solid var(--bdr);padding:7px 14px;display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.ki{display:flex;flex-direction:column;gap:1px}
+.kl{font-size:9px;color:var(--cr2);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mo)}
+.kv{font-size:15px;font-weight:bold;color:var(--am2);font-family:var(--mo)}
+.kv.bad{color:var(--te)}.kv.good{color:var(--gn2)}
+.ksep{width:1px;height:28px;background:var(--bdr)}
+/* tickets */
+.tkstrip{padding:9px 14px;border-bottom:1px solid var(--bdr);display:flex;gap:10px;align-items:flex-start;overflow-x:auto;background:var(--bg2)}
+.tklabel{font-size:9px;color:var(--cr2);text-transform:uppercase;letter-spacing:.1em;writing-mode:vertical-rl;transform:rotate(180deg);flex-shrink:0;align-self:center;font-family:var(--mo)}
+#tkcon{display:flex;gap:10px}
+.tk{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:8px 11px;min-width:148px;flex-shrink:0;transition:border-color .2s,box-shadow .2s}
+.tk.act{border-color:var(--am);box-shadow:0 0 8px rgba(232,160,48,.25)}
+.tk.done{border-color:var(--gn);opacity:.75}
+.tk.fail{border-color:var(--rd)}
+.tk.sel{border-color:var(--am2);box-shadow:0 0 12px rgba(245,184,74,.4)}
+.tkrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.tknm{font-weight:bold;font-size:12px}
+.tkid{font-family:var(--mo);font-size:9px;color:var(--cr2)}
+.tkm{font-family:var(--mo);font-size:9px;color:var(--cr2);margin-bottom:4px}
+.tkbar{height:5px;background:var(--gy);border-radius:3px;overflow:hidden;margin-top:2px}
+.tkfill{height:100%;border-radius:3px;transition:width .3s,background .3s}
+.tkst{font-family:var(--mo);font-size:9px;margin-top:4px;padding:1px 5px;border-radius:3px;display:inline-block}
+.sp{background:rgba(60,120,184,.2);color:var(--bl2)}
+.sa{background:rgba(208,160,32,.2);color:var(--yl2)}
+.sd{background:rgba(90,154,80,.2);color:var(--gn2)}
+.sf{background:rgba(192,56,40,.2);color:var(--te)}
+.tkbtn{font-family:var(--mo);font-size:9px;background:transparent;border:1px solid var(--bdr);color:var(--cr2);border-radius:3px;padding:2px 6px;cursor:pointer;margin-top:4px;width:100%;transition:border-color .15s,color .15s}
+.tkbtn:hover{border-color:var(--am);color:var(--am)}
+.tkbtn.sel{border-color:var(--am2);color:var(--am2)}
+/* main grid */
+.main{display:grid;grid-template-columns:1fr 270px;min-height:0;overflow:hidden;border-bottom:1px solid var(--bdr)}
+/* dag */
+.dagp{padding:12px 14px;border-right:1px solid var(--bdr);display:flex;flex-direction:column;gap:8px;min-height:0}
+.ptitle{font-size:9px;color:var(--cr2);text-transform:uppercase;letter-spacing:.1em;font-family:var(--mo);display:flex;align-items:center;gap:6px}
+.ptitle::after{content:'';flex:1;height:1px;background:var(--bdr)}
+#dagcon{flex:1;background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;min-height:210px;position:relative}
+#dagsvg{width:100%;height:100%}
+.dag-empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--cr2);font-family:var(--mo);font-size:11px;text-align:center;pointer-events:none}
+/* tasks panel */
+.taskp{padding:12px 12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.empc{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:9px 11px;transition:border-color .2s}
+.empc.wrk{border-color:var(--yl)}
+.empc.idl{opacity:.7}
+.emprow{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.empnm{font-weight:bold;font-size:12px}
+.empst{font-family:var(--mo);font-size:9px;padding:1px 6px;border-radius:3px}
+.empst.wrk{background:rgba(208,160,32,.2);color:var(--yl2)}
+.empst.idl{background:rgba(80,72,64,.3);color:var(--cr2)}
+.emptk{font-family:var(--mo);font-size:10px;color:var(--am);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empbar{height:4px;background:var(--gy);border-radius:3px;overflow:hidden}
+.empfill{height:100%;background:var(--yl);border-radius:3px;transition:width .3s}
+.emptl{font-family:var(--mo);font-size:9px;color:var(--cr2);margin-top:3px}
+/* failure tags */
+.ftags{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.ftag{font-family:var(--mo);font-size:9px;background:rgba(192,56,40,.15);border:1px solid rgba(192,56,40,.4);color:var(--te);border-radius:4px;padding:3px 8px;opacity:0;transition:opacity .3s}
+.ftag::before{content:'⚠ '}
+.ftag.on{opacity:1}
+/* bottom */
+.bot{display:grid;grid-template-columns:1fr 270px}
+.logp{border-right:1px solid var(--bdr);padding:9px 13px;display:flex;flex-direction:column;gap:5px;max-height:170px}
+.logs{overflow-y:auto;flex:1;font-family:var(--mo);font-size:11px;line-height:1.6}
+.ll{border-bottom:1px solid rgba(255,255,255,.03)}
+.ll .tn{color:var(--cr2);min-width:52px;display:inline-block}
+.ls .et{color:var(--am)}.lc .et{color:var(--gn2)}.li .et{color:var(--te);font-weight:bold}.lo .et{color:var(--bl2)}.lf .et{color:var(--rd)}.lcur{background:rgba(232,160,48,.08)}
+/* controls */
+.ctrlp{padding:9px 13px;display:flex;flex-direction:column;gap:7px;background:var(--bg2);max-height:170px;justify-content:center}
+.crow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cb{background:var(--bg3);border:1px solid var(--bdr);color:var(--cr);border-radius:5px;padding:5px 10px;font-size:13px;cursor:pointer;transition:background .15s,border-color .15s;font-family:var(--mo);min-width:34px;text-align:center}
+.cb:hover{background:var(--bg);border-color:var(--am);color:var(--am)}
+.cb.on{background:var(--am);color:var(--bg);border-color:var(--am2)}
+.cb:disabled{opacity:.3;cursor:not-allowed}
+.slbl{font-family:var(--mo);font-size:10px;color:var(--cr2);white-space:nowrap}
+.csel{background:var(--bg3);border:1px solid var(--bdr);color:var(--cr);border-radius:4px;padding:4px 6px;font-family:var(--mo);font-size:11px;cursor:pointer}
+.csel:focus{outline:1px solid var(--am)}
+.jrow{display:flex;gap:6px;align-items:center}
+.jinp{background:var(--bg3);border:1px solid var(--bdr);color:var(--cr);border-radius:4px;padding:4px 8px;font-family:var(--mo);font-size:11px;width:56px}
+.jinp:focus{outline:1px solid var(--am);border-color:var(--am)}
+.jlbl{font-family:var(--mo);font-size:10px;color:var(--cr2)}
+.jbtn{background:var(--bg3);border:1px solid var(--bdr);color:var(--cr2);border-radius:4px;padding:4px 10px;font-family:var(--mo);font-size:10px;cursor:pointer}
+.jbtn:hover{border-color:var(--am);color:var(--am)}
+.tpbar{height:3px;background:var(--gy);border-radius:2px;overflow:hidden}
+.tpfill{height:100%;background:linear-gradient(90deg,var(--am),var(--am2));border-radius:2px;transition:width .2s}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.dp{animation:pulse 1.2s ease-in-out infinite}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-t">쿡싸피</div>
+  <div class="hdr-s">리플레이 뷰어 — Chapter 5: 공유 준비작업</div>
+  <div class="ch-badge">Ch.5</div>
+</div>
+
+<div class="kpi">
+  <div class="ki"><div class="kl">현재 틱</div><div class="kv" id="kTick">0</div></div>
+  <div class="ksep"></div>
+  <div class="ki"><div class="kl">틱 예산</div><div class="kv">30</div></div>
+  <div class="ksep"></div>
+  <div class="ki"><div class="kl">주문 완료</div><div class="kv" id="kDone">0 / 3</div></div>
+  <div class="ksep"></div>
+  <div class="ki"><div class="kl">평균 완료 틱</div><div class="kv" id="kAvg">—</div></div>
+  <div class="ksep"></div>
+  <div class="ki"><div class="kl">잘못된 Assignment</div><div class="kv bad" id="kInv">0</div></div>
+</div>
+
+<div class="tkstrip">
+  <div class="tklabel">주문</div>
+  <div id="tkcon"></div>
+</div>
+
+<div class="main">
+  <div class="dagp">
+    <div class="ptitle">레시피 DAG <span id="dagLbl" style="color:var(--am);font-size:9px;margin-left:4px"></span></div>
+    <div id="dagcon">
+      <div class="dag-empty" id="dagEmpty">주문 티켓을 클릭해 DAG를 확인하세요</div>
+      <svg id="dagsvg" style="display:none" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+  <div class="taskp">
+    <div class="ptitle">직원 현황</div>
+    <div id="empcon"></div>
+    <div class="ptitle" style="margin-top:6px">실패 원인</div>
+    <div class="ftags">
+      <div class="ftag" id="tgShared">늦은 공유 준비작업</div>
+      <div class="ftag" id="tgTiming">긴 작업 타이밍 오류</div>
+      <div class="ftag" id="tgInvalid">잘못된 Assignment</div>
+    </div>
+  </div>
+</div>
+
+<div class="bot">
+  <div class="logp">
+    <div class="ptitle">틱 로그</div>
+    <div class="logs" id="logScroll"></div>
+  </div>
+  <div class="ctrlp">
+    <div class="tpbar"><div class="tpfill" id="tpFill" style="width:0%"></div></div>
+    <div class="crow">
+      <button class="cb" id="btnBack">◀◀</button>
+      <button class="cb" id="btnPlay">▶</button>
+      <button class="cb" id="btnFwd">▶▶</button>
+      <div class="ksep" style="height:22px"></div>
+      <span class="slbl">속도</span>
+      <select class="csel" id="spd">
+        <option value="900">1×</option>
+        <option value="450" selected>2×</option>
+        <option value="180">5×</option>
+      </select>
+    </div>
+    <div class="jrow">
+      <span class="jlbl">틱 이동:</span>
+      <input class="jinp" id="jInp" type="number" min="0" max="30" value="0">
+      <button class="jbtn" id="jBtn">이동</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Mock trace data: Ch.5 — shared 육수(broth) node between 라면(O1) & 우동(O2)
+// Student's suboptimal policy: delays broth, picks wrong tasks → failure tags triggered
+
+const BUDGET = 30;
+
+// Menu DAGs: nodes, edges, layout positions (% of SVG container)
+const MENUS = {
+  ramen:{name:'라면',nodes:[
+    {id:'br',lbl:'육수 준비',dur:2,shared:true},{id:'nd',lbl:'면 손질',dur:1,shared:false},
+    {id:'sm',lbl:'끓이기',dur:2,shared:false},{id:'pl',lbl:'플레이팅',dur:1,shared:false}],
+    edges:[['br','sm'],['nd','sm'],['sm','pl']],
+    lay:{br:[20,30],nd:[20,68],sm:[55,49],pl:[85,49]}},
+  udon:{name:'우동',nodes:[
+    {id:'br',lbl:'육수 준비',dur:2,shared:true},{id:'vg',lbl:'채소 손질',dur:1,shared:false},
+    {id:'ck',lbl:'조리',dur:2,shared:false},{id:'pl',lbl:'플레이팅',dur:1,shared:false}],
+    edges:[['br','ck'],['vg','ck'],['ck','pl']],
+    lay:{br:[20,30],vg:[20,68],ck:[55,49],pl:[85,49]}},
+  fried:{name:'볶음밥',nodes:[
+    {id:'ri',lbl:'쌀 손질',dur:1,shared:false},{id:'ch',lbl:'재료 손질',dur:1,shared:false},
+    {id:'fr',lbl:'볶기',dur:3,shared:false},{id:'pl',lbl:'플레이팅',dur:1,shared:false}],
+    edges:[['ri','fr'],['ch','fr'],['fr','pl']],
+    lay:{ri:[20,28],ch:[20,68],fr:[55,49],pl:[85,49]}}
+};
+
+const ORDERS = [
+  {id:'O1',menu:'ramen',name:'라면',arrived:0,deadline:20},
+  {id:'O2',menu:'udon', name:'우동',arrived:1,deadline:16},
+  {id:'O3',menu:'fried',name:'볶음밥',arrived:3,deadline:25},
+];
+
+// Completion ticks (for avg KPI)
+const COMP = {O1:15,O2:14,O3:16};
+
+// Build tick-by-tick trace
+// ns(o1,o2,o3) — node status objects per order
+// at(eid,oid,nid,start,dur,rem) — active task
+// L(type,text) — log entry
+function L(t,x){return{t,x}}
+function at(e,o,n,s,d,r){return{e,o,n,s,d,r}}
+
+const _='locked',A='available',P='inprogress',D='done';
+
+function ns(b1,nd,sm,pl1, b2,vg,ck,pl2, ri,ch,fr,pl3){
+  return{O1:{br:b1,nd,sm,pl:pl1},O2:{br:b2,vg,ck,pl:pl2},O3:{ri,ch,fr,pl:pl3}};
+}
+
+const TR=[
+  // tick 0
+  {ns:ns(A,P,_,_, A,A,_,_, _,_,_,_), at:[at('E1','O1','nd',0,1,1)], inv:0, os:{O1:'active',O2:'pending',O3:'pending'},
+   log:[L('o','tick  0: [주문] O1 라면 도착 (마감: 틱20)'),L('s','tick  0: [시작] E1 → O1 nd 면 손질')]},
+  // tick 1
+  {ns:ns(A,D,_,_, A,P,_,_, _,_,_,_), at:[at('E1','O2','vg',1,1,1)], inv:0, os:{O1:'active',O2:'active',O3:'pending'},
+   log:[L('c','tick  1: [완료] E1 → O1 nd 면 손질'),L('o','tick  1: [주문] O2 우동 도착 (마감: 틱16)'),L('s','tick  1: [시작] E1 → O2 vg 채소 손질')]},
+  // tick 2
+  {ns:ns(A,D,_,_, A,D,_,_, A,P,_,_), at:[at('E1','O3','ri',2,1,1)], inv:0, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('c','tick  2: [완료] E1 → O2 vg 채소 손질'),L('o','tick  2: [주문] O3 볶음밥 도착 (마감: 틱25)'),L('s','tick  2: [시작] E1 → O3 ri 쌀 손질')]},
+  // tick 3 — student finally starts broth (late!)
+  {ns:ns(P,D,_,_, A,D,_,_, D,A,_,_), at:[at('E1','O1','br',3,2,2)], inv:0, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('c','tick  3: [완료] E1 → O3 ri 쌀 손질'),L('s','tick  3: [시작] E1 → O1 br 육수 준비 (O1·O2 공유, 2틱)')]},
+  // tick 4
+  {ns:ns(P,D,_,_, A,D,_,_, D,A,_,_), at:[at('E1','O1','br',3,2,1)], inv:0, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('s','tick  4: [진행] E1 → br 육수 준비 남은 1틱')]},
+  // tick 5 — broth done, both O1.sm and O2.ck unlock; student picks O1.sm
+  {ns:ns(D,D,P,_, D,D,A,_, D,A,_,_), at:[at('E1','O1','sm',5,2,2)], inv:0, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('c','tick  5: [완료] E1 → br 육수 준비'),L('s','tick  5: [잠금해제] O1.sm 가능 / O2.ck 가능'),L('s','tick  5: [시작] E1 → O1 sm 끓이기 (2틱)')]},
+  // tick 6
+  {ns:ns(D,D,P,_, D,D,A,_, D,A,_,_), at:[at('E1','O1','sm',5,2,1)], inv:0, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('s','tick  6: [진행] E1 → O1 sm 끓이기 남은 1틱')]},
+  // tick 7 — sm done; student picks O3.ch instead of O2.ck (wrong priority)
+  {ns:ns(D,D,D,A, D,D,A,_, D,P,_,_), at:[at('E1','O3','ch',7,1,1)], inv:1, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('c','tick  7: [완료] E1 → O1 sm 끓이기'),L('i','tick  7: [경고] O2 마감 9틱 남음 — O2.ck 무시하고 O3.ch 선택'),L('s','tick  7: [시작] E1 → O3 ch 재료 손질')]},
+  // tick 8 — ch done; student picks O2.ck
+  {ns:ns(D,D,D,A, D,D,P,_, D,D,_,_), at:[at('E1','O2','ck',8,2,2)], inv:1, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('c','tick  8: [완료] E1 → O3 ch 재료 손질'),L('s','tick  8: [시작] E1 → O2 ck 조리 (2틱)')]},
+  // tick 9
+  {ns:ns(D,D,D,A, D,D,P,_, D,D,_,_), at:[at('E1','O2','ck',8,2,1)], inv:1, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('s','tick  9: [진행] E1 → O2 ck 조리 남은 1틱')]},
+  // tick 10 — ck done; student picks O3.fr (3틱) ignoring O2.pl
+  {ns:ns(D,D,D,A, D,D,D,A, D,D,P,_), at:[at('E1','O3','fr',10,3,3)], inv:2, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('c','tick 10: [완료] E1 → O2 ck 조리'),L('i','tick 10: [경고] O2.pl(1틱) 마감 6틱 — 볶기(3틱) 먼저 선택!'),L('s','tick 10: [시작] E1 → O3 fr 볶기 (3틱)')]},
+  // tick 11
+  {ns:ns(D,D,D,A, D,D,D,A, D,D,P,_), at:[at('E1','O3','fr',10,3,2)], inv:2, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('s','tick 11: [진행] E1 → O3 fr 볶기 남은 2틱')]},
+  // tick 12
+  {ns:ns(D,D,D,A, D,D,D,A, D,D,P,_), at:[at('E1','O3','fr',10,3,1)], inv:2, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('s','tick 12: [진행] E1 → O3 fr 볶기 남은 1틱')]},
+  // tick 13 — fr done; student picks O2.pl (finally)
+  {ns:ns(D,D,D,A, D,D,D,P, D,D,D,A), at:[at('E1','O2','pl',13,1,1)], inv:2, os:{O1:'active',O2:'active',O3:'active'},
+   log:[L('c','tick 13: [완료] E1 → O3 fr 볶기'),L('s','tick 13: [시작] E1 → O2 pl 플레이팅')]},
+  // tick 14 — O2 done; start O1.pl
+  {ns:ns(D,D,D,A, D,D,D,D, D,D,D,A), at:[at('E1','O1','pl',14,1,1)], inv:2, os:{O1:'active',O2:'done',O3:'active'},
+   log:[L('c','tick 14: [완료] E1 → O2 pl 플레이팅'),L('c','tick 14: [주문완료] O2 우동 ✓ (틱14 / 마감16)'),L('s','tick 14: [시작] E1 → O1 pl 플레이팅')]},
+  // tick 15 — O1 done; start O3.pl
+  {ns:ns(D,D,D,D, D,D,D,D, D,D,D,A), at:[at('E1','O3','pl',15,1,1)], inv:2, os:{O1:'done',O2:'done',O3:'active'},
+   log:[L('c','tick 15: [완료] E1 → O1 pl 플레이팅'),L('c','tick 15: [주문완료] O1 라면 ✓ (틱15 / 마감20)'),L('s','tick 15: [시작] E1 → O3 pl 플레이팅')]},
+  // tick 16 — O3 done; all complete
+  {ns:ns(D,D,D,D, D,D,D,D, D,D,D,D), at:[], inv:2, os:{O1:'done',O2:'done',O3:'done'},
+   log:[L('c','tick 16: [완료] E1 → O3 pl 플레이팅'),L('c','tick 16: [주문완료] O3 볶음밥 ✓ (틱16 / 마감25)')]},
+];
+// Fill 17-30 with idle
+for(let t=17;t<=30;t++) TR.push({...TR[16], at:[], log:[L('s',`tick ${t.toString().padStart(2,' ')}: [대기] 모든 주문 완료`)]});
+
+// ── State
+let tick=0, playing=false, pid=null, selOrder='O1', logLen=0;
+
+// ── Helpers
+const $=id=>document.getElementById(id);
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+// ── Render
+function render(){
+  const st=TR[tick];
+  // KPI
+  $('kTick').textContent=tick;
+  const done=Object.values(st.os).filter(x=>x==='done').length;
+  const dEl=$('kDone'); dEl.textContent=`${done} / 3`;
+  dEl.className='kv'+(done===3?' good':'');
+  const doneIds=Object.entries(st.os).filter(([,v])=>v==='done').map(([k])=>k);
+  $('kAvg').textContent=doneIds.length?( doneIds.reduce((s,id)=>s+COMP[id],0)/doneIds.length).toFixed(1):'—';
+  const invEl=$('kInv'); invEl.textContent=st.inv; invEl.className='kv'+(st.inv>0?' bad':'');
+  $('tpFill').style.width=(tick/BUDGET*100)+'%';
+  renderTickets(st);
+  renderDAG(st);
+  renderEmployees(st);
+  renderLog();
+  renderTags(st);
+  renderControls();
+}
+
+function renderTickets(st){
+  const con=$('tkcon'); con.innerHTML='';
+  ORDERS.forEach(o=>{
+    if(tick<o.arrived) return;
+    const os=st.os[o.id];
+    const pat=Math.max(0,o.deadline-tick), tot=o.deadline-o.arrived;
+    const pct=Math.max(0,Math.min(100,(pat/tot)*100));
+    const pc=pct>50?'var(--gn)':pct>20?'var(--yl)':'var(--te)';
+    const stcls={active:'sa',done:'sd',pending:'sp',failed:'sf'}[os]||'sp';
+    const stlbl={active:'진행중',done:'완료 ✓',pending:'대기',failed:'실패'}[os];
+    const d=document.createElement('div');
+    d.className='tk'+(os==='active'?' act':os==='done'?' done':os==='failed'?' fail':'')+(o.id===selOrder?' sel':'');
+    d.innerHTML=`<div class="tkrow"><span class="tknm">${o.name}</span><span class="tkid">${o.id}</span></div>
+<div class="tkm">도착:${o.arrived} · 마감:${o.deadline} · 남은:<b style="color:${pc}">${pat}</b>틱</div>
+<div class="tkbar"><div class="tkfill" style="width:${pct}%;background:${pc}"></div></div>
+<span class="tkst ${stcls}">${stlbl}</span><br>
+<button class="tkbtn${o.id===selOrder?' sel':''}" data-id="${o.id}">DAG 보기</button>`;
+    d.querySelector('.tkbtn').onclick=()=>{selOrder=o.id;render()};
+    con.appendChild(d);
+  });
+}
+
+function renderDAG(st){
+  const o=ORDERS.find(x=>x.id===selOrder);
+  const con=$('dagcon'), svg=$('dagsvg'), empty=$('dagEmpty'), lbl=$('dagLbl');
+  if(!o||tick<o.arrived){empty.style.display='';svg.style.display='none';lbl.textContent='';return;}
+  empty.style.display='none'; svg.style.display=''; lbl.textContent=`— ${o.name} (${o.id})`;
+  const m=MENUS[o.menu], ns=st.ns[o.id];
+  const W=con.clientWidth||420, H=con.clientHeight||220;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.innerHTML=`<defs>
+<marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L8,3z" fill="#504840"/></marker>
+<marker id="arrd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L8,3z" fill="#5a9a50"/></marker>
+</defs>`;
+  const pos={};
+  m.nodes.forEach(n=>{const[px,py]=m.lay[n.id];pos[n.id]={x:px/100*W,y:py/100*H}});
+  // edges
+  m.edges.forEach(([a,b])=>{
+    const pa=pos[a],pb=pos[b],done=ns[a]==='done';
+    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',pa.x);l.setAttribute('y1',pa.y);
+    l.setAttribute('x2',pb.x-26);l.setAttribute('y2',pb.y);
+    l.setAttribute('stroke',done?'#3d6a38':'#3d3830');l.setAttribute('stroke-width','1.5');
+    l.setAttribute('marker-end',done?'url(#arrd)':'url(#arr)');
+    svg.appendChild(l);
+  });
+  // nodes
+  const COL={locked:{f:'#252219',s:'#504840',t:'#504840'},available:{f:'#0e2040',s:'#3878b8',t:'#5898d8'},inprogress:{f:'#281800',s:'#d0a020',t:'#e8c840'},done:{f:'#0a2010',s:'#5a9a50',t:'#7ab870'}};
+  const R=28;
+  m.nodes.forEach(n=>{
+    const p=pos[n.id],s=ns[n.id]||'locked',c=COL[s];
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    if(s==='inprogress'){
+      const gw=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      gw.setAttribute('cx',p.x);gw.setAttribute('cy',p.y);gw.setAttribute('r',R+5);
+      gw.setAttribute('fill','rgba(208,160,32,.15)');gw.setAttribute('class','dp');g.appendChild(gw);
+    }
+    const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ci.setAttribute('cx',p.x);ci.setAttribute('cy',p.y);ci.setAttribute('r',R);
+    ci.setAttribute('fill',c.f);ci.setAttribute('stroke',c.s);ci.setAttribute('stroke-width',s==='available'||s==='inprogress'?'2':'1');
+    g.appendChild(ci);
+    // label (split on space)
+    const ws=n.lbl.split(' ');
+    ws.forEach((w,i)=>{
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',p.x);t.setAttribute('y',p.y+(ws.length===1?4:-3+i*13));
+      t.setAttribute('text-anchor','middle');t.setAttribute('font-size','10');
+      t.setAttribute('font-family','Georgia,serif');t.setAttribute('fill',c.t);t.textContent=w;g.appendChild(t);
+    });
+    // duration badge
+    const db=document.createElementNS('http://www.w3.org/2000/svg','text');
+    db.setAttribute('x',p.x+R-4);db.setAttribute('y',p.y-R+11);
+    db.setAttribute('text-anchor','middle');db.setAttribute('font-size','9');
+    db.setAttribute('font-family','Courier New,monospace');db.setAttribute('fill','#706050');db.textContent=n.dur+'t';g.appendChild(db);
+    // shared badge
+    if(n.shared){const sb=document.createElementNS('http://www.w3.org/2000/svg','text');
+      sb.setAttribute('x',p.x-R+4);sb.setAttribute('y',p.y-R+11);
+      sb.setAttribute('font-size','9');sb.setAttribute('font-family','Courier New,monospace');sb.setAttribute('fill','#c04830');sb.textContent='공유';g.appendChild(sb);}
+    // state icon
+    const icons={locked:'🔒',available:'○',inprogress:'●',done:'✓'};
+    const ic=document.createElementNS('http://www.w3.org/2000/svg','text');
+    ic.setAttribute('x',p.x);ic.setAttribute('y',p.y+R+13);
+    ic.setAttribute('text-anchor','middle');ic.setAttribute('font-size','9');
+    ic.setAttribute('font-family','Courier New,monospace');ic.setAttribute('fill',c.t);ic.textContent=icons[s]||'';g.appendChild(ic);
+    svg.appendChild(g);
+  });
+  // legend
+  const legY=H-12;
+  [['#504840','잠김'],['#3878b8','가능'],['#d0a020','진행중'],['#5a9a50','완료']].forEach(([col,lbl],i)=>{
+    const lx=10+i*54;
+    const d=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    d.setAttribute('cx',lx+4);d.setAttribute('cy',legY);d.setAttribute('r',4);d.setAttribute('fill',col);svg.appendChild(d);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',lx+11);t.setAttribute('y',legY+4);t.setAttribute('font-size','9');
+    t.setAttribute('font-family','Courier New,monospace');t.setAttribute('fill','#706050');t.textContent=lbl;svg.appendChild(t);
+  });
+}
+
+function renderEmployees(st){
+  const con=$('empcon'); con.innerHTML='';
+  const task=st.at[0];
+  const working=!!task;
+  const d=document.createElement('div');
+  d.className='empc '+(working?'wrk':'idl');
+  if(working){
+    const o=ORDERS.find(x=>x.id===task.o), m=MENUS[o?.menu], n=m?.nodes.find(x=>x.id===task.n);
+    const pct=Math.round((task.d-task.r)/task.d*100);
+    d.innerHTML=`<div class="emprow"><div class="empnm">김싸피 (주방장)</div><div class="empst wrk">작업중</div></div>
+<div class="emptk">${task.o}: ${n?.lbl||task.n}</div>
+<div class="empbar"><div class="empfill" style="width:${pct}%"></div></div>
+<div class="emptl">남은: ${task.r}틱 / ${task.d}틱</div>`;
+  } else {
+    d.innerHTML=`<div class="emprow"><div class="empnm">김싸피 (주방장)</div><div class="empst idl">IDLE</div></div><div class="emptl" style="color:var(--gy)">대기 중</div>`;
+  }
+  con.appendChild(d);
+}
+
+function renderLog(){
+  const el=$('logScroll');
+  const lines=[];
+  for(let t=0;t<=tick;t++) TR[t].log.forEach(l=>lines.push({...l,isCur:t===tick}));
+  if(lines.length===logLen) return;
+  logLen=lines.length;
+  el.innerHTML='';
+  lines.forEach(l=>{
+    const cls={s:'ls',c:'lc',i:'li',o:'lo',f:'lf'}[l.t]||'';
+    const d=document.createElement('div');
+    d.className=`ll ${cls}${l.isCur?' lcur':''}`;
+    d.innerHTML=`<span class="et">${esc(l.x)}</span>`;
+    el.appendChild(d);
+  });
+  el.scrollTop=el.scrollHeight;
+}
+
+function renderTags(st){
+  $('tgShared').classList.toggle('on',tick>=3);
+  $('tgTiming').classList.toggle('on',tick>=7);
+  $('tgInvalid').classList.toggle('on',st.inv>0);
+}
+
+function renderControls(){
+  $('btnPlay').textContent=playing?'⏸':'▶';
+  $('btnPlay').classList.toggle('on',playing);
+  $('btnBack').disabled=tick===0;
+  $('btnFwd').disabled=tick>=BUDGET;
+}
+
+// ── Playback
+function setTick(t){tick=Math.max(0,Math.min(BUDGET,t));render();}
+function fwd(){if(tick<BUDGET)setTick(tick+1);else stop();}
+function bk(){if(tick>0)setTick(tick-1);}
+function stop(){playing=false;clearInterval(pid);pid=null;renderControls();}
+function play(){
+  if(playing)return; playing=true;
+  pid=setInterval(()=>{if(tick>=BUDGET){stop();return;}fwd();},+$('spd').value);
+  renderControls();
+}
+function toggle(){playing?stop():play();}
+
+$('btnPlay').onclick=toggle;
+$('btnBack').onclick=()=>{stop();bk();};
+$('btnFwd').onclick=()=>{stop();fwd();};
+$('spd').onchange=()=>{if(playing){stop();play();}};
+$('jBtn').onclick=()=>{stop();const v=parseInt($('jInp').value,10);if(!isNaN(v))setTick(v);};
+$('jInp').onkeydown=e=>{if(e.key==='Enter')$('jBtn').click();};
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key===' '||e.key==='p'){e.preventDefault();toggle();}
+  if(e.key==='ArrowRight'||e.key==='l'){stop();fwd();}
+  if(e.key==='ArrowLeft' ||e.key==='j'){stop();bk();}
+});
+window.addEventListener('resize',()=>renderDAG(TR[tick]));
+window.onload=()=>render();
+</script>
+</body>
+</html>
