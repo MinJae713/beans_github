@@ -1,5 +1,10 @@
 # Jira Git 컨벤션
 
+> 문서 상태: candidate
+> binding 범위: Jira/Git 운영 후보안이다. 실제 GitLab default/protected branch, 담당자 지시, 작업 브리핑이 우선한다.
+> 실행 중단 조건: GitLab 설정 확인 없이 브랜치 생성, MR 대상 확정, protected branch push를 시도해야 하는 경우 BLOCKED로 보고한다.
+> 상태 기준: 문서 상태와 binding 범위는 `05_문서관리_규칙/08_문서_상태_인덱스.md`를 우선한다.
+
 이 문서는 Colloseum 팀의 Jira/Git 컨벤션을 게임개발 기준문서 안에서 어떻게 적용할지 정리한다.
 
 원문 컨벤션 전체를 복사하는 문서가 아니라, 게임개발 기준문서와 작업 브리핑에서 바로 참조해야 하는 운영 규칙만 요약한다.
@@ -11,14 +16,21 @@
 | Jira 컨벤션 | Colloseum 적용 가이드 v2.2 |
 | Git 컨벤션 | v2.0 DRAFT, 팀 합의 전 |
 | GitLab 원격 | `https://lab.ssafy.com/s14-final/S14P31A303` |
-| 2026-04-20 로컬 관찰 | `origin/master`, `origin/develop` 존재. 현재 GitLab UI의 default/protected 설정 확인 전까지 후보 정보로만 사용 |
 | 기준 Jira 프로젝트 | S14P31A303 |
 | 이슈 키 | A303-{번호} |
 | 스프린트 용량 | 5인 기준 35점 산정 |
 
-Git 컨벤션은 원문 상태가 `DRAFT`이므로, 팀 합의 전까지 이 문서도 `candidate`로 둔다. 단, 작업 브리핑과 MR 설명을 정리할 때는 현재 임시 기준으로 사용할 수 있다. 실제 GitLab protected branch, default branch, MR approval 설정이 이 문서와 다르면 GitLab 설정과 담당자 지시를 우선한다.
+Git 컨벤션은 원문 상태가 `DRAFT`이므로, 팀 합의 전까지 이 문서도 `candidate`로 둔다. 단, 작업 브리핑과 MR 설명을 정리할 때는 후보 기준으로 참고할 수 있다. 실제 GitLab protected branch, default branch, MR approval 설정이 이 문서와 다르면 GitLab 설정과 담당자 지시를 우선한다.
 
 담당자가 GitLab 설정을 확인하기 전에는 새 브랜치 생성, MR 대상 브랜치 확정, protected branch 직접 push를 하지 않는다. 브랜치/MR 정책은 문서보다 실제 GitLab 설정과 담당자 안내가 우선한다.
+
+## 관찰 스냅샷(reference)
+
+아래 내용은 특정 시점의 로컬 클론 관찰값이며 실행 규칙이 아니다. GitLab UI 확인 결과, 담당자 안내, 작업 브리핑과 다르면 즉시 무시한다.
+
+| 시점 | 관찰 |
+|---|---|
+| 2026-04-20 | `origin/master`, `origin/develop` 존재 |
 
 ## 적용 범위
 
@@ -64,7 +76,7 @@ Epic은 구분자, Label, Component 없이 기능명만 사용한다.
 
 ## Git 브랜치 규칙
 
-팀 Git Flow 후보는 아래 구조를 따른다. 현재 로컬 관찰 기준으로 기본 브랜치는 `master`, 통합 후보 브랜치는 `develop`이다. 단, GitLab UI에서 다른 default/protected 설정이 확인되면 그 설정을 우선한다.
+팀 Git Flow 후보는 아래 구조를 따른다. 기본 브랜치와 통합 브랜치는 GitLab UI의 default/protected 설정과 담당자 지시로 확정한다. 아래 예시는 후보 구조이며, 실행 규칙으로 확정하지 않는다.
 
 ```text
 master
