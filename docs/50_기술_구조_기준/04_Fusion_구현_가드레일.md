@@ -1,3 +1,8 @@
+---
+last_updated: 2026-04-20
+audience: ai-first
+---
+
 # Fusion 구현 가드레일
 
 > 상태: accepted_candidate. 이 문서는 Host-only shortcut 금지, App ID/secret 비노출, StateAuthority 검증, 3D 물리 확장 금지에 한해 임시 구현 기준으로 사용한다. 문서 상태와 binding 범위는 `05_문서관리_규칙/08_문서_상태_인덱스.md`를 우선한다.
@@ -99,8 +104,72 @@
 | 5 | App ID/secret/개인 경로가 산출물에 없는가 |
 | 6 | Host Mode 임시동작과 기준 구현이 구분되어 있는가 |
 
+## 실전 Fusion 가드레일 5항목 (PR 리뷰 체크리스트)
+
+Fusion 2 네이티브 구현에서 반복 재현되는 실전 함정을 정리한다. 각 항목은 PR 리뷰 시 기계적으로 확인 가능한 형태로 작성한다.
+
+### 1. `[Networked]` 컬렉션은 반드시 `[Capacity(N)]`
+
+| 구분 | 내용 |
+|---|---|
+| 규칙 | `NetworkArray<T>`, `NetworkDictionary<K,V>`, `NetworkLinkedList<T>` 에는 반드시 `[Capacity(N)]` 을 붙인다. N은 프리팹 스폰 최대치 기준 |
+| 반례 | `[Networked] public NetworkArray<int> Foo { get; }` — 빌드 에러 또는 런타임 실패 |
+| 정례 | `[Networked, Capacity(16)] public NetworkArray<int> Foo { get; }` |
+| 탐지 | `rg '\[Networked\][^\[]*Network(Array\|Dictionary\|LinkedList)' Assets/_Project/Scripts` 후 `[Capacity(` 누락 검출 |
+
+### 2. 변경 감지는 `ChangeDetector` 또는 `OnChanged` 콜백
+
+| 구분 | 내용 |
+|---|---|
+| 규칙 | HP bar, damage flash, UI 갱신은 `Update()` polling 금지. `Render()` 내부 `ChangeDetector` 또는 `[Networked, OnChangedRender(nameof(Handler))]` 콜백 사용 |
+| 반례 | `void Update() { hpBar.value = health.Current / health.Max; }` — 매 프레임 동작, resim 부정확 |
+| 정례 (`ChangeDetector`) | `Render()` 안에서 `GetChangeDetector(ChangeDetector.Source.SimulationState)` + `DetectChanges(this, out prev, out cur)` |
+| 정례 (콜백) | `[Networked, OnChangedRender(nameof(OnHpChanged))] public int Health { get; set; }` |
+| 탐지 | `Update`/`LateUpdate` 내부에서 `[Networked]` 속성 읽기 + UI에 쓰는 패턴 찾기 |
+
+### 3. `Runner.IsForward` 없이 side effect 금지 (Resimulation 가드)
+
+| 구분 | 내용 |
+|---|---|
+| 규칙 | Fusion client prediction에서 `FixedUpdateNetwork()` 는 한 tick에 여러 번 호출된다. `AudioSource.Play`, `Instantiate`, `SetActive(true)`, Particle trigger 는 반드시 `if (Runner.IsForward) { ... }` 내부에서만 |
+| 반례 | `public override void FixedUpdateNetwork() { AudioSource.PlayOneShot(hitSfx); }` — resim 중 여러 번 재생 |
+| 정례 | `if (Runner.IsForward) AudioSource.PlayOneShot(hitSfx);` |
+| 탐지 | `rg -n 'AudioSource\.(Play\|PlayOneShot)\|Instantiate\|SetActive' Assets/_Project/Scripts` 후 각 라인이 `IsForward` 분기 내부인지 확인 |
+
+### 4. Tick 기반 시간만 사용, `Time.deltaTime` · `Time.time` 금지 (FixedUpdateNetwork 내부)
+
+| 구분 | 내용 |
+|---|---|
+| 규칙 | 투사체 수명, 쿨타임, DoT, 버프 지속시간 등 시간 기반 카운터는 `Runner.DeltaTime` 또는 `Runner.Tick` 기반 |
+| 반례 | `lifetime -= Time.deltaTime;` in `FixedUpdateNetwork()` — 결정론 깨짐, Host/Client desync |
+| 정례 | `lifetime -= Runner.DeltaTime;` 또는 `if (Runner.Tick >= expireTick) Runner.Despawn(Object);` |
+| 탐지 | `rg -n 'Time\.(deltaTime\|time\|unscaledDeltaTime)' Assets/_Project/Scripts/Gameplay Assets/_Project/Scripts/Network` |
+
+### 5. RPC 방향성 명시 (source · target · channel)
+
+| 구분 | 내용 |
+|---|---|
+| 규칙 | `[Rpc(RpcSources.X, RpcTargets.Y)]` source/target 조합은 의도 반영. Channel은 게임플레이 영향 유무로 구분 |
+| 정례 | `[Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]` — 카드 선택 요청, 스킬 사용 요청 |
+| 정례 | `[Rpc(RpcSources.StateAuthority, RpcTargets.All)]` — 킬 피드, 라운드 종료 알림 |
+| 정례 | `[Rpc(Channel = RpcChannel.Unreliable)]` — 손실 허용 연출 전용 (타격 VFX 등) |
+| 반례 | `[Rpc(RpcSources.All, RpcTargets.All)]` — 권한 탈취 경로, 기본 금지 |
+| 반례 | 게임플레이 결과 RPC를 `Unreliable`로 표기 — 손실 시 상태 불일치 |
+| 탐지 | `rg -n '\[Rpc\(' Assets/_Project/Scripts` 후 source/target 명시 여부 수동 확인 |
+
+### 실전 가드레일 요약 체크 (PR 시 5초 확인)
+
+| no | 확인 항목 | 탐지 grep |
+|---|---|---|
+| 1 | `[Networked]` 컬렉션에 `[Capacity]` 붙어있는가 | `rg '\[Networked\][^\[]*Network(Array\|Dictionary\|LinkedList)'` |
+| 2 | `Update()` 에서 `[Networked]` 속성을 UI에 직접 쓰지 않는가 | 수동 |
+| 3 | `FixedUpdateNetwork` 내부 side effect가 `IsForward` 분기 안인가 | `rg -n 'AudioSource\.Play\|Instantiate\|SetActive'` |
+| 4 | `FixedUpdateNetwork` 내부에 `Time.deltaTime` 없는가 | `rg -n 'Time\.(deltaTime\|time)'` |
+| 5 | `[Rpc(...)]` 에 source/target 명시되고 `All/All` 이 없는가 | `rg -n '\[Rpc\('` |
+
 ## 미결정
 
 - 프로토타입에 남은 전역 탐색을 어느 마일스톤에서 제거할지.
 - 카드 선택 요청을 RPC로 둘지, 별도 Networked request state로 둘지.
 - Server Mode 전환 전까지 허용할 Host Mode bridge의 최대 범위.
+- 실전 가드레일 자동화: Editor 스크립트 또는 CI grep 체크를 어느 단계에서 활성화할지.

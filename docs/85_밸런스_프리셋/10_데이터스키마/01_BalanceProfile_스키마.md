@@ -1,3 +1,8 @@
+---
+last_updated: 2026-04-20
+audience: ai-first
+---
+
 # BalanceProfile 스키마
 
 이 문서는 Unity 프리셋 구현체가 어떤 묶음의 값을 가져야 하는지 정의한다.

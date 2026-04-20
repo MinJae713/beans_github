@@ -1,3 +1,8 @@
+---
+last_updated: 2026-04-20
+audience: ai-first
+---
+
 # MVP 전투 수치 프리셋
 
 이 문서는 MVP 전투 수치 후보를 기록하기 위한 자리다.

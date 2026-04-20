@@ -1,3 +1,8 @@
+---
+last_updated: 2026-04-20
+audience: ai-first
+---
+
 # Jira Git 컨벤션
 
 이 디렉토리는 팀의 Jira, Git, MR, Unity 협업 규칙을 모은다.
