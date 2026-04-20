@@ -10,8 +10,6 @@
 |---|---|
 | 팀 공유 기준문서 루트 | `docs/` |
 | 구현 GitLab | `https://lab.ssafy.com/s14-final/S14P31A303` |
-| 단일 SOT 원칙 | 이 GitLab 레포의 `docs/`가 유일한 팀 공유 기준문서 SOT다. 개인 로컬 복제본, 과거 내부 후보 디렉터리, 다른 레포의 문서 복사본은 현재 SOT가 아니다 |
-| 작업 위치 원칙 | 기준문서 또는 구현 작업이 필요하면 이 레포를 기준으로 작업한다. 병렬 작업이 필요하면 별도 클론보다 `git worktree`로 작업 디렉터리를 분리한다 |
 | 현재 binding 기준 | `accepted` 문서. `accepted_candidate`는 `05_문서관리_규칙/08_문서_상태_인덱스.md` 또는 작업 브리핑에 명시된 경우만 binding |
 | 현재 accepted 문서 | `10_게임플레이_기준/02_라운드_상태머신.md`, `50_기술_구조_기준/01_Unity_프로젝트_구조.md` |
 | 디자인/와이어프레임 SOT | Figma Board: <https://www.figma.com/board/BGVI5ohn0mzXxjiGXy5RFA/Colosseum-SSAFY?node-id=0-1&t=FQMo2unuhiw7Kfsd-0>. 화면 흐름과 UI 배치 참조 SOT이며 gameplay truth와 기술스택 기준을 대체하지 않음 |
@@ -31,7 +29,6 @@
 - plain `candidate` 문서는 참고 후보이며, 구현하려면 작업 브리핑에 승인자, 승인 증거, 임시 가정, 중단 조건을 적는다. 승인 증거 없이 가정만 적는 방식은 구현 권한이 아니다.
 - 직접 링크로 개별 문서만 받았더라도 먼저 이 README와 `05_문서관리_규칙/08_문서_상태_인덱스.md`를 확인한다.
 - 과거 reference/source 경로가 공유본에 포함되지 않거나 접근할 수 없어도 현재 SOT가 누락된 것으로 보지 않는다.
-- 개인 로컬 복제본이나 과거 내부 후보 디렉터리에 남은 문서는 현재 SOT가 아니다. 필요한 변경은 이 GitLab 레포의 `docs/`에 MR로 반영한다.
 
 ## 문서가 해결하려는 문제
 
