@@ -24,6 +24,8 @@ Git 컨벤션은 원문 상태가 `DRAFT`이므로, 팀 합의 전까지 이 문
 
 담당자가 GitLab 설정을 확인하기 전에는 새 브랜치 생성, MR 대상 브랜치 확정, protected branch 직접 push를 하지 않는다. 브랜치/MR 정책은 문서보다 실제 GitLab 설정과 담당자 안내가 우선한다.
 
+GitLab 설정 확인 책임자는 인프라/네트워크 담당자 또는 GitLab Maintainer다. 확인 결과는 이 문서, 작업 브리핑, 또는 MR 본문 중 하나에 남긴다. 확인 기록이 없으면 이 문서의 브랜치/MR 규칙은 실행 규칙이 아니라 후보안으로만 취급한다. 이 확인 작업의 완료 조건은 `현재 default branch`, `protected branch`, `MR target`, `필수 reviewer/approval`이 기록되는 것이다.
+
 ## 관찰 스냅샷(reference)
 
 아래 내용은 특정 시점의 로컬 클론 관찰값이며 실행 규칙이 아니다. GitLab UI 확인 결과, 담당자 안내, 작업 브리핑과 다르면 즉시 무시한다.
