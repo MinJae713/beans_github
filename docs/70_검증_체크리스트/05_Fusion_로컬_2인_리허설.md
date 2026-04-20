@@ -1,3 +1,8 @@
+---
+last_updated: 2026-04-20
+audience: ai-first
+---
+
 # Fusion 로컬 2인 리허설
 
 이 문서는 로컬 2인 전투가 단순 오프라인 조작이 아니라 Photon Fusion 구조 위에서 성립하는지 확인하는 기준을 정의한다.

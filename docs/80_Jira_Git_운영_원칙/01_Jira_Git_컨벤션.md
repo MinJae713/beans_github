@@ -81,27 +81,50 @@ Epic은 구분자, Label, Component 없이 기능명만 사용한다.
 ```text
 master
   - develop
-    - feat/A303-45-card-system
-    - fix/A303-78-respawn-bug
-    - hotfix/A303-90-crash-fix
+    - client/dev
+      - client/feat/A303-45-card-system
+      - client/fix/A303-78-respawn-bug
+      - client/hotfix/A303-90-crash-fix
+    - server/dev
+      - server/feat/A303-45-card-system
+      - server/fix/A303-78-respawn-bug
+      - server/hotfix/A303-90-crash-fix
+    - api/dev
+      - api/feat/A303-45-card-system
+      - api/fix/A303-78-respawn-bug
+      - api/hotfix/A303-90-crash-fix
+    - docs
+      - docs/A303-99-문서-작업
+```
+
+브랜치 설명:
+```text
+- master: root 브랜치
+- develop: 개발 통합 브랜치
+- client/dev: Unity 화면 구현 브랜치
+  - exe 파일로 배포
+- server/dev: Unity Dedicated 서버 구현 브랜치
+  - CI/CD 파이프라인을 사용하여 EC2 서버에 배포
+- api/dev: Spring boot api 서버 구현 브랜치
+  - CI/CD 파이프라인을 사용하여 EC2 서버에 배포
 ```
 
 브랜치 네이밍:
 
 ```text
-{타입}/A303-{이슈번호}-{간단한-설명}
+- client/server/api: {client/server/api}/{타입}/A303-{이슈번호}-{간단한-설명}
+- docs: docs/A303-{이슈번호}-{간단한-설명}
 ```
 
 예시:
 
 ```text
-feat/A303-45-card-system
-fix/A303-78-respawn-bug
-hotfix/A303-90-crash-on-disconnect
-art/A303-30-character-palette
+client/feat/A303-45-card-system
+server/fix/A303-78-respawn-bug
+api/hotfix/A303-90-crash-on-disconnect
+docs/A303-99-문서-작업
+client/art/A303-30-character-palette
 ```
-
-Unity 단일 프로젝트이므로 `fe/`, `be/`, `ai/` 같은 파트 접두사는 쓰지 않는다.
 
 ## 기준문서 브랜치 전략
 
@@ -272,11 +295,11 @@ merge 방식은 `Merge commit`을 기본으로 한다. Unity 에셋 이력 추�
 
 ## 관련 문서
 
-- `05_문서관리_규칙/01_문서_상태와_변경_규칙.md`
-- `50_기술_구조_기준/03_씬_프리팹_소유권.md`
-- `60_AI_협업_운영_원칙/02_작업_브리핑_양식.md`
-- `70_검증_체크리스트/02_플레이테스트_리포트_양식.md`
-- `70_검증_체크리스트/04_마일스톤_게이트.md`
+- [05_문서관리_규칙/01_문서_상태와_변경_규칙.md](../05_문서관리_규칙/01_문서_상태와_변경_규칙.md)
+- [50_기술_구조_기준/03_씬_프리팹_소유권.md](../50_기술_구조_기준/03_씬_프리팹_소유권.md)
+- [60_AI_협업_운영_원칙/02_작업_브리핑_양식.md](../60_AI_협업_운영_원칙/02_작업_브리핑_양식.md)
+- [70_검증_체크리스트/02_플레이테스트_리포트_양식.md](../70_검증_체크리스트/02_플레이테스트_리포트_양식.md)
+- [70_검증_체크리스트/04_마일스톤_게이트.md](../70_검증_체크리스트/04_마일스톤_게이트.md)
 
 ## 미결정
 

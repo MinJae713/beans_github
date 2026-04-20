@@ -1,3 +1,8 @@
+---
+last_updated: 2026-04-20
+audience: ai-first
+---
+
 # Unity 프로젝트 구조
 
 > 상태: accepted. 이 문서는 Unity 2022.3 LTS, Photon Fusion 2, 2D 물리, 3D 물리 금지선의 현재 구현 기준이다. 문서 상태와 binding 범위는 `05_문서관리_규칙/08_문서_상태_인덱스.md`를 우선한다.

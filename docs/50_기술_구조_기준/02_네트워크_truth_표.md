@@ -1,3 +1,8 @@
+---
+last_updated: 2026-04-20
+audience: ai-first
+---
+
 # 네트워크 truth 표
 
 이 문서는 Photon Fusion 구조에서 어떤 정보가 네트워크 truth인지, 어떤 정보가 로컬 presentation인지 구분한다.
@@ -21,6 +26,11 @@ Photon App ID, 개인 환경 설정, secret, 로컬 절대경로는 이 문서�
 | 발사 요청 | InputAuthority 제출, StateAuthority 검증 | input flag/event | FixedUpdateNetwork | 발사 예측 이펙트 |
 | 투사체 생성 | StateAuthority | NetworkObject | FixedUpdateNetwork | muzzle flash |
 | 투사체 위치 | StateAuthority | NetworkObject/Networked | FixedUpdateNetwork | trail, interpolation |
+| 반사 판정 결과 | StateAuthority | Networked event 또는 Networked state | FixedUpdateNetwork | 반사 트레일, 충돌 이펙트 |
+| 반사 횟수(ReflectCount) | StateAuthority | `[Networked] byte ReflectCount` | FixedUpdateNetwork | 없음 (게임 결과에 영향) |
+| 반사 후 투사체 방향 | StateAuthority | `NetworkObject` 위치/속도 갱신 | FixedUpdateNetwork | trail interpolation |
+| 반사 피격 결과 | StateAuthority | Networked state 또는 event | FixedUpdateNetwork | hit VFX/SFX |
+| 반사 경로 가독성 신호 | Local | local-only | presentation | 반사 예고선, 트레일 색상 |
 | 탄약/재장전 상태 | StateAuthority | Networked | FixedUpdateNetwork | HUD 표시 |
 | 체력 | StateAuthority | Networked | FixedUpdateNetwork | HP bar, damage flash |
 | 피격 결과 | StateAuthority | Networked state 또는 event | FixedUpdateNetwork | hit VFX/SFX |
@@ -80,5 +90,7 @@ Photon App ID, 개인 환경 설정, secret, 로컬 절대경로는 이 문서�
 ## 미결정
 
 - 투사체를 항상 NetworkObject로 둘지, 일부를 tick 기반 예측 객체로 둘지.
-- 반사탄/폭발탄 같은 단발 이벤트의 최소 Networked 상태 범위.
+- 폭발탄 같은 단발 이벤트의 최소 Networked 상태 범위 (반사탄은 확정).
 - 관전 모드 도입 시 presentation-only 정보와 replay truth를 어떻게 나눌지.
+
+> Q5/Q38 반사탄 drift는 Option A 채택으로 종결 (2026-04-20, [90/06 아카이브](../99_아카이브/2026-04-20_반사탄_drift_Option_A_채택.md))

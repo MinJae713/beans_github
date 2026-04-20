@@ -1,3 +1,8 @@
+---
+last_updated: 2026-04-20
+audience: ai-first
+---
+
 # 디자인 참조 SOT
 
 > 문서 상태: accepted_candidate
