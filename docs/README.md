@@ -12,6 +12,7 @@
 | 구현 GitLab | `https://lab.ssafy.com/s14-final/S14P31A303` |
 | 현재 binding 기준 | `accepted` 문서. `accepted_candidate`는 `05_문서관리_규칙/08_문서_상태_인덱스.md` 또는 작업 브리핑에 명시된 경우만 binding |
 | 현재 accepted 문서 | `10_게임플레이_기준/02_라운드_상태머신.md`, `50_기술_구조_기준/01_Unity_프로젝트_구조.md` |
+| 디자인/와이어프레임 SOT | Figma Board: <https://www.figma.com/board/BGVI5ohn0mzXxjiGXy5RFA/Colosseum-SSAFY?node-id=0-1&t=FQMo2unuhiw7Kfsd-0>. 화면 흐름과 UI 배치 참조 SOT이며 gameplay truth와 기술스택 기준을 대체하지 않음 |
 | 참고 가능 문서 | `candidate` 문서. 작업 브리핑에 가정과 중단 조건을 적은 경우에만 구현 참고 |
 | 참고 전용 문서 | 기존 `docs/게임개발_기준문서/`, `docs/planning/`, `docs/development/`, 회의 원문, 프로토타입 관찰 기록. 접근할 수 없어도 현재 SOT 탐색을 위해 찾지 않는다 |
 | 사용 금지 기준 | `90_백로그`, `99_아카이브`, raw 회의 메모, legacy 구현 상태를 현재 SOT처럼 인용하는 것 |
