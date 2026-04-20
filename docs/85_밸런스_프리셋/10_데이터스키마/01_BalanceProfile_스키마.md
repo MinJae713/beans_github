@@ -130,8 +130,3 @@ MVP 1차에서는 `BalanceProfile`을 먼저 도입하고, `WeaponProfile`과 `C
 
 - 프리셋 파일의 실제 Unity 폴더명.
 - 플레이테스트 프리셋의 명명 규칙.
-
-
-
-
-

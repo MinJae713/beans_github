@@ -82,8 +82,3 @@ Photon App ID, 개인 환경 설정, secret, 로컬 절대경로는 이 문서�
 - 투사체를 항상 NetworkObject로 둘지, 일부를 tick 기반 예측 객체로 둘지.
 - 반사탄/폭발탄 같은 단발 이벤트의 최소 Networked 상태 범위.
 - 관전 모드 도입 시 presentation-only 정보와 replay truth를 어떻게 나눌지.
-
-
-
-
-

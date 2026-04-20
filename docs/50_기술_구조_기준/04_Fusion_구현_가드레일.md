@@ -104,8 +104,3 @@
 - 프로토타입에 남은 전역 탐색을 어느 마일스톤에서 제거할지.
 - 카드 선택 요청을 RPC로 둘지, 별도 Networked request state로 둘지.
 - Server Mode 전환 전까지 허용할 Host Mode bridge의 최대 범위.
-
-
-
-
-

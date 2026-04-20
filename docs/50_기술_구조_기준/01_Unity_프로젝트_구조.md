@@ -164,8 +164,3 @@ raw 로그, 스크린샷, 영상, crash dump, 임시 probe는 레포 밖에 둔�
 ## 변경 기록
 
 - 2026-04-17: 인프라 담당 기술 결정 v1.1 기준을 반영했다. Unity 2022.3 LTS 계열 필수, Corgi 제한 활용, Fusion Host Mode 1차 시연, Server Mode/WebGL/리더보드 2차 릴리스 구조를 명시했다.
-
-
-
-
-

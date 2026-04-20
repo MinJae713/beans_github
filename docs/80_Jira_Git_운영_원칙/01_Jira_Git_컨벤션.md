@@ -270,8 +270,3 @@ merge 방식은 `Merge commit`을 기본으로 한다. Unity 에셋 이력 추�
 
 - Git 컨벤션 원문이 DRAFT에서 팀 합의본으로 승격되었는지 확인 필요.
 - 팀 GitLab의 실제 protected branch 설정이 이 문서와 일치하는지 확인 필요.
-
-
-
-
-
