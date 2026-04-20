@@ -80,6 +80,33 @@ Epic은 구분자, Label, Component 없이 기능명만 사용한다.
 
 팀 Git Flow 후보는 아래 구조를 따른다. 기본 브랜치와 통합 브랜치는 GitLab UI의 default/protected 설정과 담당자 지시로 확정한다. 아래 예시는 후보 구조이며, 실행 규칙으로 확정하지 않는다.
 
+## 워크트리 운영 원칙
+
+기준문서와 구현 작업의 단일 기준 레포는 `https://lab.ssafy.com/s14-final/S14P31A303`다. 개인 로컬 복제본, 과거 내부 후보 디렉터리, 다른 레포의 문서 복사본을 SOT로 삼지 않는다.
+
+한 사람이 여러 작업을 병렬로 진행하거나, AI 세션별로 작업 범위를 분리해야 하면 같은 레포에서 `git worktree`를 사용한다. 별도 클론을 만들 수는 있지만, 별도 클론의 문서를 기준으로 승격하지 않는다.
+
+워크트리 사용 기준:
+
+| 상황 | 원칙 |
+|---|---|
+| 문서와 코드 작업이 동시에 필요함 | 작업별 브랜치와 worktree를 분리 |
+| 여러 AI 세션이 같은 레포를 만짐 | 세션별 worktree를 분리하고 서로의 브랜치에 직접 수정하지 않음 |
+| 과거 로컬 복제본에 문서가 남아 있음 | 현재 SOT로 쓰지 않고, 필요한 내용만 `docs/` MR로 재작성 |
+| GitLab 설정이 불명확함 | 브랜치 생성, MR 대상 확정, protected branch push를 하지 않고 담당자 확인 |
+
+예시:
+
+```text
+S14P31A303/
+S14P31A303.worktrees/
+  docs-card-rules/
+  feat-combat-loop/
+  fix-respawn-flow/
+```
+
+워크트리 이름은 작업 내용을 드러내되, 최종 권한은 브랜치와 MR 정책을 따른다. worktree는 작업 디렉터리 분리 수단이지, 별도 SOT가 아니다.
+
 ```text
 master
   - develop
