@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-04-20
+last_updated: 2026-04-21
 audience: ai-first
 ---
 
@@ -79,6 +79,7 @@ audience: ai-first
 | 항목 | 기준 |
 |---|---|
 | 허용 | Host Mode로 로컬 2인/온라인 1v1을 먼저 검증 |
+| 허용 예외 | Q39 "후진 금지" Host-only clamp — 2026-04-21 D43 (Option A1). W3 RTT 실측에서 rubber-banding 체감 시 A2 승격. 상세 [90/04#Q39](../90_백로그/04_미결정_질문_레지스터.md) |
 | 금지 | Host 클라이언트 UI가 곧바로 authoritative 상태를 바꾸는 구조 |
 | 금지 | StateAuthority 검증 없이 카드/피격/리스폰 결과를 확정 |
 | 기록 | Server Mode 전환 시 바꿔야 하는 임시 브리지는 리스크로 남김 |

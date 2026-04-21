@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-04-20
+last_updated: 2026-04-21
 audience: ai-first
 ---
 
@@ -36,6 +36,7 @@ Photon App ID, 개인 환경 설정, secret, 로컬 절대경로는 이 문서�
 | 피격 결과 | StateAuthority | Networked state 또는 event | FixedUpdateNetwork | hit VFX/SFX |
 | 넉백/경직 상태 | StateAuthority | Networked | FixedUpdateNetwork | hit stop, camera shake |
 | 사망 상태 | StateAuthority | Networked | FixedUpdateNetwork | death animation |
+| 구간 돌파 trigger | StateAuthority | `SegmentBoundary` collider `OnTriggerEnter` (Q40 D44) | FixedUpdateNetwork | 없음 (게임 결과) |
 | 구간 돌파 상태 | StateAuthority | Networked | FixedUpdateNetwork | 전선 이동 연출 |
 | 카드/선택 결과 | StateAuthority | Networked | state transition | 선택 UI |
 | 리스폰 상태 | StateAuthority | Networked | state transition | spawn VFX |

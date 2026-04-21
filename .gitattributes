@@ -1,0 +1,92 @@
+# =========================================
+# Colosseum (Unity 2022.3 LTS + Photon Fusion 2)
+# Git LFS + UnityYAMLMerge 표준
+# =========================================
+
+# -------- Line endings --------
+# 기본 auto, 텍스트 파일은 LF 고정 (Windows/Mac 혼용 팀 대비)
+* text=auto eol=lf
+
+# Windows 전용 스크립트
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# -------- Unity YAML (씬/프리팹/ScriptableObject merge) --------
+# Force Text + UnityYAMLMerge 사용 전제
+# .git/config 에 mergetool unityyamlmerge 등록 필요
+*.unity       merge=unityyamlmerge eol=lf
+*.prefab      merge=unityyamlmerge eol=lf
+*.asset       merge=unityyamlmerge eol=lf
+*.meta        merge=unityyamlmerge eol=lf
+*.mat         merge=unityyamlmerge eol=lf
+*.anim        merge=unityyamlmerge eol=lf
+*.controller  merge=unityyamlmerge eol=lf
+*.physicsMaterial2D  merge=unityyamlmerge eol=lf
+*.physicMaterial     merge=unityyamlmerge eol=lf
+*.lighting    merge=unityyamlmerge eol=lf
+*.shadergraph merge=unityyamlmerge eol=lf
+*.shadersubgraph merge=unityyamlmerge eol=lf
+# 2D 스프라이트 아틀라스 (Unity 2019+)
+*.spriteatlas     merge=unityyamlmerge eol=lf
+*.spriteatlasv2   merge=unityyamlmerge eol=lf
+# Scene template (Unity 2020+)
+*.scenetemplate   merge=unityyamlmerge eol=lf
+
+# -------- Git LFS (Binary assets) --------
+# 이미지
+*.png  filter=lfs diff=lfs merge=lfs -text
+*.jpg  filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.gif  filter=lfs diff=lfs merge=lfs -text
+*.bmp  filter=lfs diff=lfs merge=lfs -text
+*.tga  filter=lfs diff=lfs merge=lfs -text
+*.tif  filter=lfs diff=lfs merge=lfs -text
+*.tiff filter=lfs diff=lfs merge=lfs -text
+*.psd  filter=lfs diff=lfs merge=lfs -text
+*.exr  filter=lfs diff=lfs merge=lfs -text
+*.hdr  filter=lfs diff=lfs merge=lfs -text
+
+# 3D 모델
+*.fbx  filter=lfs diff=lfs merge=lfs -text
+*.FBX  filter=lfs diff=lfs merge=lfs -text
+*.obj  filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.dae  filter=lfs diff=lfs merge=lfs -text
+*.3ds  filter=lfs diff=lfs merge=lfs -text
+
+# 오디오
+*.wav  filter=lfs diff=lfs merge=lfs -text
+*.mp3  filter=lfs diff=lfs merge=lfs -text
+*.ogg  filter=lfs diff=lfs merge=lfs -text
+*.aiff filter=lfs diff=lfs merge=lfs -text
+*.aif  filter=lfs diff=lfs merge=lfs -text
+
+# 비디오
+*.mp4  filter=lfs diff=lfs merge=lfs -text
+*.mov  filter=lfs diff=lfs merge=lfs -text
+*.webm filter=lfs diff=lfs merge=lfs -text
+
+# 폰트
+*.ttf  filter=lfs diff=lfs merge=lfs -text
+*.otf  filter=lfs diff=lfs merge=lfs -text
+
+# 압축/아카이브
+*.zip  filter=lfs diff=lfs merge=lfs -text
+*.7z   filter=lfs diff=lfs merge=lfs -text
+*.rar  filter=lfs diff=lfs merge=lfs -text
+
+# Unity 패키지
+*.unitypackage filter=lfs diff=lfs merge=lfs -text
+
+# 2D 원본 소스 (Aseprite, Photoshop Big Document)
+*.ase       filter=lfs diff=lfs merge=lfs -text
+*.aseprite  filter=lfs diff=lfs merge=lfs -text
+*.psb       filter=lfs diff=lfs merge=lfs -text
+
+# 디자인 레퍼런스 / 스펙 첨부
+*.pdf       filter=lfs diff=lfs merge=lfs -text
+
+# -------- Collapsed in GitHub/GitLab diff --------
+# Unity 바이너리성 파일은 리뷰에서 diff 축소
+*.asset linguist-generated=true

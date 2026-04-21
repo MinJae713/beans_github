@@ -1,11 +1,11 @@
 ---
-last_updated: 2026-04-20
+last_updated: 2026-04-21
 audience: ai-first
 ---
 
-# Colloseum 게임개발 기준문서
+# Colosseum 게임개발 기준문서
 
-이 문서 묶음은 Colloseum 팀이 같은 게임을 만들기 위해 공유하는 게임개발 기준문서다. `Colloseum`은 현재 프로젝트 코드명이며, 최종 게임명은 `90_백로그/04_미결정_질문_레지스터.md`의 Q32에서 별도 확정한다.
+이 문서 묶음은 Colosseum 팀이 같은 게임을 만들기 위해 공유하는 게임개발 기준문서다. `Colosseum`은 현재 프로젝트 코드명이며, 최종 게임명은 `90_백로그/04_미결정_질문_레지스터.md`의 Q32에서 별도 확정한다.
 
 단순 요약본이 아니라, 기획 판단, 구현 금지선, 협업 방식, 검증 기준을 함께 담는 상세 명세서로 사용한다. 팀원이나 AI 도구가 이 문서만 읽어도 현재 게임의 핵심 맥락과 작업 기준을 복구할 수 있어야 한다.
 
@@ -16,14 +16,14 @@ audience: ai-first
 | 팀 공유 기준문서 루트 | `docs/` |
 | 구현 GitLab | `https://lab.ssafy.com/s14-final/S14P31A303` |
 | 현재 binding 기준 | `accepted` 문서. `accepted_candidate`는 `05_문서관리_규칙/08_문서_상태_인덱스.md` 또는 작업 브리핑에 명시된 경우만 binding |
-| 현재 accepted 문서 | `10_게임플레이_기준/02_라운드_상태머신.md`, `50_기술_구조_기준/01_Unity_프로젝트_구조.md` |
+| 현재 accepted 문서 | `10_게임플레이_기준/02_라운드_상태머신.md`, `50_기술_구조_기준/01_Unity_프로젝트_구조.md`, `50_기술_구조_기준/05_파일경로별_DRI.md` (2026-04-21 T2, D49) |
 | 디자인/와이어프레임 SOT | Figma Board: <https://www.figma.com/board/BGVI5ohn0mzXxjiGXy5RFA/Colosseum-SSAFY?node-id=0-1&t=FQMo2unuhiw7Kfsd-0>. 화면 흐름과 UI 배치 참조 SOT이며 gameplay truth와 기술스택 기준을 대체하지 않음 |
-| 참고 가능 문서 | `candidate` 문서. 배경 참고는 가능하지만 구현 근거로 쓰려면 승인자, 승인 증거, 중단 조건이 포함된 작업 브리핑이 필요 |
+| 참고 가능 문서 | `candidate` 문서. 작업 브리핑에 가정과 중단 조건을 적은 경우에만 구현 참고 |
 | 참고 전용 문서 | 기존 `docs/게임개발_기준문서/`, `docs/planning/`, `docs/development/`, 회의 원문, 프로토타입 관찰 기록. 접근할 수 없어도 현재 SOT 탐색을 위해 찾지 않는다 |
 | 사용 금지 기준 | `90_백로그`, `99_아카이브`, raw 회의 메모, legacy 구현 상태를 현재 SOT처럼 인용하는 것 |
-| Git 운영 상태 | Jira/Git 컨벤션은 현재 `candidate` 운영안이다. 실제 GitLab 설정과 담당자 지시가 우선한다 |
+| Git 운영 상태 | Jira/Git 컨벤션(`80_Jira_Git_운영_원칙/01`) v3.0은 `accepted_candidate` (2026-04-21 T6, D55). 실제 GitLab 설정과 담당자 지시가 우선하며, 승격 트리거(CODEOWNERS 작성 · `develop` 최초 MR 완주)는 §18 참조 |
 
-충돌이 있으면 `accepted` 문서가 우선한다. 의사결정 로그는 근거와 변경 이력을 설명하지만, `accepted` 문서와 다르면 곧바로 덮어쓰지 않는다. 최신 결정과 `accepted` 문서의 본문 내용이 충돌하면 구현하지 말고 `BLOCKED`로 보고한 뒤 해당 `accepted` 기준문서 본문이 먼저 갱신될 때까지 기다린다. 상태 인덱스 갱신만으로 accepted 본문 충돌을 해소한 것으로 보지 않는다.
+충돌이 있으면 `accepted` > `05_문서관리_규칙/08_문서_상태_인덱스.md`(또는 작업 브리핑)에 명시된 `accepted_candidate` > `candidate` 순으로 따른다. `05_문서관리_규칙/06_의사결정_로그.md`는 최신 결정의 추적 근거이며, `reflected` 상태는 결정이 영향 문서에 반영되었다는 뜻이지 그 자체로 binding을 만들지 않는다. 구현 binding 여부는 `05/08`의 문서 상태와 각 문서 상단 binding 범위를 함께 확인한다. 회의 원문이나 프로토타입에서 나온 내용은 이 기준문서 또는 의사결정 로그에 반영되기 전까지 현재 구현 기준이 아니다.
 
 ## 공유 사용 안내
 
@@ -31,7 +31,7 @@ audience: ai-first
 - `accepted`와 명시된 `accepted_candidate`는 구현 기준으로 사용할 수 있다는 뜻이지, 브리핑 없이 코드 수정 권한이 생긴다는 뜻이 아니다.
 - 실제 코드, 에셋, 공용 프리팹, 네트워크 설정 수정은 Jira 이슈 또는 작업 브리핑이 있을 때만 착수한다.
 - 작업 브리핑에는 참조한 `accepted`/`accepted_candidate` 문서, 임시 가정, 중단 조건, 검증 기준을 적는다.
-- plain `candidate` 문서는 참고 후보이며, 구현하려면 작업 브리핑에 승인자, 승인 증거, 임시 가정, 중단 조건을 적는다. 승인 증거 없이 가정만 적는 방식은 구현 권한이 아니다.
+- plain `candidate` 문서는 참고 후보이며, 구현하려면 작업 브리핑에 임시 가정, 소유자 승인, 중단 조건을 적는다.
 - 직접 링크로 개별 문서만 받았더라도 먼저 이 README와 `05_문서관리_규칙/08_문서_상태_인덱스.md`를 확인한다.
 - 과거 reference/source 경로가 공유본에 포함되지 않거나 접근할 수 없어도 현재 SOT가 누락된 것으로 보지 않는다.
 
@@ -64,7 +64,7 @@ audience: ai-first
 | 11 | `50_기술_구조_기준/01_Unity_프로젝트_구조.md` | accepted | 확정 기술스택과 금지 구현 방향 확인 |
 | 12 | `60_AI_협업_운영_원칙/01_AI_협업_운영_원칙.md` | accepted_candidate | AI를 활용한 작업 운영 방식 확인 |
 | 13 | `05_문서관리_규칙/05_팀_작업구조와_역할_소유권.md` | candidate | 5인 작업 구조와 DRI 경계 확인 |
-| 14 | `80_Jira_Git_운영_원칙/01_Jira_Git_컨벤션.md` | candidate | Jira, Git, MR, Unity 협업 규칙 확인 |
+| 14 | `80_Jira_Git_운영_원칙/01_Jira_Git_컨벤션.md` | accepted_candidate | Jira, Git, MR, Unity 협업 규칙 확인 |
 | 15 | `05_문서관리_규칙/04_문서_계층_규칙.md` | governance | 기준, 세부설계, 구현가이드, 프리셋의 위치 확인 |
 | 16 | `90_백로그/04_미결정_질문_레지스터.md` | backlog | 구현 전 확인해야 할 미결정 질문 확인 |
 
@@ -93,9 +93,7 @@ audience: ai-first
 
 문서는 7단계 상태축(governance/accepted/accepted_candidate/candidate/reference/backlog/archive)으로 관리한다. 정의·전이 규칙은 [05/01 문서 상태와 변경 규칙](05_문서관리_규칙/01_문서_상태와_변경_규칙.md) 정본 참조. 상태별 파일 인덱스는 [05/08 문서 상태 인덱스](05_문서관리_규칙/08_문서_상태_인덱스.md).
 
-충돌 처리 순서는 하나로 고정한다. `accepted` 문서가 최우선이고, `accepted_candidate`는 `accepted`와 충돌하지 않는 범위에서만 작업 브리핑 또는 상태 인덱스에 명시해 사용한다. 의사결정 로그는 근거와 변경 이력이며, accepted 본문 충돌은 해당 accepted 기준문서 본문에 반영되기 전까지 실행 기준으로 쓰지 않는다. 상태 인덱스는 문서 상태와 binding 범위를 맞추는 메타데이터이며, accepted 본문 충돌을 단독으로 해소하지 않는다. `reference`, `backlog`, `archive` 상태 문서는 접근할 수 없어도 현재 SOT 복구에 필요하지 않으며, `accepted` 또는 `accepted_candidate`가 명시적으로 인용하지 않는 한 구현 권한을 만들지 않는다.
-
-문서 상태 메타데이터가 서로 다르면 `05_문서관리_규칙/08_문서_상태_인덱스.md`를 우선한다. README, 개별 문서 상단 배너, 의사결정 로그가 상태 인덱스와 다르면 구현하지 말고 `BLOCKED`로 보고한 뒤 상태 인덱스 또는 README를 갱신한다.
+충돌이 있으면 `accepted` 문서 > `05/08` 또는 작업 브리핑에 명시된 `accepted_candidate` > plain `candidate` 순으로 확인한다. `05/06`은 최신 결정을 추적하는 로그이며 `reflected` 표기가 개별 문서의 binding 상태를 대체하지 않는다. 회의 원문, 프로토타입 상태, legacy docs는 이 기준문서에 반영되기 전까지 현재 SOT가 아니다.
 
 ## 문서 계층
 

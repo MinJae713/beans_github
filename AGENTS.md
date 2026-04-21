@@ -1,6 +1,6 @@
-# Colloseum — AI Agent Entry Point
+# Colosseum — AI Agent Entry Point
 
-이 레포는 Colloseum(SSAFY 자율 A303) 프로젝트다. 팀원 5명이 각자의 AI(Claude/Codex/Gemini 등)를 활용해 개발하며, 모든 AI 세션은 `docs/` 기준문서를 근거로 작업한다.
+이 레포는 Colosseum(SSAFY 자율 A303) 프로젝트다. 팀원 5명이 각자의 AI(Claude/Codex/Gemini 등)를 활용해 개발하며, 모든 AI 세션은 `docs/` 기준문서를 근거로 작업한다.
 
 이 파일은 Codex CLI 등 AGENTS.md를 우선 로드하는 에이전트의 엔트리 포인트다. Claude Code 세션은 `CLAUDE.md`를 본다. 두 파일은 같은 내용을 공유한다.
 
@@ -26,6 +26,7 @@
 | 데드라인 | 2026-05-20 |
 | 현재 SOT 루트 | `docs/` |
 | GitLab | https://lab.ssafy.com/s14-final/S14P31A303 |
+| 최신 결정 | D43~D56 (2026-04-21 W1 팀회의) — 상세 [docs/05_문서관리_규칙/06_의사결정_로그.md](docs/05_문서관리_규칙/06_의사결정_로그.md) |
 
 상세는 [docs/00_프로젝트_비전/01_프로젝트_비전.md](docs/00_프로젝트_비전/01_프로젝트_비전.md).
 
@@ -34,7 +35,7 @@
 1. 대상 문서의 상태(`accepted` / `accepted_candidate` / `candidate`)를 확인했는가.
 2. 미결정 질문 레지스터에 해당 주제가 `blocked`로 걸려 있지 않은가.
 3. 작업 브리핑(참조 문서, 임시 가정, 중단 조건, 검증 기준)을 준비했는가.
-4. 수정 대상 파일의 DRI를 확인했는가 ([docs/50_기술_구조_기준/05_파일경로별_DRI.md](docs/50_기술_구조_기준/05_파일경로별_DRI.md)).
+4. 수정 대상 파일의 DRI를 확인했는가 ([docs/50_기술_구조_기준/05_파일경로별_DRI.md](docs/50_기술_구조_기준/05_파일경로별_DRI.md), **accepted** · 2026-04-21 D49 승격).
 
 체크리스트 통과 전에 코드·에셋·공용 프리팹·네트워크 설정 수정을 시작하지 않는다.
 
