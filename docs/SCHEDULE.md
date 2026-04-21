@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-04-20
+last_updated: 2026-04-21
 audience: ai-first
 ---
 
@@ -35,9 +35,41 @@ audience: ai-first
 
 - [ ] ① 최진우 W1 구현분 리그레션 테스트: `PlayerController` / `Gun` / `BulletController` / `PlayerHealth` / `RoomManager` / `CardDeck` / `NetworkManager` 동작 확인
 - [ ] ② Git LFS + `.gitattributes` 레포 적용
-- [ ] ③ DRI 배정 확정: [50/05](50_기술_구조_기준/05_파일경로별_DRI.md)의 "제안 v3" → accepted 승격
+- [x] ③ DRI 배정 확정: [50/05](50_기술_구조_기준/05_파일경로별_DRI.md)의 "제안 v3" → accepted 승격 (2026-04-21 T2/D49 완료)
 - [ ] ④ Jira M1 에픽 + 스토리 일괄 생성 (담당자 배정 완료)
 - [ ] ⑤ 반사탄 스키마 [50/02#반사탄](50_기술_구조_기준/02_네트워크_truth_표.md) 반영 확인
+
+### W1 잔여 액션 (2026-04-21 회의 후, D49~D56)
+
+> 회의 요약 archive의 담당자별 체크박스를 여기로 이관했다. archive에서는 실행 트래킹을 하지 않는다 (archive 사용 금지 원칙과 일치). 이 섹션이 현재 실행판이다.
+
+**박병준 (PM·Tech Lead)**
+
+- [ ] Jira M1 에픽 생성 + 스토리 10~15건 (W1 마감 전, T4-1/D51)
+- [ ] Git LFS quota 실측 (W1 내, T4-2/D52, `80/01` §12.5 일치)
+- [ ] Photon AppID 발급 + 로컬 보관 (W2 전, T4-3/D53)
+- [x] `.gitlab/CODEOWNERS` 작성 (T2 DRI 이름 기준, `80/01` v3.0 승격 조건 5b) — 2026-04-21 완료, 커밋 `444c5c7` (origin/develop)
+- [x] GitLab protected branch 설정과 `80/01` §9 일치 확인 — 2026-04-21 완료 (D59. `master`·`develop` 두 브랜치 protected)
+- [x] `develop` 브랜치 최초 생성 (유민재와 협의) — 2026-04-21 완료 (origin/develop @ `2f7f449`)
+
+**김범승 (Gameplay B)**
+
+- [ ] `40_카드_무기_설계/10_세부설계/03_MVP_카드_후보_카탈로그.md` 40장+ 재설계 + 등급분포 + offer-fallback (2026-04-27, T5/D54)
+- [ ] `85_밸런스_프리셋/20_수치프리셋/01~03` 스키마-only 커밋 — 필드 시그니처 잠금 (2026-04-27, T9/D56, W2 Exit ⑥)
+
+**유민재 (Infra·Build·QA)**
+
+- [ ] Unity 프로젝트 생성 시 `ProjectSettings/EditorSettings.asset` Force Text + Visible Meta Files 강제 (`80/01` §12.4)
+- [ ] `develop` 브랜치 최초 생성 후 CI 세팅 (박병준과 협의)
+
+**최진우 (Gameplay A·Network Lead)**
+
+- [ ] W3 원격 RTT 실측 시 Q39 Host-only clamp rubber-banding 체감 관찰 → 필요 시 A2 승격 제안 (D43, `70/07` 관찰 항목)
+- [ ] T13 W4 네트워크 최적화 split 경계 페어 세션 (김범승과)
+
+**우수연 (AD·Visual)**
+
+- W1~W2 시점 추가 의무 없음. T12 시연 시나리오 작성 담당 협의 예정.
 
 ## W2 (2026-04-23 ~ 04-29) — 네트워크 안정화 + 카드 최종 10종 확정
 
@@ -48,6 +80,7 @@ audience: ai-first
 - [ ] ③ MMFeedbacks 기본 타격감 적용 (피격·사망·카드 선택)
 - [ ] ④ [70/01](70_검증_체크리스트/01_스모크테스트.md) 스모크 통과
 - [ ] ⑤ "인벤토리" 용어 전수 교체 완료 (문서·코드·Jira)
+- [ ] ⑥ **85/20 프리셋 스키마-only 커밋** — `01_MVP_전투_수치_프리셋.md`, `02_MVP_카드_가중치_프리셋.md`, `03_MVP_구간_수치_프리셋.md` 필드 시그니처(이름·타입·단위) 잠금. 구체 수치는 W3~W4 플레이테스트 결과로 채움. 담당 김범승, 마감 2026-04-27 (T9, D56)
 
 ## W3 (2026-04-30 ~ 05-06) — 온라인 세션 + 로비
 

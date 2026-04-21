@@ -1,6 +1,6 @@
-# Colloseum — Claude Code Entry Point
+# Colosseum — Claude Code Entry Point
 
-이 레포는 Colloseum(SSAFY 자율 A303) 프로젝트다. 팀원 5명이 각자의 AI(Claude/Codex/Gemini 등)를 활용해 개발하며, 모든 AI 세션은 `docs/` 기준문서를 근거로 작업한다.
+이 레포는 Colosseum(SSAFY 자율 A303) 프로젝트다. 팀원 5명이 각자의 AI(Claude/Codex/Gemini 등)를 활용해 개발하며, 모든 AI 세션은 `docs/` 기준문서를 근거로 작업한다.
 
 **전체 엔트리 지침은 [AGENTS.md](AGENTS.md) 와 동일하다.** 이 파일은 Claude Code가 자동 로드하는 위치 때문에 중복 유지한다.
 
@@ -24,7 +24,7 @@
 ## Claude Code 특화 운영
 
 - 사용자 글로벌 지침은 `~/.claude/CLAUDE.md` 를 따른다.
-- MCP 서버 설정은 `~/.mcp.json` 에 있다. 이 레포 특화 MCP는 현재 없음.
+- MCP 서버 설정은 각 작업자의 로컬 Claude Code 설정(사용자 home 하위)에 둔다. 이 레포 특화 MCP는 현재 없음. (개인 경로 금지선: `05/01` 기준문서 작성 금지선 §기준문서 참조)
 - OMC/triflux 레이어 사용 시에도 이 문서의 금지선(아래)은 동일하게 적용.
 - 작업 브리핑 양식: [docs/60_AI_협업_운영_원칙/02_작업_브리핑_양식.md](docs/60_AI_협업_운영_원칙/02_작업_브리핑_양식.md)
 

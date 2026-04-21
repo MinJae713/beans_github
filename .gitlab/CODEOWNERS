@@ -1,0 +1,82 @@
+# Colosseum CODEOWNERS
+# 근거: docs/80_Jira_Git_운영_원칙/01_Jira_Git_컨벤션.md §13.5
+#       docs/05_문서관리_규칙/05_팀_작업구조와_역할_소유권.md (T2/D49, 2026-04-21)
+#       docs/50_기술_구조_기준/05_파일경로별_DRI.md (accepted, D49)
+#
+# 자동 리뷰어 제안 용도. 승인 강제는 Protected Branch + 수동 approve로 보완.
+# 경로 매칭은 아래로 갈수록 우선 (더 구체적인 패턴이 나중).
+
+# ─────────────────────────────────────────────
+# 기준문서 / 엔트리 / 루트 문서 — 박병준 (PM·Tech Lead)
+# ─────────────────────────────────────────────
+/docs/                          @pbjuni1007
+/AGENTS.md                      @pbjuni1007
+/CLAUDE.md                      @pbjuni1007
+/README.md                      @pbjuni1007
+
+# ─────────────────────────────────────────────
+# Git / GitLab 설정 — 박병준(구조) + 유민재(Infra)
+# ─────────────────────────────────────────────
+/.gitlab/                       @pbjuni1007 @dbalsend
+/.gitattributes                 @pbjuni1007 @dbalsend
+/.gitignore                     @pbjuni1007 @dbalsend
+/.gitlab-ci.yml                 @dbalsend
+/.github/                       @dbalsend
+
+# ─────────────────────────────────────────────
+# Infra / 빌드 / 배포 — 유민재
+# ─────────────────────────────────────────────
+/infra/                         @dbalsend
+/unity/ProjectSettings/         @dbalsend
+/unity/Packages/                @dbalsend
+/unity/Assets/_Project/Scripts/Editor/   @dbalsend
+
+# ─────────────────────────────────────────────
+# Unity 네트워크 — 최진우 (게임 네트워크) / 유민재 (NetworkProjectConfig 게이트)
+# ─────────────────────────────────────────────
+/unity/Assets/_Project/Scripts/Network/     @jk62362
+/unity/Assets/Photon/                       @jk62362
+# NetworkProjectConfig: 유민재 게이트키퍼 선행, 최진우 공동
+/unity/Assets/_Project/NetworkProjectConfig.asset   @dbalsend @jk62362
+
+# ─────────────────────────────────────────────
+# Player / Weapon (Gameplay A) — 최진우
+# ─────────────────────────────────────────────
+/unity/Assets/_Project/Scripts/Player/      @jk62362
+/unity/Assets/_Project/Scripts/Weapon/      @jk62362
+
+# ─────────────────────────────────────────────
+# Game 규칙 · HP · 리스폰 · 카드 효과 엔진 (Gameplay B) — 김범승
+# ─────────────────────────────────────────────
+/unity/Assets/_Project/Scripts/Game/        @kim3210542
+
+# ─────────────────────────────────────────────
+# Card 시스템 — 박병준 (설계·구현·게이트) + 김범승 (효과 엔진)
+# ─────────────────────────────────────────────
+/unity/Assets/_Project/Scripts/Card/        @pbjuni1007 @kim3210542
+/unity/Assets/_Project/Data/Cards/          @pbjuni1007
+
+# ─────────────────────────────────────────────
+# UI — 우수연 (AD) + 김범승 (로비 UI)
+# ─────────────────────────────────────────────
+/unity/Assets/_Project/Scripts/UI/          @goodyeon91 @kim3210542
+
+# ─────────────────────────────────────────────
+# Camera · Art · Animations · UI sprites — 우수연 (AD, 비주얼 전체)
+# ─────────────────────────────────────────────
+/unity/Assets/_Project/Scripts/Camera/      @goodyeon91
+/unity/Assets/_Project/Materials/           @goodyeon91
+/unity/Assets/_Project/Animations/          @goodyeon91
+/unity/Assets/_Project/UI/                  @goodyeon91
+/unity/Assets/Art/                          @goodyeon91
+
+# ─────────────────────────────────────────────
+# Audio / FMOD — 유민재
+# ─────────────────────────────────────────────
+/unity/Assets/_Project/Audio/               @dbalsend
+/unity/Assets/Plugins/FMOD/                 @dbalsend
+
+# ─────────────────────────────────────────────
+# Server (Spring Boot, MVP 이후 채택 시) — 추후 확정
+# ─────────────────────────────────────────────
+/server/                                    @pbjuni1007
