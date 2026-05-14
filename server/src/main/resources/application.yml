@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: server
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 3000
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
+server:
+  servlet:
+    context-path: /api/v1
+  port: 8081

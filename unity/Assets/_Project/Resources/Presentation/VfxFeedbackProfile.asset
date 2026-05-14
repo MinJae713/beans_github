@@ -1,0 +1,233 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2dd1cadbdff8db4ea91f856791d286e, type: 3}
+  m_Name: VfxFeedbackProfile
+  m_EditorClassIdentifier:
+  _presets:
+  - cardKey:
+    effectKey: projectile_explosion
+    eventType: 6
+    style: 1
+    color: {r: 1, g: 0.55, b: 0.08, a: 0.72}
+    durationSeconds: 0.75
+    radiusScale: 2
+    effectPrefab: {fileID: 1608183678725496526, guid: 6b69b557610810b488ddfa397dcba567, type: 3}
+    prefabScale: 1
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: hit_apply_poison
+    eventType: 7
+    style: 0
+    color: {r: 0.35, g: 1, b: 0.25, a: 0.82}
+    durationSeconds: 0.9
+    radiusScale: 1
+    effectPrefab: {fileID: 5024009746357069194, guid: ec3f674830402cc45bce805cf6493db7, type: 3}
+    prefabScale: 0.8
+    showToast: 1
+    toastLabel: POISON
+  - cardKey:
+    effectKey: hit_apply_burn
+    eventType: 7
+    style: 0
+    color: {r: 1, g: 0.32, b: 0.08, a: 0.88}
+    durationSeconds: 0.9
+    radiusScale: 1
+    effectPrefab: {fileID: 1608183678725496526, guid: 6b69b557610810b488ddfa397dcba567, type: 3}
+    prefabScale: 0.75
+    showToast: 1
+    toastLabel: BURN
+  - cardKey:
+    effectKey: hit_apply_frost
+    eventType: 7
+    style: 0
+    color: {r: 0.35, g: 0.8, b: 1, a: 0.82}
+    durationSeconds: 0.9
+    radiusScale: 1
+    effectPrefab: {fileID: 127172, guid: 8a6b340f3d2454200b877f2ddd65f890, type: 3}
+    prefabScale: 0.8
+    showToast: 1
+    toastLabel: FROST
+  - cardKey:
+    effectKey: hit_apply_electric_stack
+    eventType: 7
+    style: 0
+    color: {r: 1, g: 0.95, b: 0.1, a: 0.9}
+    durationSeconds: 0.9
+    radiusScale: 1
+    effectPrefab: {fileID: 7143791316838673061, guid: c1896e117d6faa74ca12e533ed82d410, type: 3}
+    prefabScale: 0.75
+    showToast: 1
+    toastLabel: ELECTRIC
+  - cardKey:
+    effectKey: reload_overcharge
+    eventType: 12
+    style: 0
+    color: {r: 1, g: 0.9, b: 0.05, a: 0.9}
+    durationSeconds: 0.9
+    radiusScale: 1.35
+    effectPrefab: {fileID: 4400202450295462572, guid: 17ab42a1fd902014c8daa6cb7987190e, type: 3}
+    prefabScale: 0.9
+    showToast: 1
+    toastLabel: OVERCHARGE READY
+  - cardKey:
+    effectKey: projectile_reflect
+    eventType: 4
+    style: 2
+    color: {r: 0.28, g: 0.7, b: 1, a: 0.82}
+    durationSeconds: 0.45
+    radiusScale: 0.8
+    effectPrefab: {fileID: 771596928501578849, guid: c6923e92182b9364f9836706891c80a5, type: 3}
+    prefabScale: 0.8
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: projectile_pierce
+    eventType: 5
+    style: 2
+    color: {r: 0.75, g: 0.55, b: 1, a: 0.82}
+    durationSeconds: 0.45
+    radiusScale: 0.8
+    effectPrefab: {fileID: 5717868003165401260, guid: 5b1c5352f7322054189749ffb9552d1e, type: 3}
+    prefabScale: 0.8
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: projectile_impact
+    eventType: 3
+    style: 2
+    color: {r: 1, g: 0.92, b: 0.45, a: 0.78}
+    durationSeconds: 0.45
+    radiusScale: 0.8
+    effectPrefab: {fileID: 5024009746357069194, guid: ec3f674830402cc45bce805cf6493db7, type: 3}
+    prefabScale: 0.75
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: projectile_speed_up
+    eventType: 2
+    style: 0
+    color: {r: 0.1, g: 0.85, b: 1, a: 0.82}
+    durationSeconds: 0.65
+    radiusScale: 0.9
+    effectPrefab: {fileID: 125138, guid: 506c5b916e031450c97f55a09c481b46, type: 3}
+    prefabScale: 0.85
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: projectile_size_up
+    eventType: 2
+    style: 1
+    color: {r: 1, g: 0.75, b: 0.2, a: 0.82}
+    durationSeconds: 0.65
+    radiusScale: 1.25
+    effectPrefab: {fileID: 137766, guid: 15479be0949474cd1b2f4a7148ce1cc7, type: 3}
+    prefabScale: 1
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: hit_knockback_up
+    eventType: 2
+    style: 2
+    color: {r: 1, g: 0.35, b: 0.18, a: 0.82}
+    durationSeconds: 0.55
+    radiusScale: 1
+    effectPrefab: {fileID: 1608183678725496526, guid: 6b69b557610810b488ddfa397dcba567, type: 3}
+    prefabScale: 0.85
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: reload_started
+    eventType: 10
+    style: 0
+    color: {r: 0.45, g: 0.78, b: 1, a: 0.78}
+    durationSeconds: 0.55
+    radiusScale: 0.75
+    effectPrefab: {fileID: 125138, guid: 506c5b916e031450c97f55a09c481b46, type: 3}
+    prefabScale: 0.7
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: reload_completed
+    eventType: 11
+    style: 0
+    color: {r: 0.35, g: 1, b: 0.6, a: 0.84}
+    durationSeconds: 0.65
+    radiusScale: 0.9
+    effectPrefab: {fileID: 4400202450295462572, guid: 17ab42a1fd902014c8daa6cb7987190e, type: 3}
+    prefabScale: 0.75
+    showToast: 1
+    toastLabel: RELOADED
+  - cardKey:
+    effectKey: reload_overcharge
+    eventType: 13
+    style: 2
+    color: {r: 1, g: 0.9, b: 0.05, a: 0.9}
+    durationSeconds: 0.55
+    radiusScale: 1.35
+    effectPrefab: {fileID: 7143791316838673061, guid: c1896e117d6faa74ca12e533ed82d410, type: 3}
+    prefabScale: 0.85
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: player_death
+    eventType: 14
+    style: 1
+    color: {r: 1, g: 0.12, b: 0.18, a: 0.86}
+    durationSeconds: 0.75
+    radiusScale: 1.1
+    effectPrefab: {fileID: 180010, guid: f7e3b66d8706841d19eb3ab0068d55b3, type: 3}
+    prefabScale: 1
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: player_respawn
+    eventType: 15
+    style: 0
+    color: {r: 0.25, g: 0.85, b: 1, a: 0.82}
+    durationSeconds: 0.75
+    radiusScale: 1
+    effectPrefab: {fileID: 127172, guid: 8a6b340f3d2454200b877f2ddd65f890, type: 3}
+    prefabScale: 0.9
+    showToast: 1
+    toastLabel: RESPAWN
+  - cardKey:
+    effectKey: heal_on_kill
+    eventType: 16
+    style: 0
+    color: {r: 0.28, g: 1, b: 0.45, a: 0.86}
+    durationSeconds: 0.65
+    radiusScale: 0.9
+    effectPrefab: {fileID: 5024009746357069194, guid: ec3f674830402cc45bce805cf6493db7, type: 3}
+    prefabScale: 0.7
+    showToast: 1
+    toastLabel: HEAL
+  - cardKey:
+    effectKey: segment_advance
+    eventType: 17
+    style: 1
+    color: {r: 0.55, g: 0.92, b: 1, a: 0.82}
+    durationSeconds: 0.95
+    radiusScale: 4.8
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: pit_fall_death
+    eventType: 18
+    style: 1
+    color: {r: 0.64, g: 0.58, b: 0.76, a: 0.72}
+    durationSeconds: 0.95
+    radiusScale: 1.8
+    effectPrefab: {fileID: 180010, guid: f7e3b66d8706841d19eb3ab0068d55b3, type: 3}
+    prefabScale: 0.9
+    showToast: 0
+    toastLabel:

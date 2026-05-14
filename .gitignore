@@ -83,9 +83,32 @@ desktop.ini
 secrets.json
 **/PhotonAppSettings.local.*
 **/*.local.asset
+**/*.local.asset.meta
 
 # =========================================
 # AI 협업 도구 세션 state (기준문서 밖)
 # =========================================
 .omc/
 .claude/
+
+# =========================================
+# Worker Agent (.NET)
+# =========================================
+!worker-agent/Colosseum.WorkerAgent.csproj
+worker-agent/bin/
+worker-agent/obj/
+worker-agent/.vs/
+.dotnet-cli-home/
+# worker-agent/Properties/launchSettings.json
+
+# IDE - VS Code (개인 워크스페이스 설정)
+# =========================================
+unity/.vscode/
+
+# =========================================
+# Photon Fusion 서버 런타임 로그
+# =========================================
+unity/*.log
+
+# Jar Build
+*.jar

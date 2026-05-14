@@ -1,0 +1,12 @@
+{
+  "name": "mvparena-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-only tooling for MVPArena asset export (not part of the Unity project / docs SOT).",
+  "scripts": {
+    "export-tiles": "node export-mvparena-tiles.js"
+  },
+  "dependencies": {
+    "puppeteer": "^23.0.0"
+  }
+}

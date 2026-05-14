@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-04-21
+last_updated: 2026-05-08
 audience: ai-first
 ---
 
@@ -7,6 +7,7 @@ audience: ai-first
 
 > 문서 상태: accepted_candidate (2026-04-21 팀회의 T6 A안 승인, D55 등록)
 > 버전: v3.0 — 팀원 박병준 작성 `PROJECT_STRUCTURE_GUIDE.md`를 정본으로 채택 + Jun v2.1 보완 6개 + 권장 1개 병합
+> 변경 이력: 2026-04-22 §17.5 이슈 타입 정책 + §17.6 Fix Version 정책 추가 (Jun 보완, 11번 백로그 인벤토리 결정 이관). 2026-04-27 §16.5 인벤토리를 별도 문서 `03_Photon_AppID_Runbook.md` 로 분리 (`S14P31A303-153` 산출물). 2026-04-27 §12.5 LFS quota 실측 + 자체 임계 정책으로 갱신 (`S14P31A303-152` 산출물, `90_백로그/03_Git_LFS_실측.md` 신설).
 > binding 범위: Unity 프로젝트 구조, 폴더/네이밍, Git/Jira/MR 운영, Unity 협업 규칙. 실제 GitLab protected branch, 담당자 지시, 작업 브리핑이 우선한다.
 > 실행 중단 조건: GitLab 설정 확인 없이 브랜치 생성, MR 대상 확정, protected branch push를 시도해야 하는 경우 BLOCKED로 보고한다.
 > 저작: §1~§11 박병준(PROJECT_STRUCTURE_GUIDE.md 원저) · §12~§18 Jun(v2.1 보완 병합). 2026-04-21 T6 승인 후 팀 공동 관리.
@@ -35,7 +36,9 @@ Photon Fusion 2의 구조적 특성 때문입니다.
 Assets/_Project/
 ├── Scripts/
 │   ├── Player/            ← 플레이어 관련 로직
+│   │   ├── PlayerController.cs    (NetworkBehaviour 라이프사이클·오케스트레이션, [Networked] 필드)
 │   │   ├── PlayerMovement.cs       (이동, 점프 물리)
+│   │   ├── PlayerGroundProbe.cs   (지면 판정, 플레이어 겹침 해소)
 │   │   ├── PlayerInput.cs          (GetInput, 입력 처리)
 │   │   ├── PlayerBoundary.cs       (방 경계 감지, 방 전환 트리거)
 │   │   ├── PlayerHealth.cs         (HP, 데미지, 사망, 리스폰)
@@ -96,7 +99,7 @@ Assets/_Project/
 | 담당자 | Scripts 수정 범위 | 에셋 수정 범위 |
 |--------|------------------|---------------|
 | 네트워크 | `Network/` 전체, `PlayerInput.cs` | 거의 없음 |
-| 게임플레이 | `PlayerMovement`, `PlayerBoundary`, `PlayerHealth`, `Gun`, `BulletController`, `CardDeck`, `CardEffect`, `RoomManager` | `Data/Cards/`, `Prefabs/` |
+| 게임플레이 | `PlayerMovement`, `PlayerBoundary`, `PlayerGroundProbe`, `PlayerHealth`, `Gun`, `BulletController`, `CardDeck`, `CardEffect`, `RoomManager` | `Data/Cards/`, `Prefabs/` |
 | 비주얼 | `PlayerVisual`, `PlayerDeathVisual`, `CameraController`, `UI/` 전체 | `Animations/`, `Audio/`, `Materials/`, `UI/` |
 | 인프라 | `Editor/BuildHelper.cs` | 빌드 스크립트, `ProjectSettings/` |
 
@@ -233,7 +236,7 @@ namespace Colosseum.[도메인]
 
 ### 루트 디렉토리 구조 (2026-04-21 T6 결정: 지금부터 즉시 적용)
 
-> 2026-04-21 팀회의 T6에서 "MVP 이후 확장 시"가 아닌 **지금부터 이 구조를 적용**하기로 결정. Spring Boot 채택 전이라도 `unity/`, `server/`, `infra/`, `docs/` 4개 루트 폴더를 미리 생성해 모노레포 경계를 선제적으로 박는다.
+> 2026-04-21 팀회의 T6에서 "MVP 이후 확장 시"가 아닌 **지금부터 이 구조를 적용**하기로 결정. Spring Boot 채택 전이라도 `unity/`, `worker-agent/`, `server/`, `infra/`, `docs/` 루트 폴더를 사용해 모노레포 경계를 선제적으로 박는다.
 
 ```
 Colosseum/                         ← 모노레포 루트
@@ -243,7 +246,12 @@ Colosseum/                         ← 모노레포 루트
 │   ├── Packages/
 │   └── ProjectSettings/
 │
-├── server/                        ← Spring Boot 서버 (MVP 이후)
+├── worker-agent/                  ← ASP.NET Core Worker Agent (현재 활성)
+│   ├── Program.cs
+│   ├── Colosseum.WorkerAgent.csproj
+│   └── Properties/
+│
+├── server/                        ← Spring Boot 서버 (현재 활성: Room Registry API)
 │   ├── src/
 │   │   ├── main/java/...
 │   │   └── main/resources/
@@ -251,24 +259,19 @@ Colosseum/                         ← 모노레포 루트
 │   └── Dockerfile
 │
 ├── infra/                         ← 인프라/배포 설정
-│   ├── docker/
-│   │   ├── Dockerfile.unity-server
-│   │   ├── Dockerfile.spring
+│   ├── localbuild/                ← 로컬 실행 보조 (Spring JAR + Docker Compose)
+│   │   ├── Dockerfile
 │   │   └── docker-compose.yml
-│   ├── nginx/
-│   │   └── nginx.conf
-│   ├── scripts/
-│   │   ├── deploy.sh
-│   │   └── setup.sh
-│   └── aws/
+│   ├── remotebuild/               ← 원격 EC2 배포 자산 (현재 활성)
+│   │   ├── APIServer/             ← Spring Boot API Docker/Compose
+│   │   ├── WorkerServer/          ← Worker Agent Docker/Compose + Linux Dedicated mount
+│   │   └── OnboardingPage/        ← Nginx 정적 페이지 + Client.zip 다운로드
+│   └── aws/                       ← 키페어/네트워크/운영 메모 등 인프라 보조 자산
 │
 ├── docs/                          ← 공통 문서
 │
-├── .github/
-│   └── workflows/                 ← CI/CD (GitHub Actions)
-│       ├── unity-build.yml
-│       ├── spring-build.yml
-│       └── deploy.yml
+├── .gitlab-ci.yml                 ← CI/CD (GitLab CI)
+├── .gitlab/                       ← CODEOWNERS 등 GitLab 운영 자산
 │
 ├── .gitattributes
 └── .gitignore
@@ -277,9 +280,17 @@ Colosseum/                         ← 모노레포 루트
 ### 모노레포 원칙
 
 1. **하나의 저장소, 하나의 develop 브랜치**: 모든 코드가 동일한 Git history를 공유합니다.
-2. **폴더로 경계 구분**: `unity/`, `server/`, `infra/`가 물리적 경계입니다.
-3. **CI/CD는 변경 감지 기반**: GitHub Actions/GitLab CI에서 path filter(`changes: [unity/**]`, `changes: [server/**]`)를 사용하여 해당 폴더 변경 시에만 빌드를 실행합니다.
+2. **폴더로 경계 구분**: `unity/`, `worker-agent/`, `server/`, `infra/`가 물리적 경계입니다.
+3. **CI/CD는 GitLab CI 기준**: 현재 파이프라인 정본은 루트 `.gitlab-ci.yml` 이다. workflow 생성은 `master` 브랜치와 `web` 수동 실행을 기준으로 두고, 잡 실행은 `TARGET` 변수(`api`, `worker`, `lobby`, `onboarding`, `all`)로 분기한다. 자동 파이프라인에서는 `changes` 규칙으로 관련 경로가 바뀐 job만 생성하고, `web` 수동 실행은 `changes`를 우회해 필요한 job을 강제 실행할 수 있다.
 4. **공유 문서는 `docs/`에**: 양쪽 프로젝트에 공통되는 문서는 루트 `docs/`에 보관합니다.
+
+### 현재 원격 배포 레퍼런스 (2026-05-08)
+
+- Onboarding EC2: `infra/remotebuild/OnboardingPage/` 자산을 Nginx 컨테이너로 서빙하고 `Client.zip` 다운로드를 제공한다.
+- Lobby EC2: Unity Linux Dedicated build를 `--mode lobby`로 직접 실행한다. 현재 레퍼런스에서는 Docker 래핑 대상이 아니다.
+- Worker EC2: `infra/remotebuild/WorkerServer/` 자산으로 Worker Agent 컨테이너를 띄우고, Linux Dedicated build 폴더를 mount해 GameServer 프로세스를 실행한다.
+- API EC2: `infra/remotebuild/APIServer/` 자산으로 Spring Boot Room Registry API를 컨테이너로 실행한다.
+- 원격 control plane 주소는 작업 브리핑에 명시하되, 현재 구현 예시는 `COLOSSEUM_WORKER_BASE_URL=http://10.x.x.x:8080`, `COLOSSEUM_ROOM_API_BASE_URL=http://10.x.x.x:8081/api/v1` 형식을 따른다.
 
 ---
 
@@ -297,7 +308,8 @@ master
 │   ├── feature/network/network/A303-{n}-...               ← Unity 네트워크 인프라
 │   ├── feature/visual/ui/A303-{n}-...                     ← Unity UI
 │   ├── feature/visual/camera/A303-{n}-...                 ← Unity 카메라
-│   ├── feature/server/{서브}/A303-{n}-...                  ← Spring Boot (채택 시)
+│   ├── feature/infra/worker-agent/A303-{n}-...            ← ASP.NET Worker Agent
+│   ├── feature/server/{서브}/A303-{n}-...                  ← Spring Boot / Redis / Room Registry API
 │   └── feature/infra/{서브}/A303-{n}-...                   ← Docker, CI/CD, 배포
 ├── docs                                                   ← 문서 전용
 └── hotfix/A303-{n}-...                                    ← 긴급 수정 (master에서 분기)
@@ -342,10 +354,16 @@ docs/A303-{이슈번호}-[문서내용]
 | `network` | `unity/Assets/_Project/Scripts/Network/` | 네트워크 | Network |
 | `visual` | `unity/Assets/_Project/Scripts/UI/`, `Camera/`, Animations, Audio | 비주얼 | UI / Art / Audio |
 | `server` | `server/` 전체 | 백엔드 | API |
-| `infra` | `infra/`, `.github/workflows/`, Docker 설정 | DevOps | Infra |
+| `infra` | `infra/`, `.gitlab-ci.yml`, `.gitlab/`, Docker/Nginx 설정, `worker-agent/`, `infra/localbuild/`, `infra/remotebuild/` | DevOps / Worker Agent / 로컬·원격 실행 보조 | Infra |
 
 **여러 영역에 걸치는 작업**: 비중이 더 큰 쪽의 prefix를 사용합니다.
 예) 로그인 기능 = Spring Boot API + Unity UI → `feature/server/auth/A303-110-login` 형식(서브디렉토리명 필수, `server/` 하위 1레벨 사용. 백엔드가 메인이므로 영역 prefix는 `server`)
+
+예) Room Registry API + Redis 연동 = `feature/server/room/A303-{n}-room-registry-api`
+
+예) 로컬 Docker 실행 보조 (`infra/localbuild/`) = `feature/infra/localbuild/A303-{n}-spring-local-compose`
+
+예) 원격 Worker 배포 자산 (`infra/remotebuild/WorkerServer/`) = `feature/infra/remotebuild/A303-{n}-worker-ec2-deploy`
 
 ### 워크플로우
 
@@ -404,6 +422,13 @@ git rebase origin/develop
 **규칙 5: 크로스 프로젝트 변경 시 하나의 MR로**
 
 Unity와 Spring Boot를 동시에 수정하는 기능은 하나의 MR에 포함시켜 양쪽의 정합성을 보장합니다.
+
+현재 구현 기준으로 `worker-agent`와 `server`의 역할은 아래처럼 나눈다.
+
+- `worker-agent/`: Unity 게임 서버 프로세스 spawn / 종료 / stdout 상태 수집 / Spring Room API 호출
+- `server/`: Redis 기반 Room Registry API (`GET/POST/PATCH/DELETE /api/v1/rooms`)
+- `infra/localbuild/`: 팀원 로컬 환경에서 Spring JAR + Redis를 Docker Compose로 기동하는 보조 실행 경로
+- `infra/remotebuild/`: 원격 EC2 배포 자산. `APIServer/`, `WorkerServer/`, `OnboardingPage/`의 Docker/Compose/Nginx 설정과 정적 배포 파일을 포함한다.
 
 ### 커밋 메시지 규칙 (v3.0: Jira 이슈 키 강제)
 
@@ -541,8 +566,23 @@ Unity 프로젝트 생성 직후 다음 값 고정(유민재 또는 박병준이
 
 ### 12.5 LFS quota
 
-- GitLab.com 기본 LFS quota는 프로젝트당 10GB. SSAFY 레포 실측 quota는 박병준이 W1 내 확인 (T4-2/D52와 일치).
-- quota 초과 시 대응: (a) 구 에셋 purge, (b) 외부 스토리지(S3) 이전, (c) 프로 계정 업그레이드 중 선택. 결정 시 본 문서 갱신.
+**SSAFY GitLab 실측 (2026-04-27, S14P31A303-152)**: self-hosted CE/EE에 admin-level quota 강제 없음. 프로젝트 레벨 사용량만 표시되고 cap 미설정. 그룹 레벨 `usage_quotas` 페이지는 404. **강제 한도 없음**.
+
+현재 사용량(2026-04-27, origin/develop @ 61f8248): Repository 8.26 MiB / LFS 978.34 KiB (전부 Photon Fusion SDK + TextMeshPro 내장 리소스). 자체 게임 에셋 LFS 진입 0개.
+
+**운영 정책 (자체 임계, S14P31A303-152 결정)**:
+
+| 임계 | 트리거 | 대응 |
+|---|---|---|
+| 임계 1 | 단일 에셋 50 MB 초과 | LFS 미진입, 외부 스토리지(SSAFY Drive / Google Drive)로 분기 + 레포에 다운로드 링크 + SHA256 |
+| 임계 2 | LFS 누적 5 GB 도달 | SSAFY 인프라 팀 문의 + 압축 강화 + 임계 1을 25 MB로 하향 |
+| 임계 3 | LFS 누적 10 GB 도달 | 외부 스토리지 전면 이전 + 마스터 브랜치 LFS purge 검토 |
+
+**상시 압축**: PSD 작업본 gitignore + PNG 커밋 / 오디오 OGG 96 kbps / Sprite Atlas / 텍스처 2K 이하.
+
+**모니터링**: 주간(매주 월요일) 박병준이 `git lfs ls-files --size` 합산 + GitLab Usage 페이지 확인 → Mattermost `#dev-infra` 공유. MR 단계 리뷰어가 신규 LFS 진입 파일 50 MB 체크. Gate 시점(G1~G4)에 재측정.
+
+상세 측정·정책·루틴은 [`90_백로그/03_Git_LFS_실측.md`](../90_백로그/03_Git_LFS_실측.md) 참조.
 
 ---
 
@@ -692,7 +732,8 @@ AI 도구(Claude / Codex / Gemini 등)의 리뷰는 **리뷰 보조 자료**이�
 ### 16.2 주입 경로 (2026-04-21 T4-3 결정)
 
 - **보관 방식**: 박병준 PC 로컬 (gitignore 패턴 `*.local.*`로 차단). tracked 파일에 실제 값 기록 금지.
-- 권장 구체 경로: `.env.local` 또는 `ProjectSettings/PhotonAppSettings.local.asset` (placeholder 덮어쓰기).
+- 권장 구체 경로: `.env.local` 또는 `unity/Assets/Photon/Fusion/Resources/PhotonAppSettings.local.asset` (placeholder 덮어쓰기 — Fusion 2 `Resources.Load` 동작 경로).
+  - **구 경로 `ProjectSettings/PhotonAppSettings.local.asset` 는 deprecated** (2026-04-27 v0.2 정정). Fusion 2 의 `Resources.Load<PhotonAppSettings>("PhotonAppSettings")` 가 `Resources/` 하위만 인식.
 
 ### 16.3 팀원 전달 (2026-04-21 T4-3 결정)
 
@@ -705,15 +746,15 @@ AI 도구(Claude / Codex / Gemini 등)의 리뷰는 **리뷰 보조 자료**이�
 - **팀원 전달 방식**: Mattermost DM
 - **신규 팀원 합류 시**: 박병준이 동일 방식으로 DM 전달
 
-### 16.5 AppID local override runbook (TODO, W2 착수 전, 박병준)
+### 16.5 AppID local override runbook (accepted_candidate)
 
-> W3 원격 2P 검증 전까지 runbook 작성 필요. 아래 항목을 본 §16 하위 또는 별도 문서로 정리한 뒤 본 섹션에서 링크한다. 현재는 인벤토리만.
+> 2026-04-27 박병준 작성. 본 인벤토리 5항목은 별도 문서 [`03_Photon_AppID_Runbook.md`](03_Photon_AppID_Runbook.md) 로 정리되었다 (`S14P31A303-153` 산출물). 향후 갱신은 03 문서에서 진행하고, 본 §16.5 는 항목 인덱스만 유지한다.
 
-- Photon/Fusion placeholder asset의 실제 경로 (예: `Assets/Photon/Fusion/PhotonAppSettings.asset`) 확인 및 placeholder 검증.
-- local override 파일명과 배치 위치 (`*.local.asset` 또는 `.env.local`). `.gitignore` 패턴 `*.local.*` 일치 확인.
-- Unity Editor에서 placeholder에 AppID를 주입하는 단계별 절차 (에디터 스크립트 or 수기).
-- CI/MR에서 tracked 파일에 secret이 들어가지 않았는지 검증하는 방법 (pre-commit 또는 CI grep check).
-- AppID가 없는 경우 로컬 2P/LAN Host Mode fallback 절차 (`70_검증_체크리스트/05_Fusion_로컬_2인_리허설.md` 연계).
+- §1: Photon/Fusion placeholder asset 실제 경로 (`unity/Assets/Photon/Fusion/Resources/PhotonAppSettings.asset`) 및 placeholder 검증.
+- §2: local override 파일명·배치 위치. `.gitignore` 패턴 `**/PhotonAppSettings.local.*` / `**/*.local.asset` 일치 확인.
+- §3: Unity Editor 에서 placeholder 에 AppID 주입 단계별 절차 (sidecar 자동 주입 권장 / 수기 비권장).
+- §4: CI/MR 에서 tracked 파일에 secret 유입 여부 검증 (현재 self-check + 리뷰어 grep, `S14P31A303-216` 완료 후 CI 자동화).
+- §5: AppID 미보유 시 로컬 2P / LAN Host Mode fallback (`70_검증_체크리스트/05_Fusion_로컬_2인_리허설.md` 연계).
 
 ---
 
@@ -733,7 +774,7 @@ AI 도구(Claude / Codex / Gemini 등)의 리뷰는 **리뷰 보조 자료**이�
 | [AUDIO] | FMOD, SFX, BGM, 사운드 이벤트 | Audio | visual |
 | [INFRA] | CI/CD, 빌드, 프로젝트 설정, Git | Infra | infra |
 | [PLAN] | 기획, 설계, 문서, 플레이테스트, 발표 | Planning | (docs/ 또는 별도) |
-| [API] | Spring Boot 백엔드 (채택 시) | API | server |
+| [API] | Spring Boot 백엔드 (현재 활성) | API | server |
 
 Epic은 구분자, Label, Component 없이 기능명만 사용.
 
@@ -762,6 +803,58 @@ Epic은 구분자, Label, Component 없이 기능명만 사용.
 ### 17.4 Sprint 용량
 
 5인 × 10점 × 70% = **35점/주**.
+
+### 17.5 이슈 타입 정책 (2026-04-22 추가)
+
+**개발 백로그 표준**: `Epic(마일스톤) → Story → Sub-task` 3단계 고정.
+
+| 타입 | 적용 범위 | 예시 |
+|---|---|---|
+| **Epic** | 마일스톤(M1~M4) 컨테이너. 기능 분류 아님 | M1 2인 로컬 플레이어블 슬라이스 |
+| **Story** | 코드 산출물이 있는 모든 항목 (기본값) | [GAMEPLAY] 카드 드래프트 구현 |
+| **Sub-task** | ① 담당자 핸드오프, ② QA/빌드 분리, ③ 1일 이상 독립 작업 중 하나일 때 | [NETWORK] 세션 생성 RPC |
+| **Task** (예외 허용) | 코드 산출물이 없는 운영성 항목 | 회의·의사결정·리허설·문서·Gate 태그 발행 |
+
+**Task 허용 범위 (예외)**:
+- 회의·의사결정 로그·플레이테스트 운영·발표 리허설
+- 문서 정리·용어 교체·인프라 문서 작업 (CODEOWNERS·Git LFS 실측 등)
+- Gate 태그 발행과 master 머지 (DevOps)
+
+**Story 강제**: [GAMEPLAY], [NETWORK], [UI], [ART], [AUDIO] 구분자 전부. [INFRA]는 기본 Story, 문서·DevOps 성격만 Task. [PLAN]은 전부 Task.
+
+**근거**: 기존 실패 구조(Epic 12 + Task 108 + Story/Sub-task 0)가 Task 일원화 방식이었고 컨벤션 불일치로 D63에서 전량 삭제됨. 회귀 방지가 핵심.
+
+**참조**: 실제 M1~M4 적용 인벤토리는 `90_백로그/11_2026-04-21_M1-M4_Jira_생성_대기.md` §0-0/§0-2.
+
+### 17.6 Fix Version 정책 (2026-04-22 추가)
+
+**원칙**: `Fix Version`은 "이번 마일스톤에서 내보낼 약속", `gate-*`/`v1.0-demo` Git 태그는 "실제 증적". 서로 대체하지 않음.
+
+**Jira Versions (4개)**:
+
+| Version | 마일스톤 | Git 태그 | 릴리즈 기준 |
+|---|---|---|---|
+| `v0.1-M1` | M1 (W1~W2) | `gate-1` | G1 Pass + W2 Exit |
+| `v0.2-M2` | M2 (W3) | `gate-2` | G2 Pass + 70/06 6질문 |
+| `v0.3-M3` | M3 (W4) | `gate-3` | G3 Pass + RTT 기준 |
+| `v1.0-demo` | M4 (W5) | `v1.0-demo` | G4 Pass + 시연 완주 |
+
+**운영 규칙**:
+
+- Story 생성 시 **Epic Link + Fix Version 동시 필수 입력**
+- Sub-task는 부모 Story의 Fix Version 승계
+- Sprint 보드 = M1~M4 주차 Sprint / 릴리즈 추적 = `Fix Version` (분리)
+
+**Gate Pass 당일 루틴**:
+
+1. 미완료 Story의 `Fix Version`을 차기 버전으로 이동 (carry-over)
+2. 해당 Version을 `release` 상태로 전환 (Jira Versions 화면)
+3. `gate-N` (또는 `v1.0-demo`) Git 태그 푸시
+4. Epic close 여부 판정 — "해당 마일스톤 Story가 전부 Done **또는** 차기 Version으로 이동 완료"
+
+**캐리오버 원칙**: 하나의 Story가 마일스톤을 넘어가면 이슈를 새로 쪼개지 말고 `Fix Version`만 다음 버전으로 이동.
+
+**참조**: 실제 적용 루틴과 JQL 예시는 `90_백로그/11_2026-04-21_M1-M4_Jira_생성_대기.md` §0-1/§6-1.
 
 ---
 
@@ -792,7 +885,7 @@ Epic은 구분자, Label, Component 없이 기능명만 사용.
 | (3) `develop` 브랜치 최초 생성 + 최초 `feature/*` MR 1건 완주 | MR URL 기록 |
 | (4) `.gitignore` / `.gitattributes` 레포 적용 완료 | ✅ 2026-04-20 완료 |
 | (5a) T2 DRI 확정 (§13.5 CODEOWNERS 전제) | **✅ 2026-04-21 D49** |
-| (5b) `.gitlab/CODEOWNERS` 파일 작성 (§13.5) | ⏳ 박병준 작성 대기 (W2 첫 MR 전) |
+| (5b) `.gitlab/CODEOWNERS` 파일 작성 (§13.5) | ✅ 2026-04-21 완료 (커밋 `444c5c7`) |
 
 `accepted` 승격은 팀 전 스프린트에서 본 컨벤션대로 MR 10건 이상 완주 + 씬/프리팹 merge conflict 0건 관찰 이후.
 
@@ -802,8 +895,11 @@ Epic은 구분자, Label, Component 없이 기능명만 사용.
 
 - ~~팀 GitLab 실제 protected branch 설정 확인~~ — ✅ 2026-04-21 완료 (D59. `master`·`develop` 두 브랜치 protected).
 - ~~CODEOWNERS 파일 적용 시점~~ — ✅ 2026-04-21 작성 완료 (`.gitlab/CODEOWNERS` origin/develop 반영, 커밋 `444c5c7`).
-- LFS quota 실측 — 박병준 W1 내 (T4-2).
-- Spring Boot API 실제 채택 시점 — 현재 기준 MVP 이후 검토. 채택 시 `server/` 폴더 활성화.
+- ~~LFS quota 실측~~ — ✅ 2026-04-27 완료 (S14P31A303-152). 강제 쿼터 없음 + 자체 임계 정책 §12.5 / [`90_백로그/03_Git_LFS_실측.md`](../90_백로그/03_Git_LFS_실측.md)에 정착.
+- Spring Boot API는 현재 Room Registry 용도로 활성 상태다. `server/` 폴더는 후보가 아니라 실제 구현 경계로 취급한다.
+- Worker Agent는 `worker-agent/` 루트에 유지한다. 현재 역할은 GameServer 프로세스 orchestration/control plane이며, `server/` 하위로 재배치하지 않는다.
+- 로컬 실행 보조는 `infra/localbuild/`를 사용한다. `Dockerfile`, `docker-compose.yml`, 실행 가이드를 이 폴더에 유지하고, Spring JAR는 git에 커밋하지 않고 로컬에서 `./gradlew bootJar`로 생성해 사용한다.
+- 원격 배포 자산은 `infra/remotebuild/`를 사용한다. 현재 레퍼런스는 Onboarding, Lobby, Worker, API의 4개 EC2 역할 분리이며, 이 중 Lobby를 제외한 Onboarding/API/Worker는 Docker 기반 실행 자산을 해당 폴더에 둔다.
 
 ### 2026-04-21 T6 회의에서 결정됨 (본 문서 v3.0 accepted_candidate 승격)
 

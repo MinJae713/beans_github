@@ -1,0 +1,89 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1ae51445238eb64aa116acae82521f8, type: 3}
+  m_Name: GameplayProfile
+  m_EditorClassIdentifier: 
+  metadata:
+    profileKey: gameplay/mvp/default
+    version: v0
+    status: value_candidate
+    note: 
+  combat:
+    baseline:
+      maxHealth: 100
+      respawnDelaySeconds: 2
+      respawnInvulnerableSeconds: 1
+      moveSpeed: 7
+      jumpForce: 21
+      jumpBufferSeconds: 0.1
+      variableJumpCutFactor: 0.65
+      fallGravityMultiplier: 2
+      apexHangThreshold: 0.8
+      apexGravityMultiplier: 0.4
+      ascendGravityMultiplier: 2.5
+      wallSlideSpeed: 2.5
+      wallJumpVerticalForce: 11
+      wallJumpHorizontalForce: 7
+      wallJumpVariance: 0.1
+      wallReattachLockoutSeconds: 0.2
+      wallSlideStickInputThreshold: 0.5
+      fireInterval: 1
+      ammoCapacity: 3
+      reloadTime: 1.5
+      directHitDamage: 10
+      projectileSpeed: 23
+      projectileGravityScale: 2.7
+      projectileLifetimeSeconds: 5
+      projectileBaseScale: 1
+      directHitKnockbackImpulse: 0
+    resolvedCaps:
+      projectileSizeMin: 0.7
+      projectileSizeMax: 5
+      projectileSpeedMin: 0.4
+      projectileSpeedMax: 3
+      reloadTimeMin: 0.5
+      fireIntervalMin: 0.05
+      hitKnockbackImpulseMax: 4
+      explosionRadiusMax: 30
+      statusStunMax: 0.8
+      statusSlowMax: 0.3
+    combinationRules:
+      sameProjectileSameTargetHitPolicy: 0
+      physicsSafetyCooldown: 0.02
+      statusApplicationFromMultiProjectilePolicy: 0
+      statusApplicationFromExplosionPolicy: 0
+      knockbackAggregationMode: 0
+      damageAggregationMode: 0
+      collisionPriorityPolicy: 0
+  cardOffer:
+    drawChoices: 3
+    visibleChoiceDuration: 10
+    serverAcceptPadding: 0.3
+    drawTimeoutSeconds: 8
+    excludeDuplicateChoicesInOffer: 1
+    excludeMaxStackReachedCards: 1
+    excludeTierCapReachedCards: 1
+    choiceSeedSource: 1
+    sameTickRacePolicy: 0
+    offerFallbackPolicy: 0
+    commonWeight: 1
+    rareWeight: 0.5
+    epicWeight: 0.2
+    legendaryWeight: 0.1
+    epicOwnershipCap: 2
+    legendaryOwnershipCap: 1
+  segment:
+    segmentBoundaryPadding: 0
+    boundaryJudgeEpsilon: 0.1
+    knockbackBoundaryPolicy: 0
+    respawnBoundaryGraceSeconds: 0.2
+    finalRunDurationSeconds: 0

@@ -1,0 +1,19 @@
+{
+    "name": "MoreMountains.Feedbacks.ShakersEditor",
+    "rootNamespace": "MoreMountains.Feedbacks",
+    "references": [
+        "MoreMountains.Feedbacks",
+        "MoreMountains.Feedbacks.CoreEditor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-04-20
+last_updated: 2026-05-07
 audience: ai-first
 ---
 
@@ -10,17 +10,21 @@ audience: ai-first
 > 실행 중단 조건: Figma 와이어프레임이 gameplay truth, 네트워크 truth, 확정 기술스택, accepted 문서와 충돌하면 기준문서 소유자에게 확인한다.
 > 상태 기준: 문서 상태와 binding 범위는 `05_문서관리_규칙/08_문서_상태_인덱스.md`를 우선한다.
 
-이 문서는 Colosseum의 디자인 참조 SOT를 등록한다. Figma는 화면 구조와 와이어프레임 판단의 우선 참조지만, 게임 규칙과 네트워크 판정을 직접 확정하지 않는다.
+이 문서는 Colosseum의 디자인 참조 SOT를 등록한다. `ddakbomb`은 로컬/운영 작업명으로 남을 수 있지만, 게임 코드명과 기준문서의 프로젝트명은 `Colosseum`으로 구분한다. Figma는 화면 구조와 와이어프레임 판단의 우선 참조지만, 게임 규칙과 네트워크 판정을 직접 확정하지 않는다.
 
 ## 현재 디자인 참조 SOT
 
 | 구분 | 값 |
 |---|---|
-| 도구 | Figma / FigJam Board |
-| 이름 | Colosseum SSAFY |
-| 링크 | <https://www.figma.com/board/BGVI5ohn0mzXxjiGXy5RFA/Colosseum-SSAFY?node-id=0-1&t=FQMo2unuhiw7Kfsd-0> |
+| 도구 | Figma design |
+| 프로젝트 코드명 | Colosseum |
+| 로컬/운영 작업명 | ddakbomb |
+| Figma 파일명 | 자율PJT_A303 |
+| 링크 | <https://www.figma.com/design/u0k3MibiRrkg51fxTT2F4c/%EC%9E%90%EC%9C%A8PJT_A303?node-id=248-842> |
 | 담당 도메인 | `45_피드백_UI_연출`, `30_전장_레벨디자인`, `40_카드_무기_설계`의 화면 표현 |
 | 우선 적용 범위 | 화면 흐름, HUD 위치, 카드 선택 화면, 메뉴/로비 흐름, 전장 정보 표시 방식 |
+
+이전 FigJam/board 링크가 남아 있더라도 최신 카드 선택 UI 작업의 우선 참조는 위 Figma design 링크다. 과거 링크는 회의 기록이나 아이데이션 보조 자료로만 취급한다.
 
 ## 적용 원칙
 
@@ -49,3 +53,9 @@ audience: ai-first
 | Figma와 candidate UI 문서가 다름 | 작업 브리핑에 가정과 검증 기준을 적고 담당자 확인 |
 | Figma 링크 접근 불가 | BLOCKED로 보고하고 스크린샷이나 export를 요청 |
 | Figma 노드가 바뀜 | 변경 이유를 작업 브리핑 또는 의사결정 로그에 남김 |
+
+## 최근 적용 메모
+
+- A303-272: 카드 선택 화면은 Figma의 neon tactical / kinetic HUD 계열을 기준으로 3장 카드 레이아웃, 희귀도 배지, 선택 강조, 확인 버튼, 리스폰 카운트다운 표현을 우선 적용했다.
+- A303-274: MVP16 카드에는 `CardData.cardIcon` 직렬화 참조로 symbolic placeholder 아이콘을 매핑했다. 이 아이콘은 최종 상업 일러스트가 아니라 템플릿/정보구조 검증용이다.
+- 카드 선택 화면 샘플, MR 본문, 캡처에는 MVP16에 없는 카드명(예: 저격총, 샷건)을 실제 구현 범위처럼 사용하지 않는다. Figma 예시는 시각 방향 참고로만 쓰고, 실제 카드명과 설명은 `40_카드_무기_설계/10_세부설계/03_MVP_카드_후보_카탈로그.md`를 따른다.

@@ -1,0 +1,23 @@
+{
+    "name": "Colosseum.NetworkGameplay",
+    "rootNamespace": "Colosseum",
+    "references": [
+        "Colosseum.Game",
+        "Colosseum.Contracts",
+        "Colosseum.NetworkInput",
+        "Fusion.Unity",
+        "Fusion.Addons.Physics",
+        "Unity.TextMeshPro",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "MoreMountains.Feedbacks"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

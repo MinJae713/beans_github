@@ -1,0 +1,202 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97d1806e8363663479bf3e7c71a3e08d, type: 3}
+  m_Name: SegmentProfile_MVPArena
+  m_EditorClassIdentifier: 
+  segmentWidthRatio: 5
+  viewportWidthRatio: 2
+  floor1Y: 0
+  floorUnit: 4
+  jumpLimitFloors: 1.5
+  cameraOrthographicSize: 13
+  cameraLerpSpeed: 5
+  segments:
+  - index: 1
+    role: 0
+    leftBoundX: -364
+    rightBoundX: -260
+    hasMultiFloor: 0
+  - index: 2
+    role: 1
+    leftBoundX: -260
+    rightBoundX: -156
+    hasMultiFloor: 1
+  - index: 3
+    role: 1
+    leftBoundX: -156
+    rightBoundX: -52
+    hasMultiFloor: 1
+  - index: 4
+    role: 1
+    leftBoundX: -52
+    rightBoundX: 52
+    hasMultiFloor: 1
+  - index: 5
+    role: 1
+    leftBoundX: 52
+    rightBoundX: 156
+    hasMultiFloor: 1
+  - index: 6
+    role: 1
+    leftBoundX: 156
+    rightBoundX: 260
+    hasMultiFloor: 1
+  - index: 7
+    role: 0
+    leftBoundX: 260
+    rightBoundX: 364
+    hasMultiFloor: 0
+  placeholders:
+  - entryName: S1_FlatFloor
+    segmentIndex: 1
+    kind: 0
+    worldPosition: {x: -312, y: 0}
+    size: {x: 104, y: 2}
+    floorLayer: 1
+  - entryName: S2_NarrowWall
+    segmentIndex: 2
+    kind: 1
+    worldPosition: {x: -246.99998, y: 8}
+    size: {x: 5.2, y: 16}
+    floorLayer: 1
+  - entryName: S3_CornerCover
+    segmentIndex: 3
+    kind: 2
+    worldPosition: {x: -78, y: 4}
+    size: {x: 10.4, y: 8}
+    floorLayer: 1
+  - entryName: S4_ReflectWall_A
+    segmentIndex: 4
+    kind: 3
+    worldPosition: {x: -31.199999, y: 8}
+    size: {x: 5.2, y: 16}
+    floorLayer: 1
+  - entryName: S4_ReflectWall_B
+    segmentIndex: 4
+    kind: 3
+    worldPosition: {x: 31.199999, y: 8}
+    size: {x: 5.2, y: 16}
+    floorLayer: 1
+  - entryName: S5_SightBlocker
+    segmentIndex: 5
+    kind: 4
+    worldPosition: {x: 104, y: 10}
+    size: {x: 15.599999, y: 12}
+    floorLayer: 1
+  - entryName: S6_FallZone
+    segmentIndex: 6
+    kind: 5
+    worldPosition: {x: 208, y: -4}
+    size: {x: 41.6, y: 2}
+    floorLayer: 0.5
+  - entryName: S6_PitTrigger
+    segmentIndex: 6
+    kind: 6
+    worldPosition: {x: 208, y: -8}
+    size: {x: 41.6, y: 4}
+    floorLayer: 0
+  - entryName: Generic_A
+    segmentIndex: 2
+    kind: 7
+    worldPosition: {x: -233.99998, y: 4}
+    size: {x: 5.2, y: 4}
+    floorLayer: 1
+  - entryName: Generic_B
+    segmentIndex: 5
+    kind: 7
+    worldPosition: {x: 130, y: 4}
+    size: {x: 5.2, y: 4}
+    floorLayer: 1
+  - entryName: S2_PlatformMid
+    segmentIndex: 2
+    kind: 0
+    worldPosition: {x: -208, y: 2}
+    size: {x: 13, y: 0.6}
+    floorLayer: 1.5
+  - entryName: S3_PlatformMid
+    segmentIndex: 3
+    kind: 0
+    worldPosition: {x: -116.99999, y: 2}
+    size: {x: 13, y: 0.6}
+    floorLayer: 1.5
+  - entryName: S3_HighGround
+    segmentIndex: 3
+    kind: 0
+    worldPosition: {x: -65, y: 8}
+    size: {x: 10.4, y: 0.6}
+    floorLayer: 3
+  - entryName: S4_PlatformMid_A
+    segmentIndex: 4
+    kind: 0
+    worldPosition: {x: -20.8, y: 2}
+    size: {x: 7.7999997, y: 0.6}
+    floorLayer: 1.5
+  - entryName: S4_PlatformMid_B
+    segmentIndex: 4
+    kind: 0
+    worldPosition: {x: 20.8, y: 2}
+    size: {x: 7.7999997, y: 0.6}
+    floorLayer: 1.5
+  - entryName: S5_PlatformMid
+    segmentIndex: 5
+    kind: 0
+    worldPosition: {x: 91, y: 2}
+    size: {x: 13, y: 0.6}
+    floorLayer: 1.5
+  - entryName: S5_HighGround
+    segmentIndex: 5
+    kind: 0
+    worldPosition: {x: 130, y: 8}
+    size: {x: 10.4, y: 0.6}
+    floorLayer: 3
+  - entryName: S6_SafePlatform
+    segmentIndex: 6
+    kind: 0
+    worldPosition: {x: 169, y: 2}
+    size: {x: 10.4, y: 0.6}
+    floorLayer: 1.5
+  - entryName: S2_GroundFloor
+    segmentIndex: 2
+    kind: 0
+    worldPosition: {x: -208, y: 0}
+    size: {x: 104, y: 2}
+    floorLayer: 1
+  - entryName: S3_GroundFloor
+    segmentIndex: 3
+    kind: 0
+    worldPosition: {x: -104, y: 0}
+    size: {x: 104, y: 2}
+    floorLayer: 1
+  - entryName: S4_GroundFloor
+    segmentIndex: 4
+    kind: 0
+    worldPosition: {x: 0, y: 0}
+    size: {x: 104, y: 2}
+    floorLayer: 1
+  - entryName: S5_GroundFloor
+    segmentIndex: 5
+    kind: 0
+    worldPosition: {x: 104, y: 0}
+    size: {x: 104, y: 2}
+    floorLayer: 1
+  - entryName: S6_GroundFloor
+    segmentIndex: 6
+    kind: 0
+    worldPosition: {x: 208, y: 0}
+    size: {x: 104, y: 2}
+    floorLayer: 1
+  - entryName: S7_GroundFloor
+    segmentIndex: 7
+    kind: 0
+    worldPosition: {x: 312, y: 0}
+    size: {x: 104, y: 2}
+    floorLayer: 1

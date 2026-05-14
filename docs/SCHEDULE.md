@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-04-21
+last_updated: 2026-05-07
 audience: ai-first
 ---
 
@@ -22,7 +22,7 @@ audience: ai-first
 | 주차 | 기간 | 주차 목표 (초안) | 대응 게이트 |
 |---|---|---|---|
 | W1 | 2026-04-16 ~ 04-22 | 기존 구현 검증 + 기반 세팅 | G1 준비 |
-| W2 | 2026-04-23 ~ 04-29 | 네트워크 안정화 + 카드 최종 10종 확정 | G1 Pass |
+| W2 | 2026-04-23 ~ 04-29 | 네트워크 안정화 + MVP16 카드 기준 정합 | G1 Pass |
 | W3 | 2026-04-30 ~ 05-06 | 온라인 세션 + 로비 | G2 ~ G3 Pass |
 | W4 | 2026-05-07 ~ 05-13 | 네트워크+성능 최적화 + QA | G4 Pass |
 | W5 | 2026-05-14 ~ 05-20 | Polish + 성능 최적화 + Demo | 시연 |
@@ -34,7 +34,7 @@ audience: ai-first
 ### Exit Criteria
 
 - [ ] ① 최진우 W1 구현분 리그레션 테스트: `PlayerController` / `Gun` / `BulletController` / `PlayerHealth` / `RoomManager` / `CardDeck` / `NetworkManager` 동작 확인
-- [ ] ② Git LFS + `.gitattributes` 레포 적용
+- [x] ② Git LFS + `.gitattributes` 레포 적용 — 2026-04-21 D52 반영 완료. 2026-05-14 원격 runner Unity build에 `git lfs pull` 선행 필요성까지 운영 검증됨
 - [x] ③ DRI 배정 확정: [50/05](50_기술_구조_기준/05_파일경로별_DRI.md)의 "제안 v3" → accepted 승격 (2026-04-21 T2/D49 완료)
 - [ ] ④ Jira M1 에픽 + 스토리 일괄 생성 (담당자 배정 완료)
 - [ ] ⑤ 반사탄 스키마 [50/02#반사탄](50_기술_구조_기준/02_네트워크_truth_표.md) 반영 확인
@@ -46,7 +46,7 @@ audience: ai-first
 **박병준 (PM·Tech Lead)**
 
 - [ ] Jira M1 에픽 생성 + 스토리 10~15건 (W1 마감 전, T4-1/D51)
-- [ ] Git LFS quota 실측 (W1 내, T4-2/D52, `80/01` §12.5 일치)
+- [x] Git LFS quota 실측 (W1 내, T4-2/D52, `80/01` §12.5 일치) — 2026-04-27 완료, `90_백로그/03_Git_LFS_실측.md` 반영
 - [ ] Photon AppID 발급 + 로컬 보관 (W2 전, T4-3/D53)
 - [x] `.gitlab/CODEOWNERS` 작성 (T2 DRI 이름 기준, `80/01` v3.0 승격 조건 5b) — 2026-04-21 완료, 커밋 `444c5c7` (origin/develop)
 - [x] GitLab protected branch 설정과 `80/01` §9 일치 확인 — 2026-04-21 완료 (D59. `master`·`develop` 두 브랜치 protected)
@@ -54,13 +54,13 @@ audience: ai-first
 
 **김범승 (Gameplay B)**
 
-- [ ] `40_카드_무기_설계/10_세부설계/03_MVP_카드_후보_카탈로그.md` 40장+ 재설계 + 등급분포 + offer-fallback (2026-04-27, T5/D54)
+- [ ] `40_카드_무기_설계/10_세부설계/03_MVP_카드_후보_카탈로그.md` MVP16 우선 검증 기준과 `04_40장_카드_카탈로그.md` 전체 후보 정합화 + 등급분포 + offer-fallback (2026-04-27, T5/D54)
 - [ ] `85_밸런스_프리셋/20_수치프리셋/01~03` 스키마-only 커밋 — 필드 시그니처 잠금 (2026-04-27, T9/D56, W2 Exit ⑥)
 
 **유민재 (Infra·Build·QA)**
 
-- [ ] Unity 프로젝트 생성 시 `ProjectSettings/EditorSettings.asset` Force Text + Visible Meta Files 강제 (`80/01` §12.4)
-- [ ] `develop` 브랜치 최초 생성 후 CI 세팅 (박병준과 협의)
+- [x] Unity 프로젝트 생성 시 `ProjectSettings/EditorSettings.asset` Force Text + Visible Meta Files 강제 (`80/01` §12.4) — 운영 중 전제 유지. 재설치 후 로컬 에디터 설정 재확인 필요
+- [x] `develop` 브랜치 최초 생성 후 CI 세팅 (박병준과 협의) — 초기 세팅 완료. 현재 원격 배포 파이프라인 정본은 `.gitlab-ci.yml`, workflow 생성은 `master` / `web` 기준이며 자동 파이프라인은 `changes`로 관련 job만 생성, 수동 `web` 실행은 `TARGET` 기준 강제 실행 가능
 
 **최진우 (Gameplay A·Network Lead)**
 
@@ -71,12 +71,12 @@ audience: ai-first
 
 - W1~W2 시점 추가 의무 없음. T12 시연 시나리오 작성 담당 협의 예정.
 
-## W2 (2026-04-23 ~ 04-29) — 네트워크 안정화 + 카드 최종 10종 확정
+## W2 (2026-04-23 ~ 04-29) — 네트워크 안정화 + MVP16 카드 기준 정합
 
 ### Exit Criteria
 
 - [ ] ① Fusion Host Mode 로컬 2P 연속매치 — `runner.IsRunning` 유지 + RPC 실패 0건 + 비의도 desync log 0건으로 3라운드 완주
-- [ ] ② 카드 문서-코드 drift 해소 완료 (총알 한정 10종 확정, [40/10/03](40_카드_무기_설계/10_세부설계/03_MVP_카드_후보_카탈로그.md))
+- [ ] ② 카드 문서-코드 drift 해소 완료 (MVP16 우선 검증 카드와 `CardData`/드래프트 풀 정합, [40/10/03](40_카드_무기_설계/10_세부설계/03_MVP_카드_후보_카탈로그.md))
 - [ ] ③ MMFeedbacks 기본 타격감 적용 (피격·사망·카드 선택)
 - [ ] ④ [70/01](70_검증_체크리스트/01_스모크테스트.md) 스모크 통과
 - [ ] ⑤ "인벤토리" 용어 전수 교체 완료 (문서·코드·Jira)
@@ -90,6 +90,9 @@ audience: ai-first
 - [ ] ② 첫 원격 2P 매치 성공 (LAN 이외 환경)
 - [ ] ③ [70/06](70_검증_체크리스트/06_첫_Playable_Slice_검증_패킷.md) 첫 Playable Slice 통과 — 6개 관찰 질문 전부 Yes + 실패 신호 5종 미발생 (반사탄 포함)
 - [ ] ④ 원격 RTT 측정 기록 (베이스라인 확보)
+- [x] ⑤ A303-245 docs 정합 완료 — `GameplayProfile.combat.baseline` 이동/점프 9필드 + 사격/탄환 9필드 흐름 일관화, legacy flat 6필드 제거 반영
+
+> Room Registry / Lobby Browser 경로를 W3 완료 증거로 주장하려면 [50/06](50_기술_구조_기준/06_매칭_로비_기준.md)의 D62 후보 기준과 [70/05](70_검증_체크리스트/05_Fusion_로컬_2인_리허설.md)의 Spring Room API, Redis, worker-agent 실행 전제 및 CRUD smoke를 함께 충족해야 한다.
 
 ## W4 (2026-05-07 ~ 05-13) — 네트워크+성능 최적화 + QA
 

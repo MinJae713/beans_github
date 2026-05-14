@@ -1,0 +1,16 @@
+services:
+  worker-agent:
+    build:
+      context: ..
+      dockerfile: WorkerServer/Dockerfile
+    container_name: colosseum-worker-agent
+    network_mode: host
+    environment:
+      COLOSSEUM_GAME_SERVER_EXE: "${COLOSSEUM_GAME_SERVER_EXE:-/gameserver/Colosseum-Server}"
+      COLOSSEUM_WORKER_LISTEN_URL: "${COLOSSEUM_WORKER_LISTEN_URL:-http://127.0.0.1:8080}"
+      COLOSSEUM_ROOM_API_BASE_URL: "${COLOSSEUM_ROOM_API_BASE_URL:-http://127.0.0.1:8081/api/v1}"
+      COLOSSEUM_WORKER_ID: "${COLOSSEUM_WORKER_ID:-worker-ec2-a}"
+      COLOSSEUM_WORKER_DISPLAY_NAME: "${COLOSSEUM_WORKER_DISPLAY_NAME:-EC2 Worker A}"
+    volumes:
+      - ./Server-Linux:/gameserver:ro
+    restart: unless-stopped

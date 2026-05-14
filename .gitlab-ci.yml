@@ -1,0 +1,437 @@
+stages:
+  - validate
+  - build
+  - deploy
+
+default:
+  tags:
+    - colosseum-deploy
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - when: never
+
+validate:runner:
+  stage: validate
+  script:
+    - 'echo "Runner is connected"'
+    - 'echo "Project: $CI_PROJECT_PATH"'
+    - 'echo "Branch: $CI_COMMIT_REF_NAME"'
+    - 'echo "Pipeline source: $CI_PIPELINE_SOURCE"'
+    - 'echo "TARGET: $TARGET"'
+    - 'echo "API_HOST: $API_HOST"'
+    - 'echo "LOBBY_HOST: $LOBBY_HOST"'
+    - 'echo "ONBOARDING_HOST: $ONBOARDING_HOST"'
+    - 'echo "WORKER_HOST: $WORKER_HOST"'
+
+build:server-linux:
+  stage: build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($TARGET == "worker" || $TARGET == "lobby" || $TARGET == "all")'
+    - if: '$TARGET == "worker" || $TARGET == "lobby" || $TARGET == "all"'
+      changes:
+        - unity/**/*
+        - worker-agent/**/*
+        - infra/remotebuild/**/*
+  script:
+    - 'echo "Building Unity Linux Dedicated Server artifact"'
+    - 'git lfs version >/dev/null 2>&1 || { echo "git-lfs is required on the runner host."; exit 1; }'
+    - 'git lfs pull'
+    - |
+      export UNITY_EDITOR_PATH="${UNITY_EDITOR_PATH:-/opt/unity/Editor/Unity}"
+      export SIDECAR_PATH="$CI_PROJECT_DIR/unity/Assets/Photon/Fusion/Resources/PhotonAppSettings.local.asset"
+      export SIDECAR_META_PATH="$CI_PROJECT_DIR/unity/Assets/Photon/Fusion/Resources/PhotonAppSettings.local.asset.meta"
+      export SERVER_BUILD_LOG="$CI_PROJECT_DIR/server-build.log"
+
+      if [ -z "${PHOTON_APP_ID_FUSION:-}" ]; then
+        echo "PHOTON_APP_ID_FUSION is required."
+        exit 1
+      fi
+
+      if [ -z "${PHOTON_APP_VERSION:-}" ]; then
+        echo "PHOTON_APP_VERSION is required."
+        exit 1
+      fi
+
+      if [ ! -x "$UNITY_EDITOR_PATH" ]; then
+        echo "Unity Editor executable not found at $UNITY_EDITOR_PATH"
+        echo "Set UNITY_EDITOR_PATH to the Unity binary path on the runner host."
+        exit 1
+      fi
+
+      rm -f "$SIDECAR_PATH" "$SIDECAR_META_PATH"
+      trap 'rm -f "$SIDECAR_PATH" "$SIDECAR_META_PATH"' EXIT INT TERM HUP
+
+      cat > "$SIDECAR_PATH" <<EOF
+      %YAML 1.1
+      %TAG !u! tag:unity3d.com,2011:
+      --- !u!114 &11400000
+      MonoBehaviour:
+        m_ObjectHideFlags: 0
+        m_CorrespondingSourceObject: {fileID: 0}
+        m_PrefabInstance: {fileID: 0}
+        m_PrefabAsset: {fileID: 0}
+        m_GameObject: {fileID: 0}
+        m_Enabled: 1
+        m_EditorHideFlags: 0
+        m_Script: {fileID: 1878438611, guid: 7de3b8b9e1263ad479e2d0c4261b7646, type: 3}
+        m_Name: PhotonAppSettings.local
+        m_EditorClassIdentifier:
+        AppSettings:
+          AppIdFusion: ${PHOTON_APP_ID_FUSION}
+          AppIdChat: ${PHOTON_APP_ID_CHAT:-}
+          AppIdVoice: ${PHOTON_APP_ID_VOICE:-}
+          AppVersion: ${PHOTON_APP_VERSION}
+          UseNameServer: 1
+          FixedRegion: ${PHOTON_FIXED_REGION:-}
+          Server: ${PHOTON_SERVER:-}
+          Port: 0
+          ProxyServer:
+          Protocol: 0
+          EnableProtocolFallback: 1
+          AuthMode: 0
+          EnableLobbyStatistics: 0
+          encryptionMode: 0
+          emptyRoomTtl: 0
+      EOF
+
+      cat > "$SIDECAR_META_PATH" <<EOF
+      fileFormatVersion: 2
+      guid: 4fd56fc2fbe94e0eb6be5d2a4cb43ce1
+      NativeFormatImporter:
+        externalObjects: {}
+        mainObjectFileID: 11400000
+        userData:
+        assetBundleName:
+        assetBundleVariant:
+      EOF
+
+      "$UNITY_EDITOR_PATH" \
+        -batchmode \
+        -quit \
+        -nographics \
+        -projectPath "$CI_PROJECT_DIR/unity" \
+        -executeMethod Colosseum.Editor.BuildHelper.BuildServerLinux \
+        -logFile "$SERVER_BUILD_LOG"
+      BUILD_EXIT=$?
+      tail -n 200 "$SERVER_BUILD_LOG" || true
+      exit $BUILD_EXIT
+  artifacts:
+    paths:
+      - unity/Builds/Server-Linux/
+      - server-build.log
+    expire_in: 1 day
+
+build:client-windows:
+  stage: build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($TARGET == "onboarding" || $TARGET == "all")'
+    - if: '$TARGET == "onboarding" || $TARGET == "all"'
+      changes:
+        - unity/**/*
+        - worker-agent/**/*
+        - infra/remotebuild/OnboardingPage/**/*
+  script:
+    - 'echo "Building Unity Windows Client artifact"'
+    - 'git lfs version >/dev/null 2>&1 || { echo "git-lfs is required on the runner host."; exit 1; }'
+    - 'git lfs pull'
+    - |
+      export UNITY_EDITOR_PATH="${UNITY_EDITOR_PATH:-/opt/unity/Editor/Unity}"
+      export SIDECAR_PATH="$CI_PROJECT_DIR/unity/Assets/Photon/Fusion/Resources/PhotonAppSettings.local.asset"
+      export SIDECAR_META_PATH="$CI_PROJECT_DIR/unity/Assets/Photon/Fusion/Resources/PhotonAppSettings.local.asset.meta"
+      export CLIENT_BUILD_LOG="$CI_PROJECT_DIR/client-build.log"
+
+      if [ -z "${PHOTON_APP_ID_FUSION:-}" ]; then
+        echo "PHOTON_APP_ID_FUSION is required."
+        exit 1
+      fi
+
+      if [ -z "${PHOTON_APP_VERSION:-}" ]; then
+        echo "PHOTON_APP_VERSION is required."
+        exit 1
+      fi
+
+      if [ ! -x "$UNITY_EDITOR_PATH" ]; then
+        echo "Unity Editor executable not found at $UNITY_EDITOR_PATH"
+        echo "Set UNITY_EDITOR_PATH to the Unity binary path on the runner host."
+        exit 1
+      fi
+
+      rm -f "$SIDECAR_PATH" "$SIDECAR_META_PATH"
+      trap 'rm -f "$SIDECAR_PATH" "$SIDECAR_META_PATH"' EXIT INT TERM HUP
+
+      cat > "$SIDECAR_PATH" <<EOF
+      %YAML 1.1
+      %TAG !u! tag:unity3d.com,2011:
+      --- !u!114 &11400000
+      MonoBehaviour:
+        m_ObjectHideFlags: 0
+        m_CorrespondingSourceObject: {fileID: 0}
+        m_PrefabInstance: {fileID: 0}
+        m_PrefabAsset: {fileID: 0}
+        m_GameObject: {fileID: 0}
+        m_Enabled: 1
+        m_EditorHideFlags: 0
+        m_Script: {fileID: 1878438611, guid: 7de3b8b9e1263ad479e2d0c4261b7646, type: 3}
+        m_Name: PhotonAppSettings.local
+        m_EditorClassIdentifier:
+        AppSettings:
+          AppIdFusion: ${PHOTON_APP_ID_FUSION}
+          AppIdChat: ${PHOTON_APP_ID_CHAT:-}
+          AppIdVoice: ${PHOTON_APP_ID_VOICE:-}
+          AppVersion: ${PHOTON_APP_VERSION}
+          UseNameServer: 1
+          FixedRegion: ${PHOTON_FIXED_REGION:-}
+          Server: ${PHOTON_SERVER:-}
+          Port: 0
+          ProxyServer:
+          Protocol: 0
+          EnableProtocolFallback: 1
+          AuthMode: 0
+          EnableLobbyStatistics: 0
+          encryptionMode: 0
+          emptyRoomTtl: 0
+      EOF
+
+      cat > "$SIDECAR_META_PATH" <<EOF
+      fileFormatVersion: 2
+      guid: 4fd56fc2fbe94e0eb6be5d2a4cb43ce1
+      NativeFormatImporter:
+        externalObjects: {}
+        mainObjectFileID: 11400000
+        userData:
+        assetBundleName:
+        assetBundleVariant:
+      EOF
+
+      "$UNITY_EDITOR_PATH" \
+        -batchmode \
+        -quit \
+        -nographics \
+        -projectPath "$CI_PROJECT_DIR/unity" \
+        -executeMethod Colosseum.Editor.BuildHelper.BuildClient \
+        -logFile "$CLIENT_BUILD_LOG"
+      BUILD_EXIT=$?
+      tail -n 200 "$CLIENT_BUILD_LOG" || true
+      exit $BUILD_EXIT
+  artifacts:
+    paths:
+      - unity/Builds/Client/
+      - client-build.log
+    expire_in: 1 day
+
+deploy:api:
+  stage: deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($TARGET == "api" || $TARGET == "all")'
+    - if: '$TARGET == "api" || $TARGET == "all"'
+      changes:
+        - server/**/*
+        - infra/remotebuild/APIServer/**/*
+  script:
+    - 'echo "Starting API deploy to $API_HOST via lobby jump host $LOBBY_HOST"'
+    - 'chmod +x server/gradlew'
+    - 'chmod 600 "$SSH_LOBBY_KEY"'
+    - 'chmod 600 "$SSH_PRIVATE_SUB_KEY"'
+    - 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64'
+    - 'export PATH="$JAVA_HOME/bin:$PATH"'
+    - |
+      ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_PRIVATE_SUB_KEY" \
+        -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_LOBBY_KEY -W %h:%p $SSH_USER@$LOBBY_HOST" \
+        $SSH_USER@$API_HOST \
+        "sudo docker stop colosseum-api || true; sudo docker rm colosseum-api || true; rm -f ~/APIServer/server-0.0.1-SNAPSHOT.jar"
+    - '(cd server && ./gradlew bootJar)'
+    - |
+      scp \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_PRIVATE_SUB_KEY" \
+        -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_LOBBY_KEY -W %h:%p $SSH_USER@$LOBBY_HOST" \
+        server/build/libs/server-0.0.1-SNAPSHOT.jar \
+        $SSH_USER@$API_HOST:/home/ubuntu/APIServer/server-0.0.1-SNAPSHOT.jar
+    - |
+      ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_PRIVATE_SUB_KEY" \
+        -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_LOBBY_KEY -W %h:%p $SSH_USER@$LOBBY_HOST" \
+        $SSH_USER@$API_HOST \
+        "cd ~/APIServer && sudo docker compose --env-file .env up -d --build"
+
+deploy:onboarding:
+  stage: deploy
+  needs:
+    - job: build:client-windows
+      artifacts: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($TARGET == "onboarding" || $TARGET == "all")'
+    - if: '$TARGET == "onboarding" || $TARGET == "all"'
+      changes:
+        - unity/**/*
+        - worker-agent/**/*
+        - infra/remotebuild/OnboardingPage/**/*
+  script:
+    - 'echo "Starting Onboarding deploy on local runner host"'
+    - 'command -v zip >/dev/null 2>&1 || { echo "zip is required on the runner host."; exit 1; }'
+    - 'export ONBOARDING_DIR=/home/gitlab-runner/OnboardingPage'
+    - 'mkdir -p "$ONBOARDING_DIR"'
+    - |
+      if docker ps -a --format '{{.Names}}' | grep -qx 'colosseum-onboarding'; then
+        docker stop colosseum-onboarding || true
+        docker rm colosseum-onboarding || true
+      fi
+    - |
+      rm -f \
+        "$ONBOARDING_DIR/default.conf" \
+        "$ONBOARDING_DIR/docker-compose.yml" \
+        "$ONBOARDING_DIR/index.html" \
+        "$ONBOARDING_DIR/downloads/Client.zip"
+    - |
+      rm -rf \
+        "$ONBOARDING_DIR/downloads"
+    - |
+      mkdir -p "$ONBOARDING_DIR/downloads" && \
+      chmod u+rwx "$ONBOARDING_DIR/downloads"
+    - |
+      cp \
+        infra/remotebuild/OnboardingPage/default.conf \
+        infra/remotebuild/OnboardingPage/docker-compose.yml \
+        infra/remotebuild/OnboardingPage/index.html \
+        "$ONBOARDING_DIR/"
+    - |
+      cp -r \
+        unity/Builds/Client \
+        "$ONBOARDING_DIR/downloads/"
+    - |
+      cd "$ONBOARDING_DIR/downloads" && \
+      zip -r Client.zip Client
+    - |
+      cd "$ONBOARDING_DIR" && \
+      docker compose up -d
+
+deploy:lobby:
+  stage: deploy
+  needs:
+    - job: build:server-linux
+      artifacts: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($TARGET == "lobby" || $TARGET == "all")'
+    - if: '$TARGET == "lobby" || $TARGET == "all"'
+      changes:
+        - unity/**/*
+        - worker-agent/**/*
+        - infra/remotebuild/**/*
+  script:
+    - 'echo "Starting Lobby deploy to $LOBBY_HOST"'
+    - 'chmod 600 "$SSH_LOBBY_KEY"'
+    - |
+      ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_LOBBY_KEY" \
+        $SSH_USER@$LOBBY_HOST \
+        '
+          if [ -f ~/lobby.pid ]; then
+            kill "$(cat ~/lobby.pid)" 2>/dev/null || true
+            rm -f ~/lobby.pid
+          fi
+          rm -rf ~/LobbyServer/Server-Linux
+          rm -f ~/lobby.log ~/lobby.out
+          mkdir -p ~/LobbyServer
+        '
+    - |
+      scp \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_LOBBY_KEY" \
+        -r unity/Builds/Server-Linux \
+        $SSH_USER@$LOBBY_HOST:/home/ubuntu/LobbyServer/
+    - |
+      ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_LOBBY_KEY" \
+        $SSH_USER@$LOBBY_HOST \
+        "
+          cd /home/ubuntu/LobbyServer/Server-Linux
+          chmod +x Colosseum-Server
+          nohup env \
+            COLOSSEUM_WORKER_BASE_URL='$COLOSSEUM_WORKER_BASE_URL' \
+            COLOSSEUM_ROOM_API_BASE_URL='$COLOSSEUM_ROOM_API_BASE_URL' \
+            ./Colosseum-Server --mode lobby -logFile /home/ubuntu/lobby.log > /home/ubuntu/lobby.out 2>&1 &
+          echo \$! > /home/ubuntu/lobby.pid
+        "
+
+deploy:worker:
+  stage: deploy
+  needs:
+    - job: build:server-linux
+      artifacts: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($TARGET == "worker" || $TARGET == "all")'
+    - if: '$TARGET == "worker" || $TARGET == "all"'
+      changes:
+        - unity/**/*
+        - worker-agent/**/*
+        - infra/remotebuild/WorkerServer/**/*
+  script:
+    - 'echo "Starting Worker deploy to $WORKER_HOST via lobby jump host $LOBBY_HOST"'
+    - 'chmod 600 "$SSH_LOBBY_KEY"'
+    - 'chmod 600 "$SSH_PRIVATE_SUB_KEY"'
+    - |
+      ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_PRIVATE_SUB_KEY" \
+        -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_LOBBY_KEY -W %h:%p $SSH_USER@$LOBBY_HOST" \
+        $SSH_USER@$WORKER_HOST \
+        'bash -lc '"'"'
+          pkill -f 'Colosseum-Server.*--mode game' || true
+          sudo docker stop colosseum-worker-agent || true
+          sudo docker rm colosseum-worker-agent || true
+          rm -f \
+            ~/WorkerServer/Dockerfile \
+            ~/WorkerServer/docker-compose.yml
+          rm -rf \
+            ~/WorkerServer/Server-Linux \
+            ~/worker-agent
+          mkdir -p ~/WorkerServer
+        '"'"''
+    - |
+      scp \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_PRIVATE_SUB_KEY" \
+        -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_LOBBY_KEY -W %h:%p $SSH_USER@$LOBBY_HOST" \
+        -r worker-agent \
+        $SSH_USER@$WORKER_HOST:/home/ubuntu/
+    - |
+      scp \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_PRIVATE_SUB_KEY" \
+        -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_LOBBY_KEY -W %h:%p $SSH_USER@$LOBBY_HOST" \
+        -r unity/Builds/Server-Linux \
+        $SSH_USER@$WORKER_HOST:/home/ubuntu/WorkerServer/
+    - |
+      scp \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_PRIVATE_SUB_KEY" \
+        -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_LOBBY_KEY -W %h:%p $SSH_USER@$LOBBY_HOST" \
+        infra/remotebuild/WorkerServer/Dockerfile \
+        infra/remotebuild/WorkerServer/docker-compose.yml \
+        $SSH_USER@$WORKER_HOST:/home/ubuntu/WorkerServer/
+    - |
+      ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -i "$SSH_PRIVATE_SUB_KEY" \
+        -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_LOBBY_KEY -W %h:%p $SSH_USER@$LOBBY_HOST" \
+        $SSH_USER@$WORKER_HOST \
+        "chmod +x ~/WorkerServer/Server-Linux/Colosseum-Server && cd ~/WorkerServer && sudo docker compose --env-file .env up -d --build"
