@@ -1,0 +1,16 @@
+{
+    "name": "Colosseum.StatusEffects",
+    "rootNamespace": "Colosseum",
+    "references": [
+        "Colosseum.NetworkGameplay"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

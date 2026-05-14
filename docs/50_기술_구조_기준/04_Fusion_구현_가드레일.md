@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-04-21
+last_updated: 2026-05-06
 audience: ai-first
 ---
 
@@ -72,6 +72,41 @@ audience: ai-first
 
 팀 공유용 문서에는 개인 경로, 개인 다운로드 폴더, 로컬 실행 산출물 경로를 적지 않는다.
 
+## Fusion Weaver / asmdef 기준
+
+Fusion `NetworkBehaviour`를 포함하는 assembly는 Fusion IL Weaver 대상에 포함되어야 한다. Assembly definition을 새로 나누거나 `NetworkBehaviour`, `INetworkInput`, `[Networked]` 타입의 assembly를 옮길 때는 아래 항목을 함께 확인한다.
+
+| 항목 | 기준 |
+|---|---|
+| Weaver 대상 | `Assets/Photon/Fusion/Resources/NetworkProjectConfig.fusion`의 `AssembliesToWeave`에 해당 assembly가 포함되어 있는가 |
+| 입력 타입 분리 | `INetworkInput` 구현체는 필요한 assembly에서 명시 참조할 수 있는 별도 asmdef로 분리되어 있는가 |
+| 권한 범위 | `allowUnsafeCode`는 Fusion weave 결과가 필요한 최소 assembly에만 허용하는가 |
+| 검증 | Build Both 이후 non-DevMode 2클라에서 game screen, player spawn, 입력/발사, 카드 선택 후 복귀가 통과하는가 |
+
+현재 `NetworkBehaviour`와 `[Networked]` 속성을 포함하는 런타임 gameplay 코드는 `Colosseum.NetworkGameplay` assembly에 둔다. Fusion이 생성한 접근 코드가 `Fusion.NetworkBehaviour.Ptr`를 사용하므로 이 assembly만 `allowUnsafeCode=true`가 필요하다. 이 설정을 끄면 빌드는 통과해도 game server에서 `FieldAccessException: Fusion.NetworkBehaviour:Ptr is inaccessible`가 발생해 player spawn 이후 gameplay 검증이 실패한다.
+
+이 설정은 일반 C# unsafe 블록 작성을 허용하려는 목적이 아니라 Fusion IL Weaver가 생성한 네트워크 접근 코드의 런타임 호환성을 맞추기 위한 예외다. 새 asmdef를 추가할 때는 이 예외를 넓히기보다 `NetworkBehaviour`가 있는 assembly와 `INetworkInput` assembly를 분리하고, 필요한 assembly만 Weaver 대상에 등록한다. `Colosseum.Game`은 gameplay 네트워크 코드의 하위 호환 경계 이름으로 유지하되 unsafe 권한을 갖지 않는다.
+
+### A303-278 최소 경계 근거
+
+`Colosseum.NetworkGameplay`는 "모든 게임 코드"가 아니라 현재 non-DevMode 2클라 gameplay loop를 구성하는 런타임 묶음이다. 이 묶음 안에는 서로 직접 참조하는 `NetworkBehaviour` 타입과 그 즉시 의존 타입이 함께 들어 있다.
+
+Asmdef 바로 옆의 `Assets/_Project/Scripts/NetworkGameplay/Colosseum.NetworkGameplay.asmdef.rationale.md`도 같은 근거를 MR/review용으로 짧게 반복한다.
+
+| 검토한 더 좁은 분리 후보 | 현재 바로 분리하지 않는 이유 |
+|---|---|
+| `UI` 하위 폴더 별도 asmdef | `HPBarManager`, `GameOverUI`, `RoomIndicatorUI`, `ReloadIndicator`가 `PlayerHealth`, `RoomManager`, `Gun`을 참조하고, runtime gameplay 쪽도 HP bar/game over UI를 직접 호출한다. 단순 분리는 assembly 순환 참조가 된다. |
+| `DevMode` 하위 폴더 별도 asmdef | `DevModeController`/adapter가 `NetworkManager`, `CardData`, UI를 참조하고, `Gun.DevMode` partial이 `BulletInjectionAdapter`를 직접 참조한다. 단순 분리는 assembly 순환 참조가 된다. |
+| `Card`, `Weapon`, `Player`, `Game` 폴더별 asmdef | `CardDeck -> PlayerHealth/Gun`, `Gun -> CardEffect/Game`, `BulletController -> Player/Game`, `RoomManager -> Player/Camera/UI` 의존이 교차한다. 폴더 단위 분리는 순환 참조 또는 대규모 인터페이스 추출이 필요하다. |
+
+따라서 A303-278의 최소 실용 경계는 다음과 같이 정의한다.
+
+1. `Colosseum.Game`에는 unsafe 권한을 주지 않는다.
+2. `INetworkInput` 구현체는 `Colosseum.NetworkInput`으로 분리한다.
+3. Fusion Weaver 대상과 `allowUnsafeCode=true`는 non-DevMode 2클라 gameplay loop가 실제로 필요한 `Colosseum.NetworkGameplay`에만 둔다.
+4. `Colosseum.NetworkGameplay` 안에 수동 `unsafe` 블록, 포인터 조작, 임의 unmanaged memory 접근을 추가하지 않는다. 이 예외는 Fusion Weaver 생성 코드 호환성에만 사용한다.
+5. 더 좁은 asmdef 분리는 `UI`, `DevMode`, `Card`, `Weapon`, `Player`, `Game` 사이의 직접 참조를 인터페이스/event boundary로 먼저 끊은 뒤 별도 리팩터 이슈로 수행한다.
+
 ## Host Mode 임시동작 금지선
 
 1차 시연은 Host Mode를 사용할 수 있지만, Host Mode에서만 우연히 맞는 구조를 규범으로 만들지 않는다.
@@ -83,6 +118,16 @@ audience: ai-first
 | 금지 | Host 클라이언트 UI가 곧바로 authoritative 상태를 바꾸는 구조 |
 | 금지 | StateAuthority 검증 없이 카드/피격/리스폰 결과를 확정 |
 | 기록 | Server Mode 전환 시 바꿔야 하는 임시 브리지는 리스크로 남김 |
+
+Dedicated Server 프로토타입에서 `Lobby -> Worker Agent -> GameServer` 계층을 둘 수 있다. 이때 `Lobby <-> Worker Agent` HTTP 통신은 Fusion gameplay state가 아니라 **서버 프로세스 실행 제어용 control plane**으로 취급한다. 카드/피격/리스폰/승패 같은 gameplay authoritative 결과는 여전히 Fusion `StateAuthority` 규칙을 따른다.
+
+현재 구현에서는 Room Registry도 같은 control plane에 속한다.
+
+- Worker Agent는 `POST/PATCH/DELETE /api/v1/rooms`로 Spring Boot Room API를 호출한다.
+- Lobby는 Find Room 화면에서 Spring Boot `GET /api/v1/rooms` 결과를 사용해 방 목록을 구성한다.
+- Redis에 저장된 방 메타데이터는 gameplay truth가 아니라 service state다.
+
+즉 "Fusion authoritative state"와 "방 프로세스/방 목록 service state"를 문서와 구현 모두에서 섞지 않는 것이 현재 가드레일이다.
 
 ## 금지
 
@@ -104,6 +149,7 @@ audience: ai-first
 | 4 | `INetworkInput` 필드 추가가 정말 매 tick 입력인지 확인했는가 |
 | 5 | App ID/secret/개인 경로가 산출물에 없는가 |
 | 6 | Host Mode 임시동작과 기준 구현이 구분되어 있는가 |
+| 7 | Worker Agent를 도입했다면 gameplay authority와 process orchestration 책임이 분리되어 있는가 |
 
 ## 실전 Fusion 가드레일 5항목 (PR 리뷰 체크리스트)
 

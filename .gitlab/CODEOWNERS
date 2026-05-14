@@ -35,6 +35,7 @@
 # Unity 네트워크 — 최진우 (게임 네트워크) / 유민재 (NetworkProjectConfig 게이트)
 # ─────────────────────────────────────────────
 /unity/Assets/_Project/Scripts/Network/     @jk62362
+/unity/Assets/_Project/Scripts/NetworkGameplay/Network/     @jk62362
 /unity/Assets/Photon/                       @jk62362
 # NetworkProjectConfig: 유민재 게이트키퍼 선행, 최진우 공동
 /unity/Assets/_Project/NetworkProjectConfig.asset   @dbalsend @jk62362
@@ -45,10 +46,17 @@
 /unity/Assets/_Project/Scripts/Player/      @jk62362
 /unity/Assets/_Project/Scripts/Weapon/      @jk62362
 
+# NetworkGameplay/** 별칭 (2026-05-07 A303-280 추가)
+/unity/Assets/_Project/Scripts/NetworkGameplay/Player/      @jk62362
+/unity/Assets/_Project/Scripts/NetworkGameplay/Weapon/      @jk62362
+
 # ─────────────────────────────────────────────
 # Game 규칙 · HP · 리스폰 · 카드 효과 엔진 (Gameplay B) — 김범승
 # ─────────────────────────────────────────────
 /unity/Assets/_Project/Scripts/Game/        @kim3210542
+
+# NetworkGameplay/** 별칭 (2026-05-07 A303-280 추가)
+/unity/Assets/_Project/Scripts/NetworkGameplay/Game/        @kim3210542
 
 # ─────────────────────────────────────────────
 # Card 시스템 — 박병준 (설계·구현·게이트) + 김범승 (효과 엔진)
@@ -65,10 +73,12 @@
 # Camera · Art · Animations · UI sprites — 우수연 (AD, 비주얼 전체)
 # ─────────────────────────────────────────────
 /unity/Assets/_Project/Scripts/Camera/      @goodyeon91
+/unity/Assets/_Project/Scripts/NetworkGameplay/Camera/      @goodyeon91
 /unity/Assets/_Project/Materials/           @goodyeon91
 /unity/Assets/_Project/Animations/          @goodyeon91
 /unity/Assets/_Project/UI/                  @goodyeon91
 /unity/Assets/Art/                          @goodyeon91
+/unity/Assets/_Project/Art/Greybox/                         @goodyeon91 @pbjuni1007
 
 # ─────────────────────────────────────────────
 # Audio / FMOD — 유민재

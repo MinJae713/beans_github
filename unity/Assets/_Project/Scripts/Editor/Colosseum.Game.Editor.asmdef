@@ -1,0 +1,20 @@
+{
+    "name": "Colosseum.Game.Editor",
+    "rootNamespace": "Colosseum.Editor",
+    "references": [
+        "Colosseum.NetworkGameplay",
+        "Fusion.Unity",
+        "Fusion.Unity.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

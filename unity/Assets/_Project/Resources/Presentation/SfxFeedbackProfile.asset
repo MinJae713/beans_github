@@ -1,0 +1,510 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7e4c2b6d0f941b59ef317c88c0a99bb, type: 3}
+  m_Name: SfxFeedbackProfile
+  m_EditorClassIdentifier:
+  _presets:
+  - cardKey:
+    effectKey: projectile_shot
+    eventType: 20
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.72
+    pitchMin: 0.96
+    pitchMax: 1.04
+    spatialBlend: 0.82
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: projectile_impact
+    eventType: 3
+    clip: {fileID: 8300000, guid: 11390b4b43824e54e9eaada95422a366, type: 3}
+    volume: 0.8
+    pitchMin: 0.95
+    pitchMax: 1.05
+    spatialBlend: 0.85
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: hit_knockback_up
+    eventType: 3
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.8
+    pitchMin: 0.92
+    pitchMax: 1.02
+    spatialBlend: 0.85
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey:
+    eventType: 3
+    clip: {fileID: 8300000, guid: 11390b4b43824e54e9eaada95422a366, type: 3}
+    volume: 0.76
+    pitchMin: 0.95
+    pitchMax: 1.08
+    spatialBlend: 0.85
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: projectile_reflect
+    eventType: 4
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.68
+    pitchMin: 1
+    pitchMax: 1.08
+    spatialBlend: 0.82
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: projectile_pierce
+    eventType: 5
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.68
+    pitchMin: 1.04
+    pitchMax: 1.12
+    spatialBlend: 0.82
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: projectile_explosion
+    eventType: 6
+    clip: {fileID: 8300000, guid: 321feb9f51af885488e5ed433aecd467, type: 3}
+    volume: 0.92
+    pitchMin: 0.94
+    pitchMax: 1.02
+    spatialBlend: 0.9
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: hit_apply_poison
+    eventType: 7
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.65
+    pitchMin: 0.96
+    pitchMax: 1.06
+    spatialBlend: 0.76
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: hit_apply_burn
+    eventType: 7
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.65
+    pitchMin: 0.98
+    pitchMax: 1.08
+    spatialBlend: 0.76
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: hit_apply_frost
+    eventType: 7
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.65
+    pitchMin: 0.9
+    pitchMax: 1
+    spatialBlend: 0.76
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: hit_apply_electric_stack
+    eventType: 7
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.65
+    pitchMin: 1.02
+    pitchMax: 1.12
+    spatialBlend: 0.76
+    playAtWorldPosition: 1
+  - cardKey:
+    effectKey: reload_overcharge
+    eventType: 12
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.68
+    pitchMin: 1
+    pitchMax: 1.05
+    spatialBlend: 0.35
+    playAtWorldPosition: 0
+  - cardKey:
+    effectKey: reload_overcharge
+    eventType: 13
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.78
+    pitchMin: 0.94
+    pitchMax: 1.02
+    spatialBlend: 0.78
+    playAtWorldPosition: 1
+  - cardKey: projectile_size_up
+    effectKey: projectile_size_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.58
+    pitchMin: 0.88
+    pitchMax: 0.96
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_speed_up
+    effectKey: projectile_speed_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.58
+    pitchMin: 1.08
+    pitchMax: 1.18
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_heavy
+    effectKey: projectile_heavy
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.6
+    pitchMin: 0.82
+    pitchMax: 0.92
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: ammo_capacity_up
+    effectKey: ammo_capacity_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.58
+    pitchMin: 0.96
+    pitchMax: 1.04
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: reload_time_down
+    effectKey: reload_time_down
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.58
+    pitchMin: 1.06
+    pitchMax: 1.14
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: hit_knockback_up
+    effectKey: hit_knockback_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.62
+    pitchMin: 0.92
+    pitchMax: 1.02
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: hit_apply_poison
+    effectKey: hit_apply_poison
+    eventType: 1
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.58
+    pitchMin: 0.94
+    pitchMax: 1.04
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: hit_apply_burn
+    effectKey: hit_apply_burn
+    eventType: 1
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.58
+    pitchMin: 1
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: hit_apply_frost
+    effectKey: hit_apply_frost
+    eventType: 1
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.58
+    pitchMin: 0.86
+    pitchMax: 0.96
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: hit_apply_electric_stack
+    effectKey: hit_apply_electric_stack
+    eventType: 1
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.58
+    pitchMin: 1.08
+    pitchMax: 1.18
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: reload_overcharge
+    effectKey: reload_overcharge
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.6
+    pitchMin: 1.02
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_reflect
+    effectKey: projectile_reflect
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.6
+    pitchMin: 1
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_explosion
+    effectKey: projectile_explosion
+    eventType: 1
+    clip: {fileID: 8300000, guid: 321feb9f51af885488e5ed433aecd467, type: 3}
+    volume: 0.64
+    pitchMin: 0.96
+    pitchMax: 1.04
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_pierce
+    effectKey: projectile_pierce
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.6
+    pitchMin: 1.06
+    pitchMax: 1.14
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_multishot
+    effectKey: projectile_multishot
+    eventType: 1
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.6
+    pitchMin: 1
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_gravity_zero
+    effectKey: projectile_gravity_zero
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.58
+    pitchMin: 1.12
+    pitchMax: 1.22
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_guided_cursor
+    effectKey: projectile_guided_cursor
+    eventType: 1
+    clip: {fileID: 8300000, guid: 11390b4b43824e54e9eaada95422a366, type: 3}
+    volume: 0.58
+    pitchMin: 1.02
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: fire_charge_shot
+    effectKey: fire_charge_shot
+    eventType: 1
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.6
+    pitchMin: 0.86
+    pitchMax: 0.96
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: low_health_regen
+    effectKey: low_health_regen
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.56
+    pitchMin: 0.98
+    pitchMax: 1.08
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: low_health_damage_up
+    effectKey: low_health_damage_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.58
+    pitchMin: 0.9
+    pitchMax: 1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: hit_life_steal
+    effectKey: hit_life_steal
+    eventType: 1
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.56
+    pitchMin: 0.92
+    pitchMax: 1.02
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: enemy_kill_heal
+    effectKey: enemy_kill_heal
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.56
+    pitchMin: 1
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: direct_damage_up
+    effectKey: direct_damage_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.58
+    pitchMin: 0.96
+    pitchMax: 1.06
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: max_health_up
+    effectKey: max_health_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.56
+    pitchMin: 0.9
+    pitchMax: 1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: critical_chance_up
+    effectKey: critical_chance_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: 11390b4b43824e54e9eaada95422a366, type: 3}
+    volume: 0.58
+    pitchMin: 1.08
+    pitchMax: 1.18
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: reload_shockwave
+    effectKey: reload_shockwave
+    eventType: 1
+    clip: {fileID: 8300000, guid: 321feb9f51af885488e5ed433aecd467, type: 3}
+    volume: 0.58
+    pitchMin: 1.02
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: proximity_vulnerable_aura
+    effectKey: proximity_vulnerable_aura
+    eventType: 1
+    clip: {fileID: 8300000, guid: fcfa53ce54acaae4eb2ad143f4e308e2, type: 3}
+    volume: 0.56
+    pitchMin: 0.88
+    pitchMax: 0.98
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: aim_point_airstrike
+    effectKey: aim_point_airstrike
+    eventType: 1
+    clip: {fileID: 8300000, guid: 321feb9f51af885488e5ed433aecd467, type: 3}
+    volume: 0.62
+    pitchMin: 0.9
+    pitchMax: 1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_airtime_damage
+    effectKey: projectile_airtime_damage
+    eventType: 1
+    clip: {fileID: 8300000, guid: 11390b4b43824e54e9eaada95422a366, type: 3}
+    volume: 0.58
+    pitchMin: 1
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: fire_rate_up_damage_down
+    effectKey: fire_rate_up_damage_down
+    eventType: 1
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.58
+    pitchMin: 1.12
+    pitchMax: 1.22
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: periodic_hit_invulnerable
+    effectKey: periodic_hit_invulnerable
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.58
+    pitchMin: 0.86
+    pitchMax: 0.96
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: dash_knockback
+    effectKey: dash_knockback
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.58
+    pitchMin: 1
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: hit_combo_boost
+    effectKey: hit_combo_boost
+    eventType: 1
+    clip: {fileID: 8300000, guid: 11390b4b43824e54e9eaada95422a366, type: 3}
+    volume: 0.58
+    pitchMin: 1.04
+    pitchMax: 1.14
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: critical_fire_rate_up
+    effectKey: critical_fire_rate_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.58
+    pitchMin: 1.16
+    pitchMax: 1.26
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_split_on_wall
+    effectKey: projectile_split_on_wall
+    eventType: 1
+    clip: {fileID: 8300000, guid: c922c34f559ead440a273a13a924cfc7, type: 3}
+    volume: 0.58
+    pitchMin: 1.02
+    pitchMax: 1.12
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: projectile_delayed_blast
+    effectKey: projectile_delayed_blast
+    eventType: 1
+    clip: {fileID: 8300000, guid: 321feb9f51af885488e5ed433aecd467, type: 3}
+    volume: 0.6
+    pitchMin: 0.86
+    pitchMax: 0.96
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: explosion_self_launch
+    effectKey: explosion_self_launch
+    eventType: 1
+    clip: {fileID: 8300000, guid: 321feb9f51af885488e5ed433aecd467, type: 3}
+    volume: 0.6
+    pitchMin: 1
+    pitchMax: 1.1
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: all_stats_up
+    effectKey: all_stats_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.6
+    pitchMin: 1.02
+    pitchMax: 1.12
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: jump_height_up
+    effectKey: jump_height_up
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.56
+    pitchMin: 1.1
+    pitchMax: 1.2
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: damage_up_health_down
+    effectKey: damage_up_health_down
+    eventType: 1
+    clip: {fileID: 8300000, guid: b68fb8a8662027c49a4aaf5a77b35ad6, type: 3}
+    volume: 0.58
+    pitchMin: 0.88
+    pitchMax: 0.98
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey:
+    effectKey:
+    eventType: 1
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.6
+    pitchMin: 1
+    pitchMax: 1.08
+    spatialBlend: 0
+    playAtWorldPosition: 0
+  - cardKey: player
+    effectKey: player_respawned
+    eventType: 19
+    clip: {fileID: 8300000, guid: 5052682f23f19384da5d743dc76ed64b, type: 3}
+    volume: 0.7
+    pitchMin: 0.98
+    pitchMax: 1.06
+    spatialBlend: 0.55
+    playAtWorldPosition: 1

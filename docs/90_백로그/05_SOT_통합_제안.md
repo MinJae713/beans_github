@@ -308,6 +308,23 @@ audience: ai-first
 
 ---
 
+## 추가 점검 메모 (2026-04-30) — GameplayProfile 외부화 229/242/245
+
+본 문서 작성 시점(2026-04-20) 이후 `GameplayProfile` 외부화 작업이 누적되었으므로, 아래를 drift 취약 지점으로 별도 관리한다.
+
+| 항목 | 상태 | 메모 |
+|---|---|---|
+| 이동/점프 8필드 외부화 (`moveSpeed` ~ `ascendGravityMultiplier`) | 완료 | `PlayerMovement`가 `combat.baseline` 참조. A303-317에서 `coyoteTimeSeconds`/`airControlMultiplier` 폐기, `ascendGravityMultiplier` 신규 추가, 점프 가능 여부는 networked `JumpsUsed`/`MaxJumps`로 관리. |
+| 사격/탄환 9필드 외부화 (`fireInterval` ~ `directHitKnockbackImpulse`) | 완료 | `Gun`, `BulletController`가 `combat.baseline` 참조 |
+| 사격/탄환 legacy flat 6필드 제거 | 완료 | `baseFireInterval` 등 6필드 제거 |
+| legacy 임시 유지 2필드 | 완료 | A303-255(2026-04-30)에서 `PlayerHealth`를 `combat.baseline` 경유로 전환하고 `maxHealth`, `respawnDelaySeconds` flat 필드를 제거 |
+
+후속 통합 원칙:
+- 외부화 진행 상태의 정본은 `85_밸런스_프리셋/10_데이터스키마/01_GameplayProfile_스키마.md`의 정합 스냅샷을 우선 참조한다.
+- 구현/검증 이력은 `90_백로그/10_QA_로그/A303-245-ballistics-mapping.md`에 누적한다.
+
+---
+
 ## 의사결정 필요 사항
 
 팀 리뷰 시 아래 사항을 확정해야 한다.

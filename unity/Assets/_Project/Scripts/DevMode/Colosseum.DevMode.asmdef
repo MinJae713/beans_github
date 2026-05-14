@@ -1,0 +1,22 @@
+{
+    "name": "Colosseum.DevMode",
+    "rootNamespace": "Colosseum",
+    "references": [
+        "Colosseum.Contracts",
+        "Colosseum.Game",
+        "Colosseum.NetworkGameplay",
+        "Fusion.Unity",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_EDITOR"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

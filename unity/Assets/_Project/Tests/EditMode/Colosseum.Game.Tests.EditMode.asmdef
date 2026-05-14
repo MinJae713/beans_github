@@ -1,0 +1,27 @@
+{
+    "name": "Colosseum.Game.Tests.EditMode",
+    "rootNamespace": "Colosseum.Tests.EditMode",
+    "references": [
+        "Colosseum.Game.Editor",
+        "Colosseum.NetworkGameplay",
+        "Fusion.Unity",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Fusion.Runtime.dll",
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

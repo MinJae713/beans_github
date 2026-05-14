@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e22a3012f64cfb4cb6c31aff07cd6d9, type: 3}
+  m_Name: Bouncy
+  m_EditorClassIdentifier: 
+  cardName: "\uBC18\uC0AC\uD0C4"
+  cardId: 12
+  cardKey: projectile_reflect
+  maxStack: 3
+  category: 5
+  description: "\uD0C4\uD658\uC774 \uBCBD\uC5D0 \uD295\uAE34\uB2E4."
+  cardIcon: {fileID: 21300000, guid: 10797f30854643c4ab469c101dd4503d, type: 3}
+  rarity: 1
+  isDraftEnabled: 1
+  damageMultiplier: 1
+  speedMultiplier: 1
+  sizeMultiplier: 1
+  extraBounce: 1
+  gravityModifier: 0
+  fireRateMultiplier: 1
+  reloadSpeedMultiplier: 1
+  extraBullets: 0
+  extraPierce: 0
+  knockbackForce: 0
+  healAmount: 0
+  lifestealPercent: 0
+  healOnKill: 0
+  moveSpeedMultiplier: 1
+  jumpForceMultiplier: 1
+  statusEffect: 0
+  statusDuration: 0
+  explosionRadius: 0
+  explosionDamageRatio: 0.5
+  overchargeDamageMultiplier: 1
+  specialEffect: 0
+  specialValue: 0

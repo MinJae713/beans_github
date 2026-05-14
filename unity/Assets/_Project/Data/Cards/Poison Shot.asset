@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e22a3012f64cfb4cb6c31aff07cd6d9, type: 3}
+  m_Name: Poison Shot
+  m_EditorClassIdentifier: 
+  cardName: "\uC911\uB3C5\uD0C4"
+  cardId: 7
+  cardKey: hit_apply_poison
+  maxStack: 3
+  category: 4
+  description: "\uBA85\uC911 \uC2DC \uC911\uB3C5 \uC0C1\uD0DC\uB97C \uBD80\uC5EC\uD55C\uB2E4."
+  cardIcon: {fileID: 21300000, guid: b36163cc084542fe8d44a42f89a77e42, type: 3}
+  rarity: 0
+  isDraftEnabled: 1
+  damageMultiplier: 1
+  speedMultiplier: 1
+  sizeMultiplier: 1
+  extraBounce: 0
+  gravityModifier: 0
+  fireRateMultiplier: 1
+  reloadSpeedMultiplier: 1
+  extraBullets: 0
+  extraPierce: 0
+  knockbackForce: 0
+  healAmount: 0
+  lifestealPercent: 0
+  healOnKill: 0
+  moveSpeedMultiplier: 1
+  jumpForceMultiplier: 1
+  statusEffect: 3
+  statusDuration: 3
+  explosionRadius: 0
+  explosionDamageRatio: 0.5
+  overchargeDamageMultiplier: 1
+  specialEffect: 0
+  specialValue: 0

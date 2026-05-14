@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e22a3012f64cfb4cb6c31aff07cd6d9, type: 3}
+  m_Name: Vulnerable Aura
+  m_EditorClassIdentifier:
+  cardName: 위압감
+  cardId: 27
+  cardKey: proximity_vulnerable_aura
+  maxStack: 2
+  category: 12
+  description: 가까운 적이 직접 피해를 더 크게 받는다.
+  cardIcon: {fileID: 0}
+  rarity: 1
+  isDraftEnabled: 0
+  damageMultiplier: 1
+  speedMultiplier: 1
+  sizeMultiplier: 1
+  extraBounce: 0
+  gravityModifier: 0
+  fireRateMultiplier: 1
+  reloadSpeedMultiplier: 1
+  extraBullets: 0
+  extraPierce: 0
+  knockbackForce: 0
+  healAmount: 0
+  lifestealPercent: 0
+  healOnKill: 0
+  moveSpeedMultiplier: 1
+  jumpForceMultiplier: 1
+  statusEffect: 0
+  statusDuration: 0
+  explosionRadius: 0
+  explosionDamageRatio: 0.5
+  overchargeDamageMultiplier: 1
+  specialEffect: 0
+  specialValue: 0

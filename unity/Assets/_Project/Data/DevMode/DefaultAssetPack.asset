@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68001d1d5094078488078771e67571b7, type: 3}
+  m_Name: DefaultAssetPack
+  m_EditorClassIdentifier: 
+  playerPrefab:
+    RawGuidValue: fcc8bfbf139b3df4ab377219ca038a82
+  cardDataList:
+  - {fileID: 11400000, guid: 482df03776743c9418f05cba1c9397b8, type: 2}
+  - {fileID: 11400000, guid: f8a51dd52d26178468cd23716c61da68, type: 2}
+  - {fileID: 11400000, guid: 1716d30337d6fbb4085f71840b994fed, type: 2}
+  - {fileID: 11400000, guid: 3ea3157c699afa649b21203fae01e342, type: 2}
+  - {fileID: 11400000, guid: 89655c98458bab7458ea4c2ee6563a8a, type: 2}
+  - {fileID: 11400000, guid: 26f27039649fbac45a2c03ee99796cf9, type: 2}
+  - {fileID: 11400000, guid: 2f11d9cd80177fd4aa7ba165acea33e0, type: 2}
+  - {fileID: 11400000, guid: 79f0fb3e567139344bbc6e249de4121d, type: 2}
+  - {fileID: 11400000, guid: 9c258dfb75c1f3743b636bbcccd0ccb3, type: 2}
+  - {fileID: 11400000, guid: 0128f14a9480d1844a090f7002504201, type: 2}
+  bulletPrefab:
+    RawGuidValue: 1075d2600ef914f4a93fc37322960869
+  uiSprites: []
+  materials: []
+  audioClips: []
