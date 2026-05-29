@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -532,12 +533,11 @@ namespace Colosseum.UI
                 var netObj = effect.GetComponent<Fusion.NetworkObject>();
                 if (netObj == null || netObj.InputAuthority != target) continue;
 
-                effect.ApplyCard(card);
-
                 // CardDeck.ApplyCard 동등 처리 — DevMode에서도 Gun/PlayerHealth 측 효과 발동.
                 // (DevMode 경로가 CardEffect만 호출하면 extraBullets, fireRateMultiplier,
-                //  healAmount, lifestealPercent 등이 미적용된다.)
+                //  ammo capacity, healAmount, lifestealPercent 등이 미적용된다.)
                 var gun = netObj.GetComponentInChildren<Colosseum.Weapon.Gun>();
+                int magazineCapacityBeforeCard = gun != null ? gun.MagazineCapacity : 0;
                 if (gun != null)
                 {
                     gun.FireRateMultiplier *= card.fireRateMultiplier;
@@ -561,6 +561,12 @@ namespace Colosseum.UI
                 perPlayerCounts.TryGetValue(card, out int prevCount);
                 int newCount = prevCount + 1;
                 perPlayerCounts[card] = newCount;
+
+                effect.ApplyCard(card, newCount);
+                if (gun != null)
+                {
+                    gun.ApplyMagazineCapacityChange(magazineCapacityBeforeCard);
+                }
 
                 if (_itemByCard.TryGetValue(card, out var rowItem) && rowItem != null)
                 {
@@ -732,3 +738,4 @@ namespace Colosseum.UI
         }
     }
 }
+#endif

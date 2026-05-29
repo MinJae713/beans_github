@@ -171,18 +171,20 @@ GameplayProfile
 
 | 필드 | 타입 | 단위 | 현재 기본값 | 코드 소비 지점 |
 |---|---|---|---:|---|
-| `baseline.fireInterval` | float | seconds | 1.0 | `Gun.FireInterval` |
-| `baseline.ammoCapacity` | int | shots | 3 | `Gun.MagazineCapacity` |
+| `baseline.fireInterval` | float | seconds | 0.5 | `Gun.FireInterval` |
+| `baseline.ammoCapacity` | int | shots | 6 | `Gun.MagazineCapacity` |
 | `baseline.reloadTime` | float | seconds | 1.5 | `Gun.ReloadDurationBase` |
-| `baseline.directHitDamage` | float | hp | 10 | `BulletController.DirectHitDamage` |
-| `baseline.projectileSpeed` | float | world unit/sec | 23 | `BulletController.ProjectileSpeed` |
+| `baseline.directHitDamage` | float | hp | 20 | `GameplayProfile.combat.baseline.directHitDamage` |
+| `baseline.projectileSpeed` | float | world unit/sec | 32.2 | `BulletController.ProjectileSpeed` |
 | `baseline.projectileGravityScale` | float | multiplier | 2.7 | `BulletController.ProjectileGravityScale` |
 | `baseline.projectileLifetimeSeconds` | float | seconds | 5.0 | `BulletController.ProjectileLifetimeSeconds` |
-| `baseline.projectileBaseScale` | float | multiplier | 1.0 | `BulletController.ProjectileBaseScale` |
+| `baseline.projectileBaseScale` | float | multiplier | 2.0 | `GameplayProfile.combat.baseline.projectileBaseScale` |
 | `baseline.directHitKnockbackImpulse` | float | physics impulse | 0.0 | `BulletController.DirectHitKnockbackImpulse` |
 
 메모:
 - 카드 배율은 baseline 값을 기준으로 계산한다. 예: 탄속은 `projectileSpeed * BulletSpeedMultiplier`.
+- 탄창 확장 카드는 `baseline.ammoCapacity + CardEffect.BonusAmmoCapacity`를 사용하며 최종 탄창 수는 최소 1발로 clamp한다.
+- 탄환 중력 카드는 `baseline.projectileGravityScale + CardEffect.GravityModifier`를 사용하며 최종 gravity scale은 0 이상으로 clamp한다. 현재 `Anti Gravity.asset`은 MVP 기본 profile의 `2.7`을 상쇄하기 위해 `gravityModifier: -2.7`을 사용하고, 직선탄 체감 강화를 위해 `speedMultiplier: 1.3`을 함께 사용한다.
 - 넉백은 `directHitKnockbackImpulse + KnockbackForce`를 사용한다.
 - 값 출처는 `unity/Assets/_Project/Data/GameplayProfile.asset`의 `combat.baseline`이다.
 

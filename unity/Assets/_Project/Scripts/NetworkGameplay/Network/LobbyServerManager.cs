@@ -1,6 +1,8 @@
 using System;
 using System.Text;
 using System.Collections.Generic;
+using Colosseum.Contracts;
+using Colosseum.NetworkGameplay.Diagnostics;
 using UnityEngine;
 using Fusion;
 using Fusion.Sockets;
@@ -36,12 +38,13 @@ namespace Colosseum.Network
         // ── 로비 접속 플레이어 닉네임 ──
         // 클라이언트가 로비 접속 직후 NICKNAME:이름 메시지로 등록.
         private Dictionary<PlayerRef, string> _lobbyNicknames = new();
+        private readonly HashSet<PlayerRef> _pendingDisconnect = new();
         private IWorkerSelector _workerSelector;
         private HttpWorkerAgentClient _workerAgentClient;
 
         public void Initialize()
         {
-            UnityEngine.Debug.Log("[Colosseum Lobby] Initializing Lobby Server...");
+            DiagLog.Log("[Colosseum Lobby] Initializing Lobby Server...");
             string envWorkerBaseUrl = Environment.GetEnvironmentVariable("COLOSSEUM_WORKER_BASE_URL");
             if (!string.IsNullOrWhiteSpace(envWorkerBaseUrl))
             {
@@ -60,13 +63,13 @@ namespace Colosseum.Network
                 _roomApiBaseUrl = envRoomApiBaseUrl.Trim();
             }
 
-            Debug.Log($"[Colosseum Lobby] Lobby session = {_lobbySessionName}");
-            Debug.Log($"[Colosseum Lobby] Worker base URL = {_workerAgentBaseUrl}");
-            Debug.Log($"[Colosseum Lobby] Room API base URL = {_roomApiBaseUrl}");
+            DiagLog.Log($"[Colosseum Lobby] Lobby session = {_lobbySessionName}");
+            DiagLog.Log($"[Colosseum Lobby] Worker base URL = {_workerAgentBaseUrl}");
+            DiagLog.Log($"[Colosseum Lobby] Room API base URL = {_roomApiBaseUrl}");
             _workerSelector = new FixedWorkerSelector(baseUrl: _workerAgentBaseUrl);
             _workerAgentClient = new HttpWorkerAgentClient(
                 _roomApiBaseUrl,
-                message => UnityEngine.Debug.Log(message),
+                message => DiagLog.Log(message),
                 message => UnityEngine.Debug.LogError(message));
             StartLobby();
         }
@@ -98,7 +101,7 @@ namespace Colosseum.Network
             });
 
             if (result.Ok)
-                UnityEngine.Debug.Log($"[Colosseum Lobby] Lobby '{_lobbySessionName}' started!");
+                DiagLog.Log($"[Colosseum Lobby] Lobby '{_lobbySessionName}' started!");
             else
                 UnityEngine.Debug.LogError($"[Colosseum Lobby] Lobby failed: {result.ShutdownReason}");
         }
@@ -107,7 +110,7 @@ namespace Colosseum.Network
         //  게임 서버 프로세스 스폰
         // ──────────────────────────────────────────────
 
-        private async void SpawnGameServer(string roomName, PlayerRef creator)
+        private async void SpawnGameServer(string roomName, PlayerRef creator, string sceneName = SelectableSceneExtensions.DefaultSceneName)
         {
             string sessionName = $"Room_{roomName}_{Guid.NewGuid().ToString().Substring(0, 6)}";
             WorkerInfo worker = _workerSelector?.SelectWorker();
@@ -118,13 +121,20 @@ namespace Colosseum.Network
             }
 
             string hostNickname = _lobbyNicknames.TryGetValue(creator, out var nick) ? nick : string.Empty;
+            var workerRequestStartedAt = DateTimeOffset.UtcNow;
+            var workerRequestSw = System.Diagnostics.Stopwatch.StartNew();
+            DiagLog.Log($"[Colosseum-Timing][Lobby - Request To Worker][LT1] room='{roomName}' session='{sessionName}' worker='{worker.BaseUrl}' at='{workerRequestStartedAt:O}'");
             var response = await _workerAgentClient.SpawnRoomAsync(worker, new SpawnRoomRequest
             {
                 SessionName = sessionName,
                 RoomName = roomName,
                 HostNickname = hostNickname,
-                MaxPlayers = _roomMaxPlayers
+                MaxPlayers = _roomMaxPlayers,
+                SceneName = sceneName
             });
+            workerRequestSw.Stop();
+            var workerResponseReceivedAt = DateTimeOffset.UtcNow;
+            DiagLog.Log($"[Colosseum-Timing][Lobby - Response From Worker][LT2] room='{roomName}' session='{sessionName}' ok={response?.Ok ?? false} at='{workerResponseReceivedAt:O}' elapsed_ms={workerRequestSw.ElapsedMilliseconds}");
 
             if (response != null && response.Ok)
             {
@@ -148,9 +158,34 @@ namespace Colosseum.Network
 
         private void HandleLobbyMessage(PlayerRef player, string message)
         {
-            UnityEngine.Debug.Log($"[Colosseum Lobby] Message from {player}: {message}");
+            if (_pendingDisconnect.Contains(player)) return;
+            DiagLog.Log($"[Colosseum Lobby] Message from {player}: {message}");
 
-            if (message.StartsWith("NICKNAME:"))
+            if (message.StartsWith("VERSION:"))
+            {
+                string clientVersion = VersionValidator.ParseVersionPayload(message);
+                if (string.IsNullOrEmpty(clientVersion))
+                {
+                    SendToLobbyPlayer(player, $"VERSION_MISMATCH:{Application.version}|");
+                    UnityEngine.Debug.LogWarning($"[Colosseum Lobby] Empty version from {player}. Disconnecting.");
+                    DisconnectDelayed(player);
+                    return;
+                }
+                // Production 서버에서는 Development Build 사용 금지 — IsDevBuild()가 true면 모든 버전을 허용한다.
+                if (VersionValidator.IsDevBuild() || VersionValidator.IsCompatible(Application.version, clientVersion))
+                {
+                    SendToLobbyPlayer(player, "VERSION_OK");
+                    DiagLog.Log($"[Colosseum Lobby] Version OK: server={Application.version}, client={clientVersion}");
+                }
+                else
+                {
+                    SendToLobbyPlayer(player, $"VERSION_MISMATCH:{Application.version}|{clientVersion}");
+                    UnityEngine.Debug.LogWarning($"[Colosseum Lobby] Version mismatch: server={Application.version}, client={clientVersion}. Disconnecting {player}.");
+                    DisconnectDelayed(player);
+                }
+                return;
+            }
+            else if (message.StartsWith("NICKNAME:"))
             {
                 string nickname = message.Substring(9);
                 var result = NicknameValidator.Validate(nickname);
@@ -161,11 +196,32 @@ namespace Colosseum.Network
                     return;
                 }
                 _lobbyNicknames[player] = nickname;
-                UnityEngine.Debug.Log($"[Colosseum Lobby] Nickname registered: {player} -> '{nickname}'");
+                DiagLog.Log($"[Colosseum Lobby] Nickname registered: {player} -> '{nickname}'");
             }
             else if (message.StartsWith("CREATE_ROOM:"))
             {
-                string roomName = message.Substring(12).Trim();
+                string payload = message.Substring(12).Trim();
+                // CREATE_ROOM:{roomName}:{sceneName} 형식 지원 (sceneName 없으면 MVPArena fallback)
+                string roomName;
+                string sceneName;
+                int separatorIdx = payload.LastIndexOf(':');
+                if (separatorIdx >= 0)
+                {
+                    roomName = payload.Substring(0, separatorIdx);
+                    sceneName = payload.Substring(separatorIdx + 1);
+                    if (string.IsNullOrEmpty(sceneName)) sceneName = SelectableSceneExtensions.DefaultSceneName;
+                }
+                else
+                {
+                    roomName = payload;
+                    sceneName = SelectableSceneExtensions.DefaultSceneName;
+                }
+                // 알려진 씬만 허용 — 미지 값은 MVPArena fallback (CLI 인자 인젝션 차단)
+                if (sceneName != SelectableSceneExtensions.SampleSceneName
+                    && sceneName != SelectableSceneExtensions.MVPArenaSceneName
+                    && sceneName != SelectableSceneExtensions.DuskCitySceneName)
+                    sceneName = SelectableSceneExtensions.DefaultSceneName;
+
                 if (string.IsNullOrEmpty(roomName))
                 {
                     SendToLobbyPlayer(player, "ERROR:room_name_empty");
@@ -183,7 +239,7 @@ namespace Colosseum.Network
                     UnityEngine.Debug.LogWarning($"[Colosseum Lobby] CREATE_ROOM rejected: {player} has no nickname");
                     return;
                 }
-                SpawnGameServer(roomName, player);
+                SpawnGameServer(roomName, player, sceneName);
             }
             else if (message == "LIST_ROOMS")
             {
@@ -194,6 +250,20 @@ namespace Colosseum.Network
         // ──────────────────────────────────────────────
         //  메시지 전송
         // ──────────────────────────────────────────────
+
+        private void DisconnectDelayed(PlayerRef player)
+        {
+            _pendingDisconnect.Add(player);
+            StartCoroutine(DisconnectAfterDelay(player, 1f));
+        }
+
+        private System.Collections.IEnumerator DisconnectAfterDelay(PlayerRef player, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (!_pendingDisconnect.Contains(player)) yield break;
+            if (_lobbyRunner != null)
+                _lobbyRunner.Disconnect(player);
+        }
 
         private ReliableKey NextReliableKey()
         {
@@ -234,12 +304,13 @@ namespace Colosseum.Network
 
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            UnityEngine.Debug.Log($"[Colosseum Lobby] Player {player} joined lobby");
+            DiagLog.Log($"[Colosseum Lobby] Player {player} joined lobby");
         }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
-            UnityEngine.Debug.Log($"[Colosseum Lobby] Player {player} left lobby");
+            DiagLog.Log($"[Colosseum Lobby] Player {player} left lobby");
+            _pendingDisconnect.Remove(player);
             _lobbyNicknames.Remove(player);
         }
 
@@ -254,7 +325,7 @@ namespace Colosseum.Network
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
-            UnityEngine.Debug.Log($"[Colosseum Lobby] Lobby shutdown: {shutdownReason}");
+            DiagLog.Log($"[Colosseum Lobby] Lobby shutdown: {shutdownReason}");
             _lobbyRunner = null;
         }
 

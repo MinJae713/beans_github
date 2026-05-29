@@ -9,6 +9,7 @@ using Fusion;
 using Fusion.Sockets;
 using Fusion.Addons.Physics;
 using Colosseum.Contracts;
+using Colosseum.NetworkGameplay.Diagnostics;
 
 namespace Colosseum.Network
 {
@@ -74,6 +75,9 @@ namespace Colosseum.Network
         /// <summary>Ready 상태 업데이트 (readyCount/playerCount)</summary>
         public static event Action<string> OnReadyUpdate;
 
+        /// <summary>서버가 현재 클라이언트의 Ready/Unready 요청을 수락한 뒤 알려주는 로컬 ready 상태.</summary>
+        public static event Action<bool> OnLocalReadyStateChanged;
+
         /// <summary>카운트다운 시작</summary>
         public static event Action OnCountdownStart;
 
@@ -95,12 +99,16 @@ namespace Colosseum.Network
         /// <summary>세션 종료/연결 끊김</summary>
         public static event Action<string> OnDisconnected;
 
+        /// <summary>버전 불일치 (serverVersion, clientVersion)</summary>
+        public static event Action<string, string> OnVersionMismatch;
+
         /// <summary>방 안 닉네임 목록 수신 (서버 NICKNAMES 메시지)</summary>
         public static event Action<string[]> OnNicknamesUpdated;
 
         // ── 상태 ──
         private NetworkRunner _lobbyRunner;
         private NetworkRunner _gameRunner;
+        private bool _versionMismatchDetected;
         private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
 
         // ── 닉네임 ──
@@ -130,6 +138,21 @@ namespace Colosseum.Network
         /// <summary>마지막으로 수신한 방 내 플레이어 정보 (예: "2/2"). 이벤트를 놓친 UI가 초기화 시 참조.</summary>
         public string LastRoomPlayerInfo { get; private set; }
 
+        /// <summary>
+        /// 현재 입장(또는 입장 중)인 방의 표시명. PreGameLobby 등 UI에서 "방 이름 : ___" 라벨용.
+        /// MainMenuUI 가 RequestCreateRoom / JoinGameRoom 호출 직전에 <see cref="SetCurrentRoomName"/>로 stash 한다.
+        /// 게임 씬으로 넘어가도 NetworkManager 가 DontDestroyOnLoad 이므로 그대로 유지된다.
+        /// </summary>
+        public string CurrentRoomName { get; private set; }
+
+        /// <summary>
+        /// MainMenuUI 가 방 입장/생성 직전에 호출. <see cref="CurrentRoomName"/> 를 갱신한다.
+        /// </summary>
+        public void SetCurrentRoomName(string roomName)
+        {
+            CurrentRoomName = roomName ?? "";
+        }
+
         // ── 싱글톤 ──
         public static NetworkManager Instance { get; private set; }
 
@@ -147,7 +170,7 @@ namespace Colosseum.Network
             if (!string.IsNullOrWhiteSpace(envLobbySession))
             {
                 _lobbySessionName = envLobbySession.Trim();
-                Debug.Log($"[Colosseum] Lobby session = {_lobbySessionName}");
+                DiagLog.Log($"[Colosseum] Lobby session = {_lobbySessionName}");
             }
 
             // DontDestroyOnLoad라 Start()가 첫 씬에서 한 번만 호출됨. AutoStartDevMode 플래그는
@@ -173,7 +196,7 @@ namespace Colosseum.Network
 
             AutoStartDevMode = false;
             // AutoStartDevModeScene reset은 StartDevMode 내부 capture 직후로 이전 — MR !58 reviewer 1번 race 차단.
-            Debug.Log($"[Colosseum] Dev Mode: scene '{scene.name}' loaded with AutoStartDevMode — starting Host.");
+            DiagLog.Log($"[Colosseum] Dev Mode: scene '{scene.name}' loaded with AutoStartDevMode — starting Host.");
             StartDevMode();
         }
 
@@ -189,7 +212,7 @@ namespace Colosseum.Network
             if (AutoStartDevMode)
             {
                 AutoStartDevMode = false;
-                Debug.Log("[Colosseum] Dev Mode: Auto-starting Host...");
+                DiagLog.Log("[Colosseum] Dev Mode: Auto-starting Host...");
                 StartDevMode();
             }
         }
@@ -214,7 +237,7 @@ namespace Colosseum.Network
             }
 
             _nickname = nickname;
-            Debug.Log($"[Colosseum] Nickname set: '{_nickname}'");
+            DiagLog.Log($"[Colosseum] Nickname set: '{_nickname}'");
 
             // 이미 접속한 서버에 즉시 전송
             if (_lobbyRunner != null && _state == ClientState.InLobby)
@@ -241,7 +264,7 @@ namespace Colosseum.Network
             if (_lobbyRunner != null)
             {
                 // 이미 접속 진행 중 → 중복 방지
-                Debug.Log("[Colosseum] Already connecting to lobby...");
+                DiagLog.Log("[Colosseum] Already connecting to lobby...");
                 return;
             }
 
@@ -251,7 +274,7 @@ namespace Colosseum.Network
                 return;
             }
 
-            Debug.Log("[Colosseum] Connecting to lobby...");
+            DiagLog.Log("[Colosseum] Connecting to lobby...");
             var lobbySw = System.Diagnostics.Stopwatch.StartNew();
 
             var lobbyObj = new GameObject("LobbyRunner");
@@ -268,12 +291,14 @@ namespace Colosseum.Network
                 CustomPublicAddress = NetAddress.CreateFromIpPort("127.0.0.1", 0),
             });
             lobbySw.Stop();
-            Debug.Log($"[Colosseum-Timing] ConnectToLobby StartGame took {lobbySw.ElapsedMilliseconds}ms, ok={result.Ok}");
+            DiagLog.Log($"[Colosseum-Timing] ConnectToLobby StartGame took {lobbySw.ElapsedMilliseconds}ms, ok={result.Ok}");
 
             if (result.Ok)
             {
                 _state = ClientState.InLobby;
-                Debug.Log("[Colosseum] Connected to lobby!");
+                DiagLog.Log("[Colosseum] Connected to lobby!");
+
+                SendToServer(_lobbyRunner, $"VERSION:{Application.version}");
 
                 // 닉네임 미리 등록돼 있으면 자동 전송. 미등록이면 SetNickname 호출 시 전송됨.
                 if (!string.IsNullOrEmpty(_nickname))
@@ -301,7 +326,7 @@ namespace Colosseum.Network
         /// <summary>
         /// 서버에 방 생성 요청. 결과는 OnRoomCreated/OnError 이벤트로.
         /// </summary>
-        public void RequestCreateRoom(string roomName)
+        public void RequestCreateRoom(string roomName, SelectableScene scene = SelectableScene.MVPArena)
         {
             if (_state != ClientState.InLobby || _lobbyRunner == null)
             {
@@ -311,8 +336,8 @@ namespace Colosseum.Network
 
             _pendingRoomName = roomName;
             _createRoomSw = System.Diagnostics.Stopwatch.StartNew();
-            SendToServer(_lobbyRunner, $"CREATE_ROOM:{roomName}");
-            Debug.Log($"[Colosseum-Timing] CREATE_ROOM sent for '{roomName}' (T0)");
+            SendToServer(_lobbyRunner, $"CREATE_ROOM:{roomName}:{scene.ToSceneName()}");
+            DiagLog.Log($"[Colosseum-Timing] CREATE_ROOM sent for '{roomName}' scene='{scene.ToSceneName()}' (T0)");
         }
 
         private System.Diagnostics.Stopwatch _createRoomSw;
@@ -329,7 +354,7 @@ namespace Colosseum.Network
             }
 
             SendToServer(_lobbyRunner, "LIST_ROOMS");
-            Debug.Log("[Colosseum] Requested room list");
+            DiagLog.Log("[Colosseum] Requested room list");
         }
 
         /// <summary>
@@ -354,25 +379,27 @@ namespace Colosseum.Network
             }
 
             _state = ClientState.JoiningRoom;
+            var joinStartedAt = DateTimeOffset.UtcNow;
             var totalSw = System.Diagnostics.Stopwatch.StartNew();
-            Debug.Log($"[Colosseum-Timing] JoinGameRoom START session={sessionName}");
+            DiagLog.Log($"[Colosseum-Timing][Client - join_start][CT1] session='{sessionName}' at='{joinStartedAt:O}'");
 
             for (int attempt = 1; attempt <= JoinMaxRetries; attempt++)
             {
                 var attemptSw = System.Diagnostics.Stopwatch.StartNew();
                 bool ok = await TryJoinGameRoom(sessionName);
                 attemptSw.Stop();
-                Debug.Log($"[Colosseum-Timing] Join attempt {attempt} took {attemptSw.ElapsedMilliseconds}ms (ok={ok})");
+                DiagLog.Log($"[Colosseum-Timing] Join attempt {attempt} took {attemptSw.ElapsedMilliseconds}ms (ok={ok})");
                 if (ok)
                 {
                     totalSw.Stop();
-                    Debug.Log($"[Colosseum-Timing] JoinGameRoom TOTAL {totalSw.ElapsedMilliseconds}ms (succeeded on attempt {attempt})");
+                    var joinSucceededAt = DateTimeOffset.UtcNow;
+                    DiagLog.Log($"[Colosseum-Timing][Client - join_success][CT2] session='{sessionName}' at='{joinSucceededAt:O}' elapsed_ms={totalSw.ElapsedMilliseconds} attempt={attempt}");
                     return;
                 }
 
                 if (attempt < JoinMaxRetries)
                 {
-                    Debug.Log($"[Colosseum] Join attempt {attempt}/{JoinMaxRetries} failed, retrying in {JoinRetryIntervalSec}s...");
+                    DiagLog.Log($"[Colosseum] Join attempt {attempt}/{JoinMaxRetries} failed, retrying in {JoinRetryIntervalSec}s...");
                     await System.Threading.Tasks.Task.Delay((int)(JoinRetryIntervalSec * 1000));
 
                     // 재시도 중 상태가 변경되었으면 중단
@@ -403,7 +430,7 @@ namespace Colosseum.Network
             // Fusion 씬 관리자 추가 (서버와 씬 동기화에 필수)
             // 프로세스-per-룸 구조: 클라이언트도 방 1개만 접속하므로 SceneTakeOver 기본값(true) 사용
             roomObj.AddComponent<Fusion.NetworkSceneManagerDefault>();
-            ConfigureRunnerPhysics2D(roomObj, ClientPhysicsSimulation.SimulateAlways);
+            ConfigureRunnerPhysics2D(roomObj, ClientPhysicsSimulation.SyncTransforms);
 
             // 클라이언트는 Scene을 지정하지 않음 → 서버가 로드한 씬에 자동 동기화
             var startSw = System.Diagnostics.Stopwatch.StartNew();
@@ -416,12 +443,14 @@ namespace Colosseum.Network
                 CustomPublicAddress = NetAddress.CreateFromIpPort("127.0.0.1", 0),
             });
             startSw.Stop();
-            Debug.Log($"[Colosseum-Timing]   StartGame(Client) took {startSw.ElapsedMilliseconds}ms, ok={result.Ok}, reason={result.ShutdownReason}");
+            DiagLog.Log($"[Colosseum-Timing]   StartGame(Client) took {startSw.ElapsedMilliseconds}ms, ok={result.Ok}, reason={result.ShutdownReason}");
 
             if (result.Ok)
             {
                 _state = ClientState.InRoom;
-                Debug.Log($"[Colosseum] Joined room '{sessionName}'!");
+                DiagLog.Log($"[Colosseum] Joined room '{sessionName}'!");
+
+                SendToServer(_gameRunner, $"VERSION:{Application.version}");
 
                 // 게임 서버는 별개 프로세스라 로비 닉네임을 모름. 방 입장 직후 다시 전송.
                 if (!string.IsNullOrEmpty(_nickname))
@@ -447,30 +476,41 @@ namespace Colosseum.Network
             CleanupGameRunner();
             _spawnedPlayers.Clear();
             LastRoomPlayerInfo = null;
+            CurrentRoomName = "";   // stale 표시값 방지 — 재입장 / 메인 메뉴 복귀 시 깨끗하게.
 
             // 로비 러너가 살아있으면 InLobby, 아니면 Idle
             _state = _lobbyRunner != null ? ClientState.InLobby : ClientState.Idle;
-            Debug.Log($"[Colosseum] Left game room. State: {_state}");
+            DiagLog.Log($"[Colosseum] Left game room. State: {_state}");
         }
 
         /// <summary>
         /// 방에서 Ready 전송.
         /// </summary>
-        public void SendReady()
+        public bool SendReady()
         {
-            if (_state != ClientState.InRoom || _gameRunner == null) return;
+            if (_state != ClientState.InRoom || _gameRunner == null)
+            {
+                Debug.LogWarning("[Colosseum] READY not sent: not in game room.");
+                return false;
+            }
             SendToServer(_gameRunner, "READY");
-            Debug.Log("[Colosseum] Sent READY");
+            DiagLog.Log("[Colosseum] Sent READY");
+            return true;
         }
 
         /// <summary>
         /// 방에서 Unready 전송.
         /// </summary>
-        public void SendUnready()
+        public bool SendUnready()
         {
-            if (_state != ClientState.InRoom || _gameRunner == null) return;
+            if (_state != ClientState.InRoom || _gameRunner == null)
+            {
+                Debug.LogWarning("[Colosseum] UNREADY not sent: not in game room.");
+                return false;
+            }
             SendToServer(_gameRunner, "UNREADY");
-            Debug.Log("[Colosseum] Sent UNREADY");
+            DiagLog.Log("[Colosseum] Sent UNREADY");
+            return true;
         }
 
         /// <summary>
@@ -478,11 +518,28 @@ namespace Colosseum.Network
         /// </summary>
         public void DisconnectAll()
         {
+            _versionMismatchDetected = false;
             CleanupGameRunner();
             CleanupLobbyRunner();
             _spawnedPlayers.Clear();
             LastRoomPlayerInfo = null;
+            CurrentRoomName = "";   // stale 표시값 방지 — DisconnectAll 은 LeaveToMainMenu 경로 포함.
             _state = ClientState.Idle;
+        }
+
+        /// <summary>
+        /// 게임 연결 종료하고 메인 메뉴로
+        /// 로비 세션은 연결을 유지함
+        /// </summary>
+        public void DisconnectGameSession()
+        {
+            _versionMismatchDetected = false;
+            CleanupGameRunner();
+            _spawnedPlayers.Clear();
+            LastRoomPlayerInfo = null;
+            LastRoomNicknames = System.Array.Empty<string>();
+            CurrentRoomName = "";   // stale 표시값 방지 — 게임 방만 끊고 로비 유지하는 경로도 동일 정리.
+            _state = _lobbyRunner != null ? ClientState.InLobby : ClientState.Idle;
         }
 
         /// <summary>
@@ -504,13 +561,13 @@ namespace Colosseum.Network
         {
             // StartDevMode가 capture 후 AutoStartDevModeScene을 Unspecified로 reset하므로
             // RestartDevMode 호출 시점에 AutoStartDevModeScene는 stale일 가능성.
-            // 1순위 AutoStartDevModeScene → 2순위 _lastStartedDevScene (StartDevMode 정상 진입 시 갱신) → 3순위 SampleScene 안전 fallback.
+            // 1순위 AutoStartDevModeScene → 2순위 _lastStartedDevScene (StartDevMode 정상 진입 시 갱신) → 3순위 MVPArena 안전 fallback.
             // 다음 sceneLoaded 콜백까지 prevScene 유지 (OnSceneLoadedForDevMode reset 안 함, MR !58 reviewer 2번 차단).
             var prevScene = AutoStartDevModeScene != SelectableScene.Unspecified
                 ? AutoStartDevModeScene
                 : (_lastStartedDevScene != SelectableScene.Unspecified
                     ? _lastStartedDevScene
-                    : SelectableScene.SampleScene);
+                    : SelectableScene.MVPArena);
             if (_gameRunner != null)
             {
                 try { await _gameRunner.Shutdown(); }
@@ -589,7 +646,7 @@ namespace Colosseum.Network
 
             if (result.Ok)
             {
-                Debug.Log("[Colosseum] Dev Mode started!");
+                DiagLog.Log("[Colosseum] Dev Mode started!");
                 // Dev tooling object가 씬에 배치된 경우 Awake/Start에서 준비 이벤트를 발행한다.
                 // 이 메서드는 외부 tooling 타입을 직접 참조하지 않는다.
             }
@@ -646,18 +703,34 @@ namespace Colosseum.Network
 
         private void HandleServerMessage(NetworkRunner runner, string message)
         {
-            Debug.Log($"[Colosseum] Server message: {message}");
+            DiagLog.Log($"[Colosseum] Server message: {message}");
 
-            if (message.StartsWith("ROOM_CREATED:"))
+            if (message == "VERSION_OK")
+            {
+                DiagLog.Log("[Colosseum] Version check passed");
+                return;
+            }
+            else if (message.StartsWith("VERSION_MISMATCH:"))
+            {
+                string payload = message.Substring(17);
+                string[] parts = payload.Split(new[] { '|' }, 2);
+                string serverVer = parts.Length > 0 && parts[0].Length > 0 ? parts[0] : "?";
+                string clientVer = parts.Length > 1 && parts[1].Length > 0 ? parts[1] : "?";
+                Debug.LogWarning($"[Colosseum] Version mismatch! Server={serverVer}, Client={clientVer}");
+                _versionMismatchDetected = true;
+                OnVersionMismatch?.Invoke(serverVer, clientVer);
+                return;
+            }
+            else if (message.StartsWith("ROOM_CREATED:"))
             {
                 string sessionName = message.Substring(13);
                 if (_createRoomSw != null)
                 {
                     _createRoomSw.Stop();
-                    Debug.Log($"[Colosseum-Timing] ROOM_CREATED received {_createRoomSw.ElapsedMilliseconds}ms after CREATE_ROOM (T1)");
+                    DiagLog.Log($"[Colosseum-Timing] ROOM_CREATED received {_createRoomSw.ElapsedMilliseconds}ms after CREATE_ROOM (T1)");
                     _createRoomSw = null;
                 }
-                Debug.Log($"[Colosseum] Room created: {sessionName}");
+                DiagLog.Log($"[Colosseum] Room created: {sessionName}");
                 OnRoomCreated?.Invoke(sessionName);
             }
             else if (message.StartsWith("ROOM_LIST:"))
@@ -688,6 +761,12 @@ namespace Colosseum.Network
                 string info = message.Substring(13);
                 OnReadyUpdate?.Invoke(info);
             }
+            else if (message.StartsWith("READY_STATE:"))
+            {
+                string state = message.Substring(12);
+                bool isReady = state == "1" || state.Equals("true", StringComparison.OrdinalIgnoreCase);
+                OnLocalReadyStateChanged?.Invoke(isReady);
+            }
             else if (message == "COUNTDOWN_START")
             {
                 OnCountdownStart?.Invoke();
@@ -708,18 +787,18 @@ namespace Colosseum.Network
                 // Fusion이 같은 프로세스 내 다른 runner를 연쇄 종료시키는 이슈 방지.
                 // 로비 러너는 게임 종료 후 LeaveGameRoom() 또는 LeaveToMainMenu()에서 정리.
                 OnGameStart?.Invoke();
-                Debug.Log("[Colosseum] Game started! Lobby runner kept alive for post-game return.");
+                DiagLog.Log("[Colosseum] Game started! Lobby runner kept alive for post-game return.");
             }
             else if (message.StartsWith("GAME_OVER:"))
             {
                 string winnerName = message.Substring(10);
-                Debug.Log($"[Colosseum] Game over! Winner: {winnerName}");
+                DiagLog.Log($"[Colosseum] Game over! Winner: {winnerName}");
                 OnGameOver?.Invoke(winnerName);
             }
             else if (message.StartsWith("ROOM_RESET:"))
             {
                 string info = message.Substring(11);
-                Debug.Log($"[Colosseum] Room reset for rematch ({info})");
+                DiagLog.Log($"[Colosseum] Room reset for rematch ({info})");
                 OnRoomReset?.Invoke(info);
             }
             else if (message.StartsWith("NICKNAMES:"))
@@ -821,27 +900,22 @@ namespace Colosseum.Network
             // Dev Mode에서는 Host이므로 직접 스폰
             if (_state == ClientState.DevMode && runner.IsServer)
             {
-                // X1'-α + A1 (D77 D-15 시한부): 맵 좌표 ×2 후 X ×1.3 (4:1 ratio + cameraSize 8).
-                //   (-3,2)/(3,2) → ×2 → (-6,4)/(6,4) → ×1.3 X → (-7.8, 4)/(7.8, 4).
-                // post-demo closure 의무 (D74-2와 함께): SpawnPoint adapter 도입 후 hardcode 제거.
-                Vector3 spawnPos = _spawnedPlayers.Count == 0
-                    ? new Vector3(-7.8f, 4f, 0f)
-                    : new Vector3(7.8f, 4f, 0f);
+                var roomManager = FindObjectOfType<Colosseum.Game.RoomManager>();
+                bool isFirstPlayer = _spawnedPlayers.Count == 0;
+                Vector3 spawnPos = roomManager != null
+                    ? roomManager.GetInitialSpawnPosition(isFirstPlayer)
+                    : Colosseum.Game.RoomManager.CalculateFallbackInitialSpawnPosition(isFirstPlayer);
 
                 NetworkObject playerObj = runner.Spawn(
                     _playerPrefab, spawnPos, Quaternion.identity, player);
                 _spawnedPlayers.Add(player, playerObj);
 
-                var roomManager = FindObjectOfType<Colosseum.Game.RoomManager>();
                 if (roomManager != null)
                 {
-                    if (_spawnedPlayers.Count == 1)
-                        roomManager.Player1 = player;
-                    else
-                        roomManager.Player2 = player;
+                    roomManager.TryRegisterPlayerSlot(player);
                 }
 
-                Debug.Log($"[Colosseum] Dev Mode: Player {player} spawned");
+                DiagLog.Log($"[Colosseum] Dev Mode: Player {player} spawned");
             }
             // Dedicated Server 모드에서는 서버가 스폰 → 클라이언트는 수신만
         }
@@ -864,7 +938,7 @@ namespace Colosseum.Network
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
-            Debug.Log($"[Colosseum] Runner shutdown: {shutdownReason}");
+            DiagLog.Log($"[Colosseum] Runner shutdown: {shutdownReason}");
 
             if (runner == _lobbyRunner)
             {
@@ -872,8 +946,10 @@ namespace Colosseum.Network
                 if (_state == ClientState.InLobby)
                 {
                     _state = ClientState.Idle;
-                    OnDisconnected?.Invoke($"Lobby disconnected: {shutdownReason}");
+                    if (!_versionMismatchDetected)
+                        OnDisconnected?.Invoke($"Lobby disconnected: {shutdownReason}");
                 }
+                _versionMismatchDetected = false;
             }
             else if (runner == _gameRunner)
             {
@@ -883,32 +959,38 @@ namespace Colosseum.Network
                 if (_state == ClientState.InRoom || _state == ClientState.DevMode)
                 {
                     _state = _lobbyRunner != null ? ClientState.InLobby : ClientState.Idle;
-                    OnDisconnected?.Invoke($"Room disconnected: {shutdownReason}");
+                    if (!_versionMismatchDetected)
+                        OnDisconnected?.Invoke($"Room disconnected: {shutdownReason}");
                 }
+                _versionMismatchDetected = false;
             }
         }
 
         public void OnConnectedToServer(NetworkRunner runner)
         {
-            Debug.Log("[Colosseum] Connected to server");
+            DiagLog.Log("[Colosseum] Connected to server");
         }
 
         public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
         {
-            Debug.Log($"[Colosseum] Disconnected from server: {reason}");
+            DiagLog.Log($"[Colosseum] Disconnected from server: {reason}");
 
             if (runner == _lobbyRunner)
             {
                 CleanupLobbyRunner();
                 _state = ClientState.Idle;
-                OnDisconnected?.Invoke($"Disconnected: {reason}");
+                if (!_versionMismatchDetected)
+                    OnDisconnected?.Invoke($"Disconnected: {reason}");
+                _versionMismatchDetected = false;
             }
             else if (runner == _gameRunner)
             {
                 CleanupGameRunner();
                 _spawnedPlayers.Clear();
                 _state = _lobbyRunner != null ? ClientState.InLobby : ClientState.Idle;
-                OnDisconnected?.Invoke($"Room disconnected: {reason}");
+                if (!_versionMismatchDetected)
+                    OnDisconnected?.Invoke($"Room disconnected: {reason}");
+                _versionMismatchDetected = false;
             }
         }
 
@@ -938,7 +1020,7 @@ namespace Colosseum.Network
         private void FixLight2DSortingLayers()
         {
             var lights = FindObjectsOfType<Light2D>();
-            Debug.Log($"[Colosseum] FixLight2D: Found {lights.Length} Light2D components");
+            DiagLog.Log($"[Colosseum] FixLight2D: Found {lights.Length} Light2D components");
             if (lights.Length == 0) return;
 
             var fieldInfo = typeof(Light2D).GetField("m_ApplyToSortingLayers",
@@ -954,7 +1036,7 @@ namespace Colosseum.Network
             for (int i = 0; i < allSortingLayers.Length; i++)
             {
                 allLayerIds[i] = allSortingLayers[i].id;
-                Debug.Log($"[Colosseum] SortingLayer[{i}]: name='{allSortingLayers[i].name}', id={allSortingLayers[i].id}");
+                DiagLog.Log($"[Colosseum] SortingLayer[{i}]: name='{allSortingLayers[i].name}', id={allSortingLayers[i].id}");
             }
 
             foreach (var light in lights)
@@ -963,11 +1045,11 @@ namespace Colosseum.Network
                 string currentStr = currentLayers != null
                     ? $"[{string.Join(",", currentLayers)}] (len={currentLayers.Length})"
                     : "null";
-                Debug.Log($"[Colosseum] Light2D '{light.name}': current sorting layers = {currentStr}");
+                DiagLog.Log($"[Colosseum] Light2D '{light.name}': current sorting layers = {currentStr}");
 
                 // 무조건 모든 레이어로 설정 (씬 직렬화 결함 무시)
                 fieldInfo.SetValue(light, allLayerIds);
-                Debug.Log($"[Colosseum] Light2D '{light.name}': FORCED to All ({allLayerIds.Length} layers)");
+                DiagLog.Log($"[Colosseum] Light2D '{light.name}': FORCED to All ({allLayerIds.Length} layers)");
             }
         }
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }

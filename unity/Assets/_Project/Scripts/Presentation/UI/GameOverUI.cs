@@ -33,22 +33,50 @@ namespace Colosseum.UI
         private enum Phase { Hidden, PreGame, GameOver, Lobby }
         private Phase _phase = Phase.Hidden;
 
+        public bool IsShowing => _phase != Phase.Hidden;
+
         // ── Phase 2: Game Over ──
         private float _gameOverTimer;
         private TextMeshProUGUI _countdownText;
+        private string _lastGameOverWinnerName;
 
         // ── Phase 1 & 3: Lobby ──
         private GameObject _lobbyPanel;
-        private TextMeshProUGUI _lobbyTitleText;
-        private TextMeshProUGUI _lobbyPlayer1Text;
-        private TextMeshProUGUI _lobbyPlayer2Text;
-        private TextMeshProUGUI _lobbyReadyStatusText;
-        private TextMeshProUGUI _lobbyCountdownText;
-        private Button _readyButton;
-        private TextMeshProUGUI _readyButtonText;
+
+        // A303-357 Beans 톤 리디자인 — 좌/우 캐릭터 슬롯, 중앙 VS/Countdown, 하단 CyberButton.
+        // 기존 텍스트-only 슬롯/Ready status 표시 폐기, 모든 시각 정보는 캐릭터 자세 + 상태 텍스트로 표현.
+        private TextMeshProUGUI _lobbyRoomNameText;         // 상단 "방 이름 : {name}" (StateText 위, 플레이어가 어느 방인지 식별)
+        private TextMeshProUGUI _lobbyStateText;            // "플레이어 대기중..." / "준비 대기중..." / "게임 시작중 N..."
+        private TextMeshProUGUI _lobbyCountdownText;        // 중앙 숫자 (3/2/1/GO!), CountdownText 와 동일 GO
+        private Image _lobbyVsImage;                        // 중앙 VS (lobby_versus.png)
+
+        // 좌/우 슬롯 (좌=Player1, 우=Player2, 본인 위치는 ▼YOU 마커로 식별)
+        private GameObject _slotLeftRoot;
+        private GameObject _slotRightRoot;
+        private GameObject _slotLeftIdleGO;                 // sprite swap: idle 자세 GameObject
+        private GameObject _slotLeftAimingGO;               // sprite swap: aiming 자세 GameObject
+        private GameObject _slotRightIdleGO;
+        private GameObject _slotRightAimingGO;
+        private TextMeshProUGUI _slotLeftNicknameLabel;
+        private TextMeshProUGUI _slotRightNicknameLabel;
+        private GameObject _slotLeftYouMarker;
+        private GameObject _slotRightYouMarker;
+
+        // Ready/Leave 는 CyberButton 사용 (A303-354 메뉴 톤 통일과 일관)
+        private MainMenu.CyberButton _readyCyberButton;
+        private MainMenu.CyberButton _leaveCyberButton;
+        private TextMeshProUGUI _readyButtonText;           // Ready CyberButton 내부 라벨 reference (텍스트 갱신용)
+
         private bool _isReady = false;
+        private bool _readyRequestPending;
         private int _readyCount = 0;
         private int _playerCount = 0;
+        private bool _isCountdownActive;                    // VS ↔ Countdown 전환 상태 추적
+        private Coroutine _vsCountdownTransitionCo;
+        private Coroutine _countdownPunchCo;
+        // 좌/우 슬롯 idle ↔ aiming cross-fade 코루틴 (자세 전환 부드럽게)
+        private Coroutine _leftSlotFadeCo;
+        private Coroutine _rightSlotFadeCo;
 
         // ── 스타일 ──
         private Color _textColor = new Color(0.9f, 0.88f, 0.82f);
@@ -56,12 +84,47 @@ namespace Colosseum.UI
         private Color _buttonColor = new Color(0.15f, 0.15f, 0.2f, 0.95f);
 
         [Header("Style — Player Accent")]
-        [SerializeField] private Color _player1AccentColor = new Color32(0xFF, 0x5A, 0x1F, 0xFF);
-        [SerializeField] private Color _player2AccentColor = new Color32(0x55, 0xAA, 0xFF, 0xFF);
+        [SerializeField] private Color _player1AccentColor = new Color32(0xD7, 0x73, 0x89, 0xFF);  // 핑크
+        [SerializeField] private Color _player2AccentColor = new Color32(0x8F, 0xBF, 0x3F, 0xFF);  // 연두
+        [SerializeField] private Color _cyberAccentColor   = new Color32(0x7C, 0xE6, 0xD8, 0xFF);  // VS / Countdown 시안
 
         [Header("Lobby Style")]
         [SerializeField] private Color _lobbyReadyBoxColor = new Color32(0xFF, 0xB3, 0x47, 0xFF);
         [SerializeField] private Color _lobbyLeaveBoxColor = new Color32(0x33, 0x33, 0x33, 0xFF);
+
+        // ── A303-357 Beans 톤 sprite (Inspector wiring 우선, Resources fallback) ──
+        [Header("Lobby Beans Tone (A303-357)")]
+        [SerializeField] private Sprite _bgArenaSprite;
+        [SerializeField] private Sprite _lobbyPlayer1IdleSprite;
+        [SerializeField] private Sprite _lobbyPlayer1AimingSprite;
+        [SerializeField] private Sprite _lobbyPlayer2IdleSprite;
+        [SerializeField] private Sprite _lobbyPlayer2AimingSprite;
+        [SerializeField] private Sprite _lobbyVersusSprite;
+
+        private const string ResBgArena         = "UI/MainMenu/bg_main_arena";
+        private const string ResLobbyP1Idle     = "UI/MainMenu/lobby_player1_idle";
+        private const string ResLobbyP1Aiming   = "UI/MainMenu/lobby_player1_aiming";
+        private const string ResLobbyP2Idle     = "UI/MainMenu/lobby_player2_idle";
+        private const string ResLobbyP2Aiming   = "UI/MainMenu/lobby_player2_aiming";
+        private const string ResLobbyVersus     = "UI/MainMenu/lobby_versus";
+
+        [Header("Lobby Beans Layout (A303-357)")]
+        [SerializeField] private float _lobbyCharacterHeight = 520f;          // 캐릭터 sprite 높이
+        [SerializeField] private Vector2 _lobbyPlayer1Anchor = new Vector2(0.22f, 0.42f);
+        [SerializeField] private Vector2 _lobbyPlayer2Anchor = new Vector2(0.78f, 0.42f);
+        [SerializeField] private int _lobbyNicknameFontSize = 38;
+        [SerializeField] private float _lobbyVersusHeight = 220f;     // VS Image 표시 높이 (aspect 자동)
+        [SerializeField] private int _lobbyCountdownFontSize = 200;
+        [SerializeField] private int _lobbyStateFontSize = 36;
+        [SerializeField] private int _lobbyRoomNameFontSize = 30;
+        // 상단 라벨 두 줄(방 이름 ↑ / StateText ↓) 의 화면 상단 기준 y offset (음수=아래).
+        [SerializeField] private float _lobbyRoomNameAnchorY = -70f;
+        [SerializeField] private float _lobbyStateAnchorY    = -150f;
+        // Ready / Leave CyberButton 위치 (center anchor 기준, y 음수일수록 화면 하단)
+        [SerializeField] private float _lobbyReadyButtonAnchorY = -260f;
+        [SerializeField] private float _lobbyLeaveButtonAnchorY = -360f;
+        // 자세 cross-fade 시간 — 0.04~0.10 범위 추천. 0 에 가까울수록 instant, 클수록 부드러움.
+        [SerializeField] private float _lobbyPoseFadeDuration = 0.06f;
 
         private Canvas _canvas;
 
@@ -83,12 +146,14 @@ namespace Colosseum.UI
             NetworkManager.OnGameOver += OnNetworkGameOver;
             NetworkManager.OnRoomReset += OnRoomReset;
             NetworkManager.OnReadyUpdate += OnReadyUpdate;
+            NetworkManager.OnLocalReadyStateChanged += OnLocalReadyStateChanged;
             NetworkManager.OnCountdownStart += OnCountdownStart;
             NetworkManager.OnCountdownTick += OnCountdownTick;
             NetworkManager.OnCountdownCancel += OnCountdownCancel;
             NetworkManager.OnGameStart += OnGameRestart;
             NetworkManager.OnPlayerJoinedRoom += OnPlayerUpdate;
             NetworkManager.OnPlayerLeftRoom += OnPlayerUpdate;
+            NetworkManager.OnError += OnServerError;
             RoomManager.OnGameOverEvent += OnRoomManagerGameOver;
             NetworkManager.OnNicknamesUpdated += OnNicknamesUpdated;
 
@@ -110,12 +175,14 @@ namespace Colosseum.UI
             NetworkManager.OnGameOver -= OnNetworkGameOver;
             NetworkManager.OnRoomReset -= OnRoomReset;
             NetworkManager.OnReadyUpdate -= OnReadyUpdate;
+            NetworkManager.OnLocalReadyStateChanged -= OnLocalReadyStateChanged;
             NetworkManager.OnCountdownStart -= OnCountdownStart;
             NetworkManager.OnCountdownTick -= OnCountdownTick;
             NetworkManager.OnCountdownCancel -= OnCountdownCancel;
             NetworkManager.OnGameStart -= OnGameRestart;
             NetworkManager.OnPlayerJoinedRoom -= OnPlayerUpdate;
             NetworkManager.OnPlayerLeftRoom -= OnPlayerUpdate;
+            NetworkManager.OnError -= OnServerError;
             RoomManager.OnGameOverEvent -= OnRoomManagerGameOver;
             NetworkManager.OnNicknamesUpdated -= OnNicknamesUpdated;
         }
@@ -146,7 +213,10 @@ namespace Colosseum.UI
                     _phase = Phase.Hidden;
                     var networkManager = NetworkManager.Instance;
                     if (networkManager != null)
-                        networkManager.LeaveToMainMenu();
+                    {
+                        networkManager.DisconnectGameSession();
+                        SceneManager.LoadScene("MainMenu");
+                    }
                     else
                         SceneManager.LoadScene("MainMenu");
                 }
@@ -168,6 +238,7 @@ namespace Colosseum.UI
         {
             if (_phase != Phase.Hidden) return;
 
+            ResetGameOverDedupe();
             EnsureCanvas();
 
             if (_lobbyPanel == null)
@@ -177,25 +248,14 @@ namespace Colosseum.UI
             _lobbyPanel.SetActive(true);
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
 
-            // 타이틀 설정
-            if (_lobbyTitleText != null)
-                _lobbyTitleText.text = "플레이어 대기 중";
-
             // Ready 초기화
+            _readyRequestPending = false;
             _isReady = false;
             _readyCount = 0;
             _playerCount = 0;
-            if (_readyButton != null)
-            {
-                _readyButton.interactable = true;
-                var img = _readyButton.GetComponent<Image>();
-                if (img != null) img.color = _lobbyReadyBoxColor;
-            }
-            UpdateReadyButtonLabel();
-            if (_lobbyCountdownText != null) _lobbyCountdownText.gameObject.SetActive(false);
-            if (_lobbyReadyStatusText != null) _lobbyReadyStatusText.text = "준비: 0/0";
-            if (_lobbyPlayer1Text != null) _lobbyPlayer1Text.text = "기다리는 중...";
-            if (_lobbyPlayer2Text != null) _lobbyPlayer2Text.text = "기다리는 중...";
+            _isCountdownActive = false;
+            ResetCountdownVisualImmediate();
+            ApplyReadyButtonState(false, interactable: true);
 
             // 이벤트를 놓쳤을 수 있으므로, 캐시된 플레이어 정보로 즉시 갱신
             if (NetworkManager.Instance != null &&
@@ -203,6 +263,7 @@ namespace Colosseum.UI
             {
                 UpdatePlayerSlots(NetworkManager.Instance.LastRoomPlayerInfo);
             }
+            RefreshLobbyVisuals();
 
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
@@ -221,6 +282,7 @@ namespace Colosseum.UI
         public void ShowGameOver(string winnerName)
         {
             if (Application.isBatchMode) return;
+            if (IsDuplicateGameOverSignal(winnerName)) return;
 
             EnsureCanvas();
 
@@ -229,6 +291,7 @@ namespace Colosseum.UI
 
             _phase = Phase.GameOver;
             _gameOverTimer = 5f;
+            _lastGameOverWinnerName = winnerName;
 
             _gameOverPanel.SetActive(true);
             if (_lobbyPanel != null) _lobbyPanel.SetActive(false);
@@ -257,6 +320,17 @@ namespace Colosseum.UI
             ShowGameOver(winnerName);
         }
 
+        private bool IsDuplicateGameOverSignal(string winnerName)
+        {
+            return _phase == Phase.GameOver &&
+                string.Equals(_lastGameOverWinnerName, winnerName, System.StringComparison.Ordinal);
+        }
+
+        private void ResetGameOverDedupe()
+        {
+            _lastGameOverWinnerName = null;
+        }
+
         private bool IsSameSceneRoomManagerRunner(Fusion.NetworkRunner runner)
         {
             if (runner == null) return false;
@@ -274,7 +348,10 @@ namespace Colosseum.UI
             Debug.Log($"[Colosseum] Room reset → showing lobby. Players: {playerInfo}");
 
             _phase = Phase.Lobby;
+            ResetGameOverDedupe();
+            _readyRequestPending = false;
             _isReady = false;
+            _isCountdownActive = false;
 
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
 
@@ -283,30 +360,21 @@ namespace Colosseum.UI
 
             _lobbyPanel.SetActive(true);
 
-            // 타이틀 설정
-            if (_lobbyTitleText != null)
-                _lobbyTitleText.text = "재경기 대기 중";
-
             // Ready 초기화
             _readyCount = 0;
-            if (_readyButton != null)
-            {
-                _readyButton.interactable = true;
-                var img = _readyButton.GetComponent<Image>();
-                if (img != null) img.color = _lobbyReadyBoxColor;
-            }
-            UpdateReadyButtonLabel();
-            if (_lobbyCountdownText != null) _lobbyCountdownText.gameObject.SetActive(false);
-            if (_lobbyReadyStatusText != null) _lobbyReadyStatusText.text = "준비: 0/0";
+            ResetCountdownVisualImmediate();
+            ApplyReadyButtonState(false, interactable: true);
 
-            // 플레이어 슬롯 업데이트
+            // 플레이어 슬롯 업데이트 + 시각 갱신 (RefreshLobbyVisuals 가 _phase 가 Lobby 일 때 StateText 를 "재경기 대기중..." 으로)
             UpdatePlayerSlots(playerInfo);
+            RefreshLobbyVisuals();
         }
 
         private void OnGameRestart()
         {
             // 게임 시작 → UI 숨기기
             _phase = Phase.Hidden;
+            ResetGameOverDedupe();
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
             if (_lobbyPanel != null) _lobbyPanel.SetActive(false);
 
@@ -332,8 +400,6 @@ namespace Colosseum.UI
         private void OnReadyUpdate(string info)
         {
             if (!IsInLobbyPhase) return;
-            if (_lobbyReadyStatusText != null)
-                _lobbyReadyStatusText.text = $"준비: {info}";
 
             // info: "X/Y" — X=ready, Y=joined
             string[] parts = info.Split('/');
@@ -344,25 +410,26 @@ namespace Colosseum.UI
                 _readyCount = ready;
                 _playerCount = total;
                 UpdateReadyButtonLabel();
+                RefreshLobbyVisuals();  // 자세·StateText 같이 갱신
             }
         }
 
         private void OnNicknamesUpdated(string[] nicknames)
         {
             if (!IsInLobbyPhase) return;
-            RefreshPlayerSlotTexts();
+            RefreshLobbyVisuals();
         }
 
         private void OnCountdownStart()
         {
             if (!IsInLobbyPhase) return;
+            _isCountdownActive = true;
             if (_lobbyCountdownText != null)
-            {
-                _lobbyCountdownText.gameObject.SetActive(true);
                 _lobbyCountdownText.text = "3";
-            }
-            if (_readyButton != null)
-                _readyButton.interactable = false;
+            TransitionVsToCountdown();
+            if (_readyCyberButton != null)
+                _readyCyberButton.Interactable = false;
+            UpdateStateText();
         }
 
         private void OnCountdownTick(int seconds)
@@ -370,23 +437,17 @@ namespace Colosseum.UI
             if (!IsInLobbyPhase) return;
             if (_lobbyCountdownText != null)
                 _lobbyCountdownText.text = seconds.ToString();
+            StartCountdownPunch();
+            UpdateStateText();
         }
 
         private void OnCountdownCancel()
         {
             if (!IsInLobbyPhase) return;
-            if (_lobbyCountdownText != null)
-                _lobbyCountdownText.gameObject.SetActive(false);
-            if (_readyButton != null)
-                _readyButton.interactable = true;
-
-            _isReady = false;
-            if (_readyButton != null)
-            {
-                var img = _readyButton.GetComponent<Image>();
-                if (img != null) img.color = _lobbyReadyBoxColor;
-            }
-            UpdateReadyButtonLabel();
+            _isCountdownActive = false;
+            TransitionCountdownToVs();
+            ApplyReadyButtonState(false, interactable: true);
+            UpdateStateText();
         }
 
         private void UpdatePlayerSlots(string info)
@@ -396,35 +457,202 @@ namespace Colosseum.UI
             if (!int.TryParse(parts[0], out int count)) return;
 
             _playerCount = count;
-            RefreshPlayerSlotTexts();
+            RefreshLobbyVisuals();
             UpdateReadyButtonLabel();
         }
 
-        private void RefreshPlayerSlotTexts()
+        /// <summary>
+        /// 닉네임 / ▼YOU 마커 / 자세 / StateText / 슬롯 가시성 한 번에 갱신.
+        /// 기존 RefreshPlayerSlotTexts 의 역할을 흡수 + 신규 시각 요소 추가.
+        /// </summary>
+        private void RefreshLobbyVisuals()
         {
+            if (_lobbyPanel == null) return;
+
             string[] nicks = NetworkManager.Instance != null
                 ? NetworkManager.Instance.LastRoomNicknames
                 : null;
 
-            if (_lobbyPlayer1Text != null)
-                _lobbyPlayer1Text.text = GetSlotText(0, nicks);
-            if (_lobbyPlayer2Text != null)
-                _lobbyPlayer2Text.text = GetSlotText(1, nicks);
+            // 좌/우 닉네임 라벨
+            if (_slotLeftNicknameLabel != null)
+                _slotLeftNicknameLabel.text = ResolveSlotNickname(0, nicks);
+            if (_slotRightNicknameLabel != null)
+                _slotRightNicknameLabel.text = ResolveSlotNickname(1, nicks);
+
+            UpdateSlotVisibility();
+            UpdateYouMarker();
+            UpdateCharacterPoses();
+            UpdateStateText();
+            UpdateRoomNameText();
         }
 
-        private string GetSlotText(int idx, string[] nicks)
+        private void UpdateRoomNameText()
         {
-            if (idx >= _playerCount) return "기다리는 중...";
+            if (_lobbyRoomNameText == null) return;
+            string roomName = NetworkManager.Instance != null
+                ? NetworkManager.Instance.CurrentRoomName
+                : null;
+            _lobbyRoomNameText.text = string.IsNullOrEmpty(roomName)
+                ? "방 이름 : -"
+                : $"방 이름 : {roomName}";
+        }
+
+        private string ResolveSlotNickname(int idx, string[] nicks)
+        {
             if (nicks != null && idx < nicks.Length && !string.IsNullOrEmpty(nicks[idx]))
                 return nicks[idx];
-            return "기다리는 중...";
+            return idx == 0 ? "Player 1" : "Player 2";
+        }
+
+        private void UpdateSlotVisibility()
+        {
+            // 두 슬롯 항상 활성. 단 상대가 아직 안 들어왔으면 sprite / 닉네임만 dim 처리.
+            // mockup 1(Solo): 본인 쪽만 캐릭터, 상대 쪽 비움. 가장 단순한 표현은 상대 GO 전체 hide.
+            bool leftFilled  = _playerCount >= 1;
+            bool rightFilled = _playerCount >= 2;
+
+            // 본인이 P2 일 때 좌측이 상대, P1 일 때 우측이 상대.
+            int myIdx = GetMyPlayerIndex();
+            bool leftIsMine  = myIdx == 0;
+            bool rightIsMine = myIdx == 1;
+
+            // 본인 슬롯은 _playerCount>=1 이면 항상 표시. 상대 슬롯은 _playerCount>=2 일 때만.
+            if (_slotLeftRoot  != null) _slotLeftRoot.SetActive(leftIsMine ? leftFilled : rightFilled);
+            if (_slotRightRoot != null) _slotRightRoot.SetActive(rightIsMine ? rightFilled : leftFilled);
+
+            // 본인 인덱스 모르면(myIdx=-1) — 일단 채워진 만큼 표시
+            if (myIdx < 0)
+            {
+                if (_slotLeftRoot  != null) _slotLeftRoot.SetActive(leftFilled);
+                if (_slotRightRoot != null) _slotRightRoot.SetActive(rightFilled);
+            }
+        }
+
+        private void UpdateYouMarker()
+        {
+            int myIdx = GetMyPlayerIndex();
+            if (_slotLeftYouMarker  != null) _slotLeftYouMarker.SetActive(myIdx == 0);
+            if (_slotRightYouMarker != null) _slotRightYouMarker.SetActive(myIdx == 1);
+        }
+
+        private void UpdateCharacterPoses()
+        {
+            // 본인 자세 = _isReady (즉시 반영).
+            // 상대 자세 = _readyCount - (_isReady ? 1 : 0) >= 1 (서버 readyCount 에서 본인 몫 차감).
+            // OnLocalReadyStateChanged 가 _readyCount 사전 보정도 하므로 두 콜백 도착 순서와 무관하게 정확.
+            int myIdx = GetMyPlayerIndex();
+            int otherReadyCount = Mathf.Max(0, _readyCount - (_isReady ? 1 : 0));
+            bool otherReady = otherReadyCount >= 1;
+
+            bool leftReady, rightReady;
+            if (myIdx == 0)      { leftReady = _isReady;  rightReady = otherReady; }
+            else if (myIdx == 1) { leftReady = otherReady; rightReady = _isReady;  }
+            else
+            {
+                // 본인 미식별 — readyCount 만으로 보수적 추론 (한 명만 ready 면 좌/우 모두 idle 유지)
+                leftReady  = _readyCount >= 2;
+                rightReady = _readyCount >= 2;
+            }
+
+            SetSlotPose(_slotLeftIdleGO,  _slotLeftAimingGO,  leftReady,  ref _leftSlotFadeCo);
+            SetSlotPose(_slotRightIdleGO, _slotRightAimingGO, rightReady, ref _rightSlotFadeCo);
+        }
+
+        private void SetSlotPose(GameObject idleGO, GameObject aimingGO, bool isReady, ref Coroutine fadeCo)
+        {
+            if (idleGO == null || aimingGO == null) return;
+            if (fadeCo != null) StopCoroutine(fadeCo);
+            fadeCo = StartCoroutine(CrossFadePose(idleGO, aimingGO, fadeToAiming: isReady));
+        }
+
+        private System.Collections.IEnumerator CrossFadePose(GameObject idleGO, GameObject aimingGO, bool fadeToAiming)
+        {
+            float duration = Mathf.Max(0f, _lobbyPoseFadeDuration);
+            var idleImg   = idleGO.GetComponent<Image>();
+            var aimingImg = aimingGO.GetComponent<Image>();
+            if (idleImg == null || aimingImg == null) yield break;
+
+            // 두 GameObject 모두 활성 (cross-fade 가능하게) — fade 끝난 후 alpha=0 인 쪽 비활성 처리.
+            idleGO.SetActive(true);
+            aimingGO.SetActive(true);
+
+            float startIdleA   = idleImg.color.a;
+            float startAimingA = aimingImg.color.a;
+            float endIdleA   = fadeToAiming ? 0f : 1f;
+            float endAimingA = fadeToAiming ? 1f : 0f;
+
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / duration));
+                var ic = idleImg.color;   ic.a = Mathf.Lerp(startIdleA,   endIdleA,   u); idleImg.color   = ic;
+                var ac = aimingImg.color; ac.a = Mathf.Lerp(startAimingA, endAimingA, u); aimingImg.color = ac;
+                yield return null;
+            }
+
+            var iEnd = idleImg.color;   iEnd.a = endIdleA;   idleImg.color   = iEnd;
+            var aEnd = aimingImg.color; aEnd.a = endAimingA; aimingImg.color = aEnd;
+
+            // alpha=0 인 쪽은 raycast 차단 / GC 위해 비활성. 다음 fade 호출 시 다시 활성.
+            if (endIdleA   == 0f) idleGO.SetActive(false);
+            if (endAimingA == 0f) aimingGO.SetActive(false);
+        }
+
+        private void UpdateStateText()
+        {
+            if (_lobbyStateText == null) return;
+            string text;
+            if (_isCountdownActive)
+            {
+                string num = _lobbyCountdownText != null ? _lobbyCountdownText.text : "3";
+                text = $"게임 시작중 {num}...";
+            }
+            else if (_playerCount < 2)
+            {
+                text = _phase == Phase.Lobby ? "재경기 대기중..." : "플레이어 대기중...";
+            }
+            else
+            {
+                text = "준비 대기중...";
+            }
+            _lobbyStateText.text = text;
+        }
+
+        private int GetMyPlayerIndex()
+        {
+            var nm = NetworkManager.Instance;
+            if (nm == null) return -1;
+            string myNick = nm.Nickname;
+            string[] nicks = nm.LastRoomNicknames;
+            if (string.IsNullOrEmpty(myNick) || nicks == null) return -1;
+            for (int i = 0; i < nicks.Length; i++)
+            {
+                if (nicks[i] == myNick) return i;
+            }
+            return -1;
         }
 
         private void UpdateReadyButtonLabel()
         {
-            if (_readyButtonText == null) return;
-            string baseLabel = _isReady ? "준비 취소" : "준비";
-            _readyButtonText.text = $"{baseLabel} ({_readyCount}/{_playerCount})";
+            // 라벨 + Interactable 한 번에 갱신 — 모든 갱신 경로(UpdatePlayerSlots / OnReadyUpdate /
+            // OnReadyClicked / OnLocalReadyStateChanged / OnCountdownStart/Cancel)가 같은 결정 사용.
+            if (_readyButtonText != null)
+            {
+                if (_readyRequestPending)
+                    _readyButtonText.text = $"처리 중... ({_readyCount}/{_playerCount})";
+                else
+                {
+                    string baseLabel = _isReady ? "Ready 취소" : "Ready";
+                    _readyButtonText.text = $"{baseLabel} ({_readyCount} / {_playerCount})";
+                }
+            }
+            if (_readyCyberButton != null)
+            {
+                // Solo(_playerCount<2) / 카운트다운 중 / 요청 대기 중 → 비활성
+                bool effectiveInteractable = _playerCount >= 2 && !_isCountdownActive && !_readyRequestPending;
+                _readyCyberButton.Interactable = effectiveInteractable;
+            }
         }
 
         // ──────────────────────────────────────────────
@@ -433,23 +661,48 @@ namespace Colosseum.UI
 
         private void OnReadyClicked()
         {
-            _isReady = !_isReady;
+            if (_readyRequestPending) return;
 
-            if (_isReady)
-                NetworkManager.Instance?.SendReady();
-            else
-                NetworkManager.Instance?.SendUnready();
+            bool targetReady = !_isReady;
+            bool sent = targetReady
+                ? NetworkManager.Instance?.SendReady() == true
+                : NetworkManager.Instance?.SendUnready() == true;
+            if (!sent) return;
 
+            _readyRequestPending = true;
+            if (_readyCyberButton != null)
+                _readyCyberButton.Interactable = false;
             UpdateReadyButtonLabel();
+        }
 
-            if (_readyButton != null)
-            {
-                var img = _readyButton.GetComponent<Image>();
-                if (img != null)
-                    img.color = _isReady
-                        ? Color.Lerp(_lobbyReadyBoxColor, Color.black, 0.4f)
-                        : _lobbyReadyBoxColor;
-            }
+        private void OnLocalReadyStateChanged(bool isReady)
+        {
+            if (!IsInLobbyPhase) return;
+
+            // OnReadyUpdate 보다 OnLocalReadyStateChanged 가 먼저 도착하면 _readyCount 는 아직 stale.
+            // 본인 변화량만큼 _readyCount 를 사전 보정해 자세 추론이 잘못된 분기로 빠지지 않게 한다.
+            // 곧 도착할 OnReadyUpdate 가 서버 권위 값으로 덮어쓰므로 일시 보정은 안전.
+            if (isReady != _isReady)
+                _readyCount = Mathf.Clamp(_readyCount + (isReady ? 1 : -1), 0, _playerCount);
+
+            ApplyReadyButtonState(isReady, interactable: true);
+            RefreshLobbyVisuals();
+        }
+
+        private void OnServerError(string error)
+        {
+            if (!IsInLobbyPhase || !_readyRequestPending) return;
+            ApplyReadyButtonState(_isReady, interactable: true);
+        }
+
+        private void ApplyReadyButtonState(bool isReady, bool interactable)
+        {
+            // `interactable` 인자는 시그니처 보존용 (외부 호출자와 일관). 실제 활성 결정은
+            // UpdateReadyButtonLabel 안에서 _playerCount / _isCountdownActive / _readyRequestPending 으로 일원화.
+            _ = interactable;
+            _isReady = isReady;
+            _readyRequestPending = false;
+            UpdateReadyButtonLabel();
         }
 
         private void OnLeaveRoomClicked()
@@ -457,7 +710,10 @@ namespace Colosseum.UI
             _phase = Phase.Hidden;
             var networkManager = NetworkManager.Instance;
             if (networkManager != null)
-                networkManager.LeaveToMainMenu();
+            {
+                networkManager.DisconnectGameSession();
+                SceneManager.LoadScene("MainMenu");
+            }
             else
                 SceneManager.LoadScene("MainMenu");
         }
@@ -552,110 +808,437 @@ namespace Colosseum.UI
 
         private void CreateLobbyPanel()
         {
+            // A303-357 Beans 톤 리디자인.
+            // 구조: bg_main_arena → StateText(top) → PlayerSlot_Left/Right (캐릭터 + 닉네임 + ▼YOU)
+            //       → CenterVS (VS + Countdown, fade swap) → BottomControls (Ready/Leave CyberButton).
             EnsureCanvas();
 
-            _lobbyPanel = new GameObject("InGameLobbyPanel");
-            _lobbyPanel.transform.SetParent(_canvas.transform, false);
+            Sprite bg       = ResolveSprite(_bgArenaSprite,            ResBgArena);
+            Sprite p1Idle   = ResolveSprite(_lobbyPlayer1IdleSprite,   ResLobbyP1Idle);
+            Sprite p1Aiming = ResolveSprite(_lobbyPlayer1AimingSprite, ResLobbyP1Aiming);
+            Sprite p2Idle   = ResolveSprite(_lobbyPlayer2IdleSprite,   ResLobbyP2Idle);
+            Sprite p2Aiming = ResolveSprite(_lobbyPlayer2AimingSprite, ResLobbyP2Aiming);
+            Sprite versus   = ResolveSprite(_lobbyVersusSprite,        ResLobbyVersus);
 
+            _lobbyPanel = new GameObject("PreGameLobbyPanel");
+            _lobbyPanel.transform.SetParent(_canvas.transform, false);
             var panelRect = _lobbyPanel.AddComponent<RectTransform>();
             panelRect.anchorMin = Vector2.zero;
             panelRect.anchorMax = Vector2.one;
             panelRect.offsetMin = Vector2.zero;
             panelRect.offsetMax = Vector2.zero;
 
-            var panelImage = _lobbyPanel.AddComponent<Image>();
-            panelImage.color = new Color(0.08f, 0.06f, 0.1f, 0.9f);
-
-            // 컨테이너
-            var container = new GameObject("Container");
-            container.transform.SetParent(_lobbyPanel.transform, false);
-            var cRect = container.AddComponent<RectTransform>();
-            cRect.anchorMin = new Vector2(0.5f, 0.5f);
-            cRect.anchorMax = new Vector2(0.5f, 0.5f);
-            cRect.pivot = new Vector2(0.5f, 0.5f);
-            cRect.sizeDelta = new Vector2(400f, 500f);
-
-            var vlg = container.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 6f;
-            vlg.childAlignment = TextAnchor.MiddleCenter;
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = false;
-            vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = false;
-
-            var fitter = container.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            // 타이틀 (동적으로 변경됨)
-            _lobbyTitleText = CreateText(container.transform, "플레이어 대기 중", 32, _goldColor, 42f);
-            CreateSpacer(container.transform, 8f);
-
-            // 플레이어 슬롯
-            CreateText(container.transform, "플레이어", 18, new Color(0.6f, 0.6f, 0.6f), 24f);
-            _lobbyPlayer1Text = CreateSlot(container.transform, "기다리는 중...", _player1AccentColor);
-            _lobbyPlayer2Text = CreateSlot(container.transform, "기다리는 중...", _player2AccentColor);
-
-            CreateSpacer(container.transform, 6f);
-
-            // Ready 상태
-            var rsObj = new GameObject("ReadyStatus");
-            rsObj.transform.SetParent(container.transform, false);
-            var rsLE = rsObj.AddComponent<LayoutElement>();
-            rsLE.preferredHeight = 26f;
-            _lobbyReadyStatusText = rsObj.AddComponent<TextMeshProUGUI>();
-            _lobbyReadyStatusText.text = "준비: 0/0";
-            _lobbyReadyStatusText.fontSize = 20;
-            _lobbyReadyStatusText.color = new Color(0.6f, 0.6f, 0.6f);
-            _lobbyReadyStatusText.alignment = TextAlignmentOptions.Center;
-            rsObj.SetActive(false);
-
-            CreateSpacer(container.transform, 4f);
-
-            // 카운트다운
-            var cdObj = new GameObject("LobbyCountdown");
-            cdObj.transform.SetParent(container.transform, false);
-            var cdLE = cdObj.AddComponent<LayoutElement>();
-            cdLE.preferredHeight = 50f;
-            _lobbyCountdownText = cdObj.AddComponent<TextMeshProUGUI>();
-            _lobbyCountdownText.fontSize = 48;
-            _lobbyCountdownText.color = Color.white;
-            _lobbyCountdownText.alignment = TextAlignmentOptions.Center;
-            _lobbyCountdownText.fontStyle = FontStyles.Bold;
-            cdObj.SetActive(false);
-
-            // Ready 버튼
-            CreateButton(container.transform, "준비", 50f,
-                _lobbyReadyBoxColor, OnReadyClicked,
-                out _readyButton, out _readyButtonText);
-
-            CreateSpacer(container.transform, 4f);
-
-            // Leave Room 버튼 — MainMenuUI/CreateRoom 의 < 이전으로 와 톤·크기 통일: font 34 / color #888.
-            Button leaveBtn;
-            TextMeshProUGUI leaveTxt;
-            CreateButton(container.transform, "< 방 나가기", 50f,
-                Color.clear, OnLeaveRoomClicked, out leaveBtn, out leaveTxt);
-            if (leaveTxt != null)
+            var bgImg = _lobbyPanel.AddComponent<Image>();
+            if (bg != null)
             {
-                leaveTxt.color = new Color32(0x88, 0x88, 0x88, 0xFF);
-                leaveTxt.fontSize = 34;
-                leaveTxt.fontStyle = FontStyles.Normal;
+                bgImg.sprite = bg;
+                bgImg.color = Color.white;
+                bgImg.preserveAspect = false;
             }
-            // CreateButton 의 highlight/pressed 색은 alpha=1 로 강제되어 투명 배경에서도 박스가 깜빡임 →
-            // 텍스트 스타일 유지 위해 모든 state color 를 투명으로 덮어씀.
-            if (leaveBtn != null)
+            else
             {
-                var lc = leaveBtn.colors;
-                lc.normalColor = Color.clear;
-                lc.highlightedColor = Color.clear;
-                lc.pressedColor = Color.clear;
-                lc.selectedColor = Color.clear;
-                lc.disabledColor = Color.clear;
-                lc.colorMultiplier = 1f;
-                leaveBtn.colors = lc;
+                bgImg.color = new Color(0.05f, 0.05f, 0.12f, 0.95f);
+                Debug.LogWarning("[GameOverUI] bg_main_arena sprite 로드 실패 — 단색 fallback");
             }
+            bgImg.raycastTarget = false;
+
+            // ── RoomNameText (상단 중앙, "방 이름 : {name}") ──
+            // StateText 위에 위치. 플레이어가 어느 방에 있는지 즉시 확인 가능.
+            var roomNameGO = new GameObject("RoomNameText");
+            roomNameGO.transform.SetParent(_lobbyPanel.transform, false);
+            var roomNameRt = roomNameGO.AddComponent<RectTransform>();
+            roomNameRt.anchorMin = new Vector2(0.5f, 1f);
+            roomNameRt.anchorMax = new Vector2(0.5f, 1f);
+            roomNameRt.pivot = new Vector2(0.5f, 1f);
+            roomNameRt.anchoredPosition = new Vector2(0f, _lobbyRoomNameAnchorY);
+            roomNameRt.sizeDelta = new Vector2(900f, 50f);
+            _lobbyRoomNameText = roomNameGO.AddComponent<TextMeshProUGUI>();
+            _lobbyRoomNameText.text = "방 이름 : -";
+            _lobbyRoomNameText.fontSize = _lobbyRoomNameFontSize;
+            _lobbyRoomNameText.color = new Color(_cyberAccentColor.r, _cyberAccentColor.g, _cyberAccentColor.b, 1f);
+            _lobbyRoomNameText.alignment = TextAlignmentOptions.Center;
+            _lobbyRoomNameText.fontStyle = FontStyles.Bold;
+            _lobbyRoomNameText.raycastTarget = false;
+
+            // ── StateText (RoomNameText 아래) ──
+            var stateGO = new GameObject("StateText");
+            stateGO.transform.SetParent(_lobbyPanel.transform, false);
+            var stateRt = stateGO.AddComponent<RectTransform>();
+            stateRt.anchorMin = new Vector2(0.5f, 1f);
+            stateRt.anchorMax = new Vector2(0.5f, 1f);
+            stateRt.pivot = new Vector2(0.5f, 1f);
+            stateRt.anchoredPosition = new Vector2(0f, _lobbyStateAnchorY);
+            stateRt.sizeDelta = new Vector2(900f, 60f);
+            _lobbyStateText = stateGO.AddComponent<TextMeshProUGUI>();
+            _lobbyStateText.text = "플레이어 대기중...";
+            _lobbyStateText.fontSize = _lobbyStateFontSize;
+            _lobbyStateText.color = Color.white;
+            _lobbyStateText.alignment = TextAlignmentOptions.Center;
+            _lobbyStateText.fontStyle = FontStyles.Bold;
+            _lobbyStateText.raycastTarget = false;
+
+            // ── PlayerSlot_Left (P1) ──
+            _slotLeftRoot = BuildCharacterSlot(_lobbyPanel.transform, "PlayerSlot_Left",
+                _lobbyPlayer1Anchor, p1Idle, p1Aiming, _player1AccentColor,
+                out _slotLeftIdleGO, out _slotLeftAimingGO,
+                out _slotLeftNicknameLabel, out _slotLeftYouMarker);
+
+            // ── PlayerSlot_Right (P2) ──
+            _slotRightRoot = BuildCharacterSlot(_lobbyPanel.transform, "PlayerSlot_Right",
+                _lobbyPlayer2Anchor, p2Idle, p2Aiming, _player2AccentColor,
+                out _slotRightIdleGO, out _slotRightAimingGO,
+                out _slotRightNicknameLabel, out _slotRightYouMarker);
+
+            // ── CenterVS (VS Image + Countdown TMP 같은 자리 fade swap) ──
+            BuildCenterVs(_lobbyPanel.transform, versus);
+
+            // ── BottomControls (Ready + Leave CyberButton, 중앙 하단) ──
+            BuildBottomControls(_lobbyPanel.transform);
 
             _lobbyPanel.SetActive(false);
+        }
+
+        // ──────────────────────────────────────────────
+        //  A303-357 Beans 톤 헬퍼
+        // ──────────────────────────────────────────────
+
+        private Sprite ResolveSprite(Sprite serialized, string resourcePath)
+        {
+            if (serialized != null) return serialized;
+            var loaded = Resources.Load<Sprite>(resourcePath);
+            if (loaded == null)
+                Debug.LogWarning($"[GameOverUI] Sprite 로드 실패: SerializeField 미할당 + Resources.Load('{resourcePath}') 실패");
+            return loaded;
+        }
+
+        private GameObject BuildCharacterSlot(Transform parent, string objName,
+            Vector2 anchor, Sprite idleSprite, Sprite aimingSprite, Color accentColor,
+            out GameObject idleGO, out GameObject aimingGO,
+            out TextMeshProUGUI nicknameLabel, out GameObject youMarkerGO)
+        {
+            var slotRoot = new GameObject(objName);
+            slotRoot.transform.SetParent(parent, false);
+            var rt = slotRoot.AddComponent<RectTransform>();
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(_lobbyCharacterHeight * 0.85f, _lobbyCharacterHeight + 140f);
+
+            // sprite swap 자세 — Idle / Aiming 두 GameObject 가 alpha cross-fade.
+            // 초기: Idle alpha 1 + active, Aiming alpha 0 + inactive (다음 fade 시작점).
+            idleGO   = BuildCharacterSprite(slotRoot.transform, "IdleSprite",   idleSprite);
+            aimingGO = BuildCharacterSprite(slotRoot.transform, "AimingSprite", aimingSprite);
+            var aimingImg = aimingGO.GetComponent<Image>();
+            if (aimingImg != null)
+            {
+                var c = aimingImg.color; c.a = 0f; aimingImg.color = c;
+            }
+            aimingGO.SetActive(false);
+
+            // NicknameLabel — 캐릭터 머리 위
+            var nickGO = new GameObject("NicknameLabel");
+            nickGO.transform.SetParent(slotRoot.transform, false);
+            var nickRt = nickGO.AddComponent<RectTransform>();
+            nickRt.anchorMin = new Vector2(0.5f, 1f);
+            nickRt.anchorMax = new Vector2(0.5f, 1f);
+            nickRt.pivot = new Vector2(0.5f, 0.5f);
+            nickRt.anchoredPosition = new Vector2(0f, -50f);
+            nickRt.sizeDelta = new Vector2(300f, 50f);
+            nicknameLabel = nickGO.AddComponent<TextMeshProUGUI>();
+            nicknameLabel.text = "Player";
+            nicknameLabel.fontSize = _lobbyNicknameFontSize;
+            nicknameLabel.color = Color.white;
+            nicknameLabel.alignment = TextAlignmentOptions.Center;
+            nicknameLabel.fontStyle = FontStyles.Bold;
+            nicknameLabel.raycastTarget = false;
+            nicknameLabel.enableWordWrapping = false;
+            nicknameLabel.overflowMode = TextOverflowModes.Ellipsis;
+            if (nicknameLabel.fontSharedMaterial != null)
+            {
+                nicknameLabel.fontMaterial = new Material(nicknameLabel.fontSharedMaterial);
+                nicknameLabel.outlineColor = accentColor;
+                nicknameLabel.outlineWidth = 0.25f;
+            }
+
+            // YouMarker — ▼ + "YOU", 닉네임 위
+            youMarkerGO = new GameObject("YouMarker");
+            youMarkerGO.transform.SetParent(slotRoot.transform, false);
+            var youRt = youMarkerGO.AddComponent<RectTransform>();
+            youRt.anchorMin = new Vector2(0.5f, 1f);
+            youRt.anchorMax = new Vector2(0.5f, 1f);
+            youRt.pivot = new Vector2(0.5f, 0f);
+            youRt.anchoredPosition = new Vector2(0f, -10f);
+            youRt.sizeDelta = new Vector2(160f, 32f);
+            var youTmp = youMarkerGO.AddComponent<TextMeshProUGUI>();
+            youTmp.text = "▼  YOU";
+            youTmp.fontSize = 22;
+            youTmp.color = accentColor;
+            youTmp.alignment = TextAlignmentOptions.Center;
+            youTmp.fontStyle = FontStyles.Bold;
+            youTmp.raycastTarget = false;
+            youMarkerGO.SetActive(false);
+
+            return slotRoot;
+        }
+
+        private GameObject BuildCharacterSprite(Transform parent, string objName, Sprite sprite)
+        {
+            var go = new GameObject(objName);
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, 100f);
+            float aspect = sprite != null ? (sprite.rect.width / sprite.rect.height) : 0.7f;
+            rt.sizeDelta = new Vector2(_lobbyCharacterHeight * aspect, _lobbyCharacterHeight);
+            var img = go.AddComponent<Image>();
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.preserveAspect = true;
+            }
+            else
+            {
+                img.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+                Debug.LogWarning($"[GameOverUI] {objName} sprite 로드 실패 — placeholder color");
+            }
+            img.raycastTarget = false;
+            return go;
+        }
+
+        private void BuildCenterVs(Transform parent, Sprite versusSprite)
+        {
+            // VS Image — lobby_versus.png (별도 텍스트 만들지 않음)
+            var vsGO = new GameObject("VSImage");
+            vsGO.transform.SetParent(parent, false);
+            var vsRt = vsGO.AddComponent<RectTransform>();
+            vsRt.anchorMin = new Vector2(0.5f, 0.5f);
+            vsRt.anchorMax = new Vector2(0.5f, 0.5f);
+            vsRt.pivot = new Vector2(0.5f, 0.5f);
+            vsRt.anchoredPosition = new Vector2(0f, 40f);
+            float versusAspect = versusSprite != null ? (versusSprite.rect.width / versusSprite.rect.height) : 1.5f;
+            vsRt.sizeDelta = new Vector2(_lobbyVersusHeight * versusAspect, _lobbyVersusHeight);
+            _lobbyVsImage = vsGO.AddComponent<Image>();
+            if (versusSprite != null)
+            {
+                _lobbyVsImage.sprite = versusSprite;
+                _lobbyVsImage.preserveAspect = true;
+                _lobbyVsImage.color = Color.white;
+            }
+            else
+            {
+                _lobbyVsImage.color = new Color(_cyberAccentColor.r, _cyberAccentColor.g, _cyberAccentColor.b, 0.4f);
+                Debug.LogWarning("[GameOverUI] lobby_versus sprite 로드 실패 — 단색 fallback");
+            }
+            _lobbyVsImage.raycastTarget = false;
+
+            // Countdown Number — VS 동일 위치, 시작 alpha 0
+            var cdGO = new GameObject("CountdownNumber");
+            cdGO.transform.SetParent(parent, false);
+            var cdRt = cdGO.AddComponent<RectTransform>();
+            cdRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cdRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cdRt.pivot = new Vector2(0.5f, 0.5f);
+            cdRt.anchoredPosition = new Vector2(0f, 40f);
+            cdRt.sizeDelta = new Vector2(400f, 280f);
+            _lobbyCountdownText = cdGO.AddComponent<TextMeshProUGUI>();
+            _lobbyCountdownText.text = "3";
+            _lobbyCountdownText.fontSize = _lobbyCountdownFontSize;
+            _lobbyCountdownText.color = new Color(_cyberAccentColor.r, _cyberAccentColor.g, _cyberAccentColor.b, 0f);
+            _lobbyCountdownText.alignment = TextAlignmentOptions.Center;
+            _lobbyCountdownText.fontStyle = FontStyles.Bold;
+            _lobbyCountdownText.raycastTarget = false;
+            if (_lobbyCountdownText.fontSharedMaterial != null)
+            {
+                _lobbyCountdownText.fontMaterial = new Material(_lobbyCountdownText.fontSharedMaterial);
+                _lobbyCountdownText.outlineColor = new Color(_cyberAccentColor.r, _cyberAccentColor.g, _cyberAccentColor.b, 0.7f);
+                _lobbyCountdownText.outlineWidth = 0.25f;
+            }
+            cdGO.SetActive(false);
+        }
+
+        private void BuildBottomControls(Transform parent)
+        {
+            // Ready / 방 나가기 동일 크기·폰트 — 시각 hierarchy 보조 톤. Inspector 에서 anchorY 튜닝.
+            const float btnWidth = 360f;
+            const float btnHeight = 60f;
+            const int btnFontSize = 32;
+
+            var readyGO = BuildLobbyCyberButton(parent, "Ready (0 / 2)", OnReadyClicked,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, _lobbyReadyButtonAnchorY),
+                width: btnWidth, height: btnHeight, fontSize: btnFontSize);
+            _readyCyberButton = readyGO.GetComponent<MainMenu.CyberButton>();
+            _readyButtonText = _readyCyberButton != null ? _readyCyberButton.label : null;
+            if (_readyCyberButton != null) _readyCyberButton.Interactable = false;
+
+            var leaveGO = BuildLobbyCyberButton(parent, "방 나가기", OnLeaveRoomClicked,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, _lobbyLeaveButtonAnchorY),
+                width: btnWidth, height: btnHeight, fontSize: btnFontSize);
+            _leaveCyberButton = leaveGO.GetComponent<MainMenu.CyberButton>();
+        }
+
+        private GameObject BuildLobbyCyberButton(Transform parent, string label, System.Action onClicked,
+            Vector2 anchor, Vector2 anchoredPos, float width, float height, int fontSize)
+        {
+            const float strokeThickness = 2f;
+            var go = new GameObject($"CyberBtn_{label}");
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = anchoredPos;
+            rt.sizeDelta = new Vector2(width, height);
+
+            var hit = go.AddComponent<Image>();
+            hit.color = new Color(0f, 0f, 0f, 0f);
+            hit.raycastTarget = true;
+
+            Color stripCol = new Color(_cyberAccentColor.r, _cyberAccentColor.g, _cyberAccentColor.b, 0.7f);
+            var top    = BuildOutlineStrip(go.transform, "Top",    new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, strokeThickness), stripCol);
+            var bottom = BuildOutlineStrip(go.transform, "Bottom", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, strokeThickness), stripCol);
+            var left   = BuildOutlineStrip(go.transform, "Left",   new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(strokeThickness, 0f), stripCol);
+            var right  = BuildOutlineStrip(go.transform, "Right",  new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(strokeThickness, 0f), stripCol);
+
+            var labelGO = new GameObject("Label");
+            labelGO.transform.SetParent(go.transform, false);
+            var labelRt = labelGO.AddComponent<RectTransform>();
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = new Vector2(20f, 0f);
+            labelRt.offsetMax = new Vector2(-20f, 0f);
+            var tmp = labelGO.AddComponent<TextMeshProUGUI>();
+            tmp.text = label;
+            tmp.fontSize = fontSize;
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.raycastTarget = false;
+
+            var btn = go.AddComponent<MainMenu.CyberButton>();
+            btn.outlineImage = null;
+            btn.outlineImages = new[] { top, bottom, left, right };
+            btn.label = tmp;
+            btn.borderColor = _cyberAccentColor;
+            btn.OnClicked += onClicked;
+            return go;
+        }
+
+        private Image BuildOutlineStrip(Transform parent, string name,
+            Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 sizeDelta, Color color)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.pivot = pivot;
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = sizeDelta;
+            var img = go.AddComponent<Image>();
+            img.color = color;
+            img.raycastTarget = false;
+            return img;
+        }
+
+        // ──────────────────────────────────────────────
+        //  VS ↔ Countdown 전환 + Countdown scale punch (Coroutine + Mathf.SmoothStep)
+        // ──────────────────────────────────────────────
+
+        private void ResetCountdownVisualImmediate()
+        {
+            if (_vsCountdownTransitionCo != null) { StopCoroutine(_vsCountdownTransitionCo); _vsCountdownTransitionCo = null; }
+            if (_countdownPunchCo != null) { StopCoroutine(_countdownPunchCo); _countdownPunchCo = null; }
+
+            if (_lobbyVsImage != null)
+            {
+                var c = _lobbyVsImage.color; c.a = 1f; _lobbyVsImage.color = c;
+                _lobbyVsImage.rectTransform.localScale = Vector3.one;
+            }
+            if (_lobbyCountdownText != null)
+            {
+                var c = _lobbyCountdownText.color; c.a = 0f; _lobbyCountdownText.color = c;
+                _lobbyCountdownText.gameObject.SetActive(false);
+                _lobbyCountdownText.rectTransform.localScale = Vector3.one;
+            }
+        }
+
+        private void TransitionVsToCountdown()
+        {
+            if (_lobbyCountdownText != null) _lobbyCountdownText.gameObject.SetActive(true);
+            if (_vsCountdownTransitionCo != null) StopCoroutine(_vsCountdownTransitionCo);
+            _vsCountdownTransitionCo = StartCoroutine(FadeVsAndCountdown(toCountdown: true, duration: 0.3f));
+        }
+
+        private void TransitionCountdownToVs()
+        {
+            if (_vsCountdownTransitionCo != null) StopCoroutine(_vsCountdownTransitionCo);
+            _vsCountdownTransitionCo = StartCoroutine(FadeVsAndCountdown(toCountdown: false, duration: 0.3f));
+        }
+
+        private System.Collections.IEnumerator FadeVsAndCountdown(bool toCountdown, float duration)
+        {
+            float vsStart = _lobbyVsImage != null ? _lobbyVsImage.color.a : 1f;
+            float cdStart = _lobbyCountdownText != null ? _lobbyCountdownText.color.a : 0f;
+            float vsEnd = toCountdown ? 0f : 1f;
+            float cdEnd = toCountdown ? 1f : 0f;
+
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / duration));
+                if (_lobbyVsImage != null)
+                {
+                    var c = _lobbyVsImage.color; c.a = Mathf.Lerp(vsStart, vsEnd, u); _lobbyVsImage.color = c;
+                }
+                if (_lobbyCountdownText != null)
+                {
+                    var c = _lobbyCountdownText.color; c.a = Mathf.Lerp(cdStart, cdEnd, u); _lobbyCountdownText.color = c;
+                }
+                yield return null;
+            }
+
+            if (_lobbyVsImage != null)
+            {
+                var c = _lobbyVsImage.color; c.a = vsEnd; _lobbyVsImage.color = c;
+            }
+            if (_lobbyCountdownText != null)
+            {
+                var c = _lobbyCountdownText.color; c.a = cdEnd; _lobbyCountdownText.color = c;
+                if (!toCountdown) _lobbyCountdownText.gameObject.SetActive(false);
+            }
+            _vsCountdownTransitionCo = null;
+        }
+
+        private void StartCountdownPunch()
+        {
+            if (_lobbyCountdownText == null) return;
+            if (_countdownPunchCo != null) StopCoroutine(_countdownPunchCo);
+            _countdownPunchCo = StartCoroutine(CountdownPunchRoutine());
+        }
+
+        private System.Collections.IEnumerator CountdownPunchRoutine()
+        {
+            var rt = _lobbyCountdownText.rectTransform;
+            const float duration = 0.2f;
+            const float peak = 1.2f;
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / duration);
+                // 0→0.5: 1.0 → peak, 0.5→1: peak → 1.0
+                float scale = u < 0.5f
+                    ? Mathf.Lerp(1f, peak, u * 2f)
+                    : Mathf.Lerp(peak, 1f, (u - 0.5f) * 2f);
+                rt.localScale = new Vector3(scale, scale, 1f);
+                yield return null;
+            }
+            rt.localScale = Vector3.one;
+            _countdownPunchCo = null;
         }
 
         // ──────────────────────────────────────────────

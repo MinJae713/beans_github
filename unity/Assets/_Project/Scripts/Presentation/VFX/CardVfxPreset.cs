@@ -20,6 +20,20 @@ namespace Colosseum.Presentation.VFX
         public float radiusScale = 1f;
         public GameObject effectPrefab;
         public float prefabScale = 1f;
+        public bool alignLocalForwardToDirection = false;
+        public float rotationOffsetDegrees = 0f;
+        public bool usePrefabRotation = false;
+        public bool useHierarchyParticleScale = false;
+        public GameObject[] additionalEffectPrefabs = new GameObject[0];
+        public float additionalEffectMinMagnitude = 0f;
+        public bool tintParticlesWithPresetColor = false;
+        public bool keepAliveUntilOverchargeShot = false;
+        public bool followSourcePlayer = false;
+        public bool followTargetPlayer = false;
+        public Vector2 followOffset = Vector2.zero;
+        public float followZOffset = 0f;
+        public bool overrideSortingOrder = false;
+        public int sortingOrder = 0;
         public bool showToast = true;
         public string toastLabel = string.Empty;
 

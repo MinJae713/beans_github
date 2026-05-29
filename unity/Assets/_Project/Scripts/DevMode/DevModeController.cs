@@ -104,6 +104,11 @@ namespace Colosseum.DevMode
             // 두 번째 인스턴스는 위 Singleton 가드에서 자기 파괴된다.
             // 씬 배치 어댑터 GameObject는 reload 시 파괴되므로 어댑터는 IsReady late-join 분기 필수
             // (5종 어댑터 OnEnable 패턴 참조: if (Instance?.IsReady == true) Apply(Instance.AssetPack)).
+            //
+            // DontDestroyOnLoad는 root GameObject에서만 동작한다.
+            // 씬 계층 그룹(MAP/SYSTEM/CAMERA) 하위에 배치된 경우 먼저 root로 분리.
+            if (transform.parent != null)
+                transform.SetParent(null);
             DontDestroyOnLoad(gameObject);
         }
 
@@ -143,6 +148,11 @@ namespace Colosseum.DevMode
             // 본 컨트롤러가 production 가드(IsDevMode 체크)를 통과한 시점이라 안전하게 부착할 수 있고,
             // 씬에 별도 GameObject를 배치할 필요가 없다 (자체 Canvas + Layout 동적 생성).
             EnsureDevModeSettingsPanel();
+
+            // A303-333: 씬에서 기본 비활성(m_IsActive:0)인 DevMode 버튼을 DevMode 진입 시 활성화.
+            // 서버/일반 클라이언트 빌드에서는 DevModeController 자체가 #if UNITY_EDITOR 가드로 컴파일 제외되므로 버튼은 비활성 유지.
+            ActivateDevModeButtons();
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
         /// <summary>
@@ -206,8 +216,33 @@ namespace Colosseum.DevMode
 
         private void OnDestroy()
         {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
             if (Instance == this)
                 Instance = null;
+        }
+
+        private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            if (Instance != this) return;
+            ActivateDevModeButtons();
+        }
+
+        private static readonly string[] _devModeButtonNames = { "ResetButton", "BackButton", "DebugPanelButton" };
+
+        private void ActivateDevModeButtons()
+        {
+            ActivateNamedInHierarchy(transform);
+        }
+
+        private void ActivateNamedInHierarchy(Transform t)
+        {
+            if (System.Array.IndexOf(_devModeButtonNames, t.name) >= 0 && !t.gameObject.activeSelf)
+            {
+                t.gameObject.SetActive(true);
+                Debug.Log($"[DevModeController] DevMode 버튼 활성화: {t.name}");
+            }
+            for (int i = 0; i < t.childCount; i++)
+                ActivateNamedInHierarchy(t.GetChild(i));
         }
 
         // ──────────────────────────────────────────────
@@ -391,10 +426,18 @@ namespace Colosseum.DevMode
         /// </summary>
         public void BackToMainMenu()
         {
+            if (Colosseum.UI.DevModeSettingsPanel.Instance != null)
+                Destroy(Colosseum.UI.DevModeSettingsPanel.Instance.gameObject);
+
+            if (debugCardPanelPrefab != null)
+                debugCardPanelPrefab.Hide();
+
             var nm = NetworkManager.Instance;
             nm?.DisconnectAll();
             Debug.Log("[DevModeController] DevMode 종료 — MainMenu 로드.");
             UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+
+            Destroy(gameObject);
         }
     }
 }

@@ -47,51 +47,18 @@ namespace Colosseum.DevMode
         //  생명주기
         // ──────────────────────────────────────────────
 
+        // [A303-171] Visual-only projectile 전환 이후 NetworkObject 기반 bullet override 폐기.
+        // 본 어댑터는 호환을 위해 컴포넌트 형태만 유지 — 모든 동작은 no-op.
+        // DevMode bullet 커스터마이즈는 향후 BulletVisual prefab 슬롯으로 전환 예정.
+
         private void OnEnable()
         {
-            // R13 race mitigation: OnDevModeReady 대기 없이 즉시 cache 설정.
-            // Gun.Spawned()가 OnDevModeReady보다 먼저 실행되는 경우를 커버한다.
-            if (_assetPack != null && _assetPack.bulletPrefab.IsValid)
-                SetCache(_assetPack.bulletPrefab);
-
-            // OnDevModeReady 구독 (씬 배치 어댑터 재구독 포함)
-            DevModeController.OnDevModeReady += Apply;
-
-            // IsReady late-join 분기: 이미 DevMode가 준비된 상태라면 즉시 적용
-            if (DevModeController.Instance?.IsReady == true)
-                Apply(DevModeController.Instance.AssetPack);
+            // no-op
         }
 
         private void OnDisable()
         {
-            DevModeController.OnDevModeReady -= Apply;
-
-            // R12 cleanup: static cache 정리 — process-wide leak 방지
-            DevModeBulletOverrideStore.Clear();
-            Debug.Log("[Colosseum] Dev Mode: Bullet override cleared");
-        }
-
-        private void Apply(DevModeAssetPack pack)
-        {
-            if (pack == null)
-            {
-                Debug.LogWarning("[Colosseum] Dev Mode: BulletInjectionAdapter — AssetPack이 null입니다.", this);
-                return;
-            }
-
-            if (!pack.bulletPrefab.IsValid)
-            {
-                Debug.LogWarning("[Colosseum] Dev Mode: BulletInjectionAdapter — bulletPrefab이 유효하지 않습니다. PrefabTable 등록 여부를 확인하세요.", this);
-                return;
-            }
-
-            SetCache(pack.bulletPrefab);
-        }
-
-        private static void SetCache(NetworkPrefabRef bulletPrefab)
-        {
-            DevModeBulletOverrideStore.Set(bulletPrefab);
-            Debug.Log($"[Colosseum] Dev Mode: Bullet override cached - {bulletPrefab}");
+            // no-op
         }
     }
 }

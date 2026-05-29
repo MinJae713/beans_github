@@ -290,9 +290,14 @@ deploy:onboarding:
         "$ONBOARDING_DIR/default.conf" \
         "$ONBOARDING_DIR/docker-compose.yml" \
         "$ONBOARDING_DIR/index.html" \
+        "$ONBOARDING_DIR/styles.css" \
+        "$ONBOARDING_DIR/parallax.js" \
         "$ONBOARDING_DIR/downloads/Client.zip"
     - |
       rm -rf \
+        "$ONBOARDING_DIR/assets" \
+        "$ONBOARDING_DIR/styles.css" \
+        "$ONBOARDING_DIR/parallax.js" \
         "$ONBOARDING_DIR/downloads"
     - |
       mkdir -p "$ONBOARDING_DIR/downloads" && \
@@ -302,6 +307,12 @@ deploy:onboarding:
         infra/remotebuild/OnboardingPage/default.conf \
         infra/remotebuild/OnboardingPage/docker-compose.yml \
         infra/remotebuild/OnboardingPage/index.html \
+        infra/remotebuild/OnboardingPage/styles.css \
+        infra/remotebuild/OnboardingPage/parallax.js \
+        "$ONBOARDING_DIR/"
+    - |
+      cp -r \
+        infra/remotebuild/OnboardingPage/assets \
         "$ONBOARDING_DIR/"
     - |
       cp -r \

@@ -71,7 +71,7 @@ MonoBehaviour:
     effectKey: projectile_explosion
     eventType: 6
     clip: {fileID: 8300000, guid: 321feb9f51af885488e5ed433aecd467, type: 3}
-    volume: 0.92
+    volume: 0.3066667
     pitchMin: 0.94
     pitchMax: 1.02
     spatialBlend: 0.9

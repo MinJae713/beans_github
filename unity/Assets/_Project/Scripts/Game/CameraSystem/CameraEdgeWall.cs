@@ -6,12 +6,13 @@ namespace Colosseum.CameraSystem
     /// 카메라 ortho 영역 4변에 부착되는 식별 컴포넌트.
     /// CameraEdgeBulletWalls가 카메라 자식으로 4개 GameObject를 동적 생성하면서 각각에 본 컴포넌트를 부착한다.
     ///
-    /// BulletController.OnHitTrigger가 OnTriggerEnter2D 시 GetComponent&lt;CameraEdgeWall&gt;()로 식별하여
-    /// "카메라 경계에 부딪혔다"는 신호를 받는다. Layer/Tag 변경 없이 컴포넌트 검사만으로 동작 (ProjectSettings 무관).
+    /// BulletServerSimulation 이 CircleCast hit collider 에서 GetComponent&lt;CameraEdgeWall&gt;()로 식별하여
+    /// "카메라 경계에 닿았다"는 신호를 받는다. Layer/Tag 변경 없이 컴포넌트 검사만으로 동작 (ProjectSettings 무관).
     ///
-    /// Side 필드는 BulletController가 velocity 반사 방향 결정에 사용:
+    /// Side 필드는 BulletServerSimulation 이 velocity 반사 방향 결정에 사용:
     ///   Left/Right → velocity.x 반전
-    ///   Top/Bottom → velocity.y 반전
+    ///   Top → velocity.y 반전
+    ///   Bottom → 낙하/화면 하단 이탈은 반사하지 않고 통과
     /// </summary>
     public class CameraEdgeWall : MonoBehaviour
     {

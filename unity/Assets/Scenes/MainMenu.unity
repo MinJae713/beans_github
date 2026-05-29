@@ -132,6 +132,7 @@ GameObject:
   m_Component:
   - component: {fileID: 278251841}
   - component: {fileID: 278251840}
+  - component: {fileID: 278251842}
   m_Layer: 0
   m_Name: MainMenuManager
   m_TagString: Untagged
@@ -151,7 +152,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1fac8cf75f053f5409671e233119d9ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _gameSceneName: SampleScene
   _buttonWidth: 400
   _buttonHeight: 55
   _buttonSpacing: 16
@@ -167,6 +167,10 @@ MonoBehaviour:
   _goldColor: {r: 1, g: 0.3529412, b: 0.12156863, a: 1}
   _logoSprite: {fileID: 21300000, guid: e6d886a74570c8545979b52e538119b2, type: 3}
   _fightSprite: {fileID: 21300000, guid: ee9cf3056b0530148ac1c7b5a034618f, type: 3}
+  _beansLogoSprite: {fileID: 21300000, guid: 473fa0ef2e11bea418128a351a2c1cd9, type: 3}
+  _bgArenaSprite: {fileID: 21300000, guid: 62dce86ebfa9a124d8034034f10b45b6, type: 3}
+  _peanyAimingSprite: {fileID: 21300000, guid: 68dc746e51fc9274188e4666d5fb7bbd, type: 3}
+  _beanyAimingSprite: {fileID: 21300000, guid: aaa4299d8b4deea48815424b839110ab, type: 3}
   _pageTitleFontSize: 70
   _inputFieldFontSize: 42
   _actionButtonFontSize: 48
@@ -178,6 +182,8 @@ MonoBehaviour:
   _placeholderColor: {r: 0.6556604, g: 0.6556604, b: 0.6556604, a: 1}
   _actionButtonDisabledColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
   _actionButtonDisabledTextColor: {r: 0.53333336, g: 0.53333336, b: 0.53333336, a: 1}
+  _actionButtonTextOutlineColor: {r: 0.54509807, g: 0.22745098, b: 0.07058824, a: 1}
+  _actionButtonTextOutlineWidth: 0.15
   _inputFieldBgColor: {r: 0.13333334, g: 0.13333334, b: 0.18039216, a: 0.9490196}
   _menuFont: {fileID: 0}
 --- !u!4 &278251841
@@ -195,6 +201,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &278251842
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 278251839}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41a2ce91a1ad9ec4ca3ac94b8e2b7ca8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _bean1: {fileID: 21300000, guid: d7cd60e648864a5409b14da5c3bc1d4b, type: 3}
+  _bean2: {fileID: 21300000, guid: 30ac3650eaede6941a7ebdd924f7d0d4, type: 3}
+  _bean3: {fileID: 21300000, guid: 39ad85d8e91814e45ab173bd4f9e2b87, type: 3}
+  _bgColor: {r: 0, g: 0, b: 0, a: 0.85}
+  _panelColor: {r: 0.11764706, g: 0.11764706, b: 0.18039216, a: 1}
+  _textColor: {r: 0.9411765, g: 0.9411765, b: 0.9411765, a: 1}
+  _versionColor: {r: 1, g: 0.41960785, b: 0.41960785, a: 1}
+  _buttonColor: {r: 1, g: 0.3529412, b: 0.12156863, a: 1}
+  _buttonHoverColor: {r: 0.72156864, g: 0.22745098, b: 0.07058824, a: 1}
+  _buttonTextColor: {r: 1, g: 1, b: 1, a: 1}
+  _updateUrl: https://lab.ssafy.com/s14-final/S14P31A303/-/releases
 --- !u!1 &796745072
 GameObject:
   m_ObjectHideFlags: 0

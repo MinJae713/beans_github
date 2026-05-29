@@ -22,6 +22,12 @@ namespace Colosseum.Contracts
         SegmentBoundaryAdvanced,
         PitFallDeath,
         PlayerRespawned,
-        ProjectileShot
+        ProjectileShot,
+        PlayerSpawn,
+        PlayerJumpStarted,
+        PlayerLanded,
+        VictoryZoneReached,
+        EmojiRequested,
+        PlayerInvulnerabilityStarted
     }
 }

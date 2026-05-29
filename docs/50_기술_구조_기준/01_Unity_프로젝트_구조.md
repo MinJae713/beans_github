@@ -234,10 +234,12 @@ Presentation 컴포넌트는 같은 Prefab 안에서 Domain 컴포넌트와 공�
 
 현재 구현 예시:
 
-- `Scripts/Presentation/UI/MainMenuUI.cs`는 Room 목록 Refresh 버튼과 로비 화면을 관리한다.
+- `Scripts/Presentation/UI/MainMenuUI.cs`는 닉네임 입력 완료 후 Lobby 선접속을 트리거하고, Room 목록 Refresh 버튼, Create Room 버튼의 Lobby 연결 상태 기반 활성/비활성, 로비 화면 전환을 관리한다.
 - `Scripts/Presentation/SFX/SegmentAdvanceSfxPresentationManager.cs`는 구간 돌파 확정 사건을 소리로 표현하되 게임 결과를 변경하지 않는다.
-- `Scripts/NetworkGameplay/Network/NetworkManager.cs`는 `LIST_ROOMS` 요청과 방 입장 흐름을 관리한다.
-- `Scripts/NetworkGameplay/Network/LobbyServerManager.cs`는 Worker Agent spawn 요청과 Spring Room API 조회를 브리지한다.
+- `Scripts/NetworkGameplay/Network/NetworkManager.cs`는 `ConnectToLobby`, `CREATE_ROOM`, `LIST_ROOMS`, `JoinGameRoom` 흐름과 Client timing 로그를 관리한다.
+- `Scripts/NetworkGameplay/Network/LobbyServerManager.cs`는 Worker Agent spawn 요청과 Spring Room API 조회를 브리지하고, Lobby timing 로그(`LT1`, `LT2`)를 기록한다.
+- `worker-agent/Program.cs`는 GameServer spawn / cleanup과 Room API `POST/PATCH/DELETE`를 수행하며 Worker timing 로그(`WT1` ~ `WT4`)를 기록한다.
+- `Scripts/NetworkGameplay/Network/GameServerManager.cs`는 Fusion `StartGame(Server)` 준비/완료 구간을 `GT1` ~ `GT5` 로그로 분해해 GameServer cold start 병목을 관찰한다.
 
 이 경계는 "UI가 직접 HTTP를 호출하지 않고, Presentation -> NetworkGameplay -> control plane" 순서로 흐르도록 유지한다.
 
@@ -262,7 +264,9 @@ Presentation 컴포넌트는 같은 Prefab 안에서 Domain 컴포넌트와 공�
 
 `Data/Cards/`와 `GameplayProfile.asset`은 게임 규칙과 수치 정책을 제공하고, `Data/Presentation/`은 그 결과를 보여주는 방식을 제공한다. 예를 들어 `Electric Shot` 카드가 어떤 effect tag를 갖는지는 카드/계약 기준이고, 그 tag가 파란 trail과 스파크 particle로 보이는지는 `Data/Presentation/` 기준이다.
 
-현재 런타임에서 Resources 로드가 필요한 VFX presentation profile은 `unity/Assets/_Project/Resources/Presentation/VfxFeedbackProfile.asset`처럼 `Resources/Presentation/` 아래에 둘 수 있다. 이 경로의 asset도 전투 수치의 정본이 아니라 `VfxEventType`, `EffectKey`, duration/radius 값을 sweep 같은 VFX 표현으로 연결하는 설정이다. 구간 돌파 sweep은 payload의 world position과 이 asset의 duration/radius 값을 조합해 표시하고, 구간 돌파 SFX는 이 asset의 duration/radius가 아니라 `SegmentAdvanceSfxPresentationManager`가 수신한 event/effect key, dedupe key, world position을 기준으로 별도 재생한다.
+현재 런타임에서 Resources 로드가 필요한 VFX presentation profile은 `unity/Assets/_Project/Resources/Presentation/VfxFeedbackProfile.asset`처럼 `Resources/Presentation/` 아래에 둘 수 있다. 이 경로의 asset도 전투 수치의 정본이 아니라 `VfxEventType`, `EffectKey`, duration/radius, source/target follow 여부, attach offset 값을 VFX 표현으로 연결하는 설정이다. 구간 돌파 sweep은 payload의 world position과 이 asset의 duration/radius 값을 조합해 표시하고, 구간 돌파 SFX는 이 asset의 duration/radius가 아니라 `SegmentAdvanceSfxPresentationManager`가 수신한 event/effect key, dedupe key, world position을 기준으로 별도 재생한다.
+
+외부 VFX 후보 asset을 제품 branch로 옮길 때는 `_CandidateImports` 전체를 반입하지 않고, 선택된 root prefab과 Unity가 요구하는 transitive dependency 및 `.meta`만 포함한다.
 
 ## Room Registry / 외부 서비스 연동 기준
 

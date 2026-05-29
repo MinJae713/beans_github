@@ -52,6 +52,7 @@ namespace Colosseum.Card
         public float fireRateMultiplier = 1f;
         public float reloadSpeedMultiplier = 1f;
         public int extraBullets = 0;
+        [Min(0)] public int extraAmmoCapacity = 0;
         public int extraPierce = 0;
         public float knockbackForce = 0f;
 
@@ -68,6 +69,7 @@ namespace Colosseum.Card
 
         [Header("폭발")]
         public float explosionRadius = 0f;
+        public float explosionRadiusMultiplier = 1f;
         public float explosionDamageRatio = 0.5f;
 
         [Header("과충전")]

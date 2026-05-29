@@ -11,7 +11,7 @@ namespace Colosseum.Status.Effects
     public class ElectricEffect : StatusEffectDefinition, IStunEffect, IVisualTintEffect
     {
         [Header("Electric 전용 수치")]
-        [Tooltip("이 스택 수에 도달하면 stun 상태가 활성화. baseDuration 동안 IsStunningNow=true 유지.")]
+        [Tooltip("이 스택 수에 도달하면 stack을 소비하고 별도 stun timer가 baseDuration 동안 경직을 유지.")]
         [SerializeField] private int _stunThreshold = 3;
 
         public override void OnApply(PlayerStatusController target, ref StatusEffectInstance instance)
@@ -29,7 +29,7 @@ namespace Colosseum.Status.Effects
 
         public bool IsStunningNow(StatusEffectInstance instance)
         {
-            // 임계 도달 시 만료 전까지 stun
+            // PlayerStatusController가 이 결과를 trigger로 사용해 stack을 0으로 소비하고 stun timer를 시작한다.
             return instance.Stacks >= _stunThreshold;
         }
 

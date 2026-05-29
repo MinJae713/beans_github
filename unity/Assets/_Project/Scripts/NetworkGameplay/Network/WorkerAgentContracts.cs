@@ -16,6 +16,7 @@ namespace Colosseum.Network
         public string RoomName;
         public string HostNickname;
         public int MaxPlayers;
+        public string SceneName;
     }
 
     public class SpawnRoomResponse

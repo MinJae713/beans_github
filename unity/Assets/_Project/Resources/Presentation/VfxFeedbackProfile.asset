@@ -14,91 +14,81 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   _presets:
   - cardKey:
-    effectKey: projectile_explosion
-    eventType: 6
-    style: 1
-    color: {r: 1, g: 0.55, b: 0.08, a: 0.72}
+    effectKey: projectile_shot
+    eventType: 20
+    style: 2
+    color: {r: 1, g: 0.95, b: 0.75, a: 0.9}
+    durationSeconds: 0.18
+    radiusScale: 0.35
+    effectPrefab: {fileID: 7790606644849493849, guid: 7c5399af97edd5848ae015512f13f652, type: 3}
+    prefabScale: 0.4
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: player_spawn
+    eventType: 21
+    style: 0
+    color: {r: 0.25, g: 0.78, b: 1, a: 0.82}
     durationSeconds: 0.75
-    radiusScale: 2
-    effectPrefab: {fileID: 1608183678725496526, guid: 6b69b557610810b488ddfa397dcba567, type: 3}
+    radiusScale: 1
+    effectPrefab: {fileID: 147642, guid: 685c97d007af49549b239b56b6d2000a, type: 3}
+    prefabScale: 0.85
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 0}
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: player_jump_started
+    eventType: 22
+    style: 2
+    color: {r: 0.95, g: 0.95, b: 1, a: 0.82}
+    durationSeconds: 0.42
+    radiusScale: 0.55
+    effectPrefab: {fileID: 154094, guid: 9b8a3a9ce5d6cd546b9a3ef91545d0e8, type: 3}
+    prefabScale: 1.2375
+    alignLocalForwardToDirection: 1
+    rotationOffsetDegrees: 0
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 0}
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: player_landed
+    eventType: 23
+    style: 3
+    color: {r: 1, g: 0.92, b: 0.72, a: 0.84}
+    durationSeconds: 0.48
+    radiusScale: 0.65
+    effectPrefab: {fileID: 0}
     prefabScale: 1
-    showToast: 0
-    toastLabel:
-  - cardKey:
-    effectKey: hit_apply_poison
-    eventType: 7
-    style: 0
-    color: {r: 0.35, g: 1, b: 0.25, a: 0.82}
-    durationSeconds: 0.9
-    radiusScale: 1
-    effectPrefab: {fileID: 5024009746357069194, guid: ec3f674830402cc45bce805cf6493db7, type: 3}
-    prefabScale: 0.8
-    showToast: 1
-    toastLabel: POISON
-  - cardKey:
-    effectKey: hit_apply_burn
-    eventType: 7
-    style: 0
-    color: {r: 1, g: 0.32, b: 0.08, a: 0.88}
-    durationSeconds: 0.9
-    radiusScale: 1
-    effectPrefab: {fileID: 1608183678725496526, guid: 6b69b557610810b488ddfa397dcba567, type: 3}
-    prefabScale: 0.75
-    showToast: 1
-    toastLabel: BURN
-  - cardKey:
-    effectKey: hit_apply_frost
-    eventType: 7
-    style: 0
-    color: {r: 0.35, g: 0.8, b: 1, a: 0.82}
-    durationSeconds: 0.9
-    radiusScale: 1
-    effectPrefab: {fileID: 127172, guid: 8a6b340f3d2454200b877f2ddd65f890, type: 3}
-    prefabScale: 0.8
-    showToast: 1
-    toastLabel: FROST
-  - cardKey:
-    effectKey: hit_apply_electric_stack
-    eventType: 7
-    style: 0
-    color: {r: 1, g: 0.95, b: 0.1, a: 0.9}
-    durationSeconds: 0.9
-    radiusScale: 1
-    effectPrefab: {fileID: 7143791316838673061, guid: c1896e117d6faa74ca12e533ed82d410, type: 3}
-    prefabScale: 0.75
-    showToast: 1
-    toastLabel: ELECTRIC
-  - cardKey:
-    effectKey: reload_overcharge
-    eventType: 12
-    style: 0
-    color: {r: 1, g: 0.9, b: 0.05, a: 0.9}
-    durationSeconds: 0.9
-    radiusScale: 1.35
-    effectPrefab: {fileID: 4400202450295462572, guid: 17ab42a1fd902014c8daa6cb7987190e, type: 3}
-    prefabScale: 0.9
-    showToast: 1
-    toastLabel: OVERCHARGE READY
-  - cardKey:
-    effectKey: projectile_reflect
-    eventType: 4
-    style: 2
-    color: {r: 0.28, g: 0.7, b: 1, a: 0.82}
-    durationSeconds: 0.45
-    radiusScale: 0.8
-    effectPrefab: {fileID: 771596928501578849, guid: c6923e92182b9364f9836706891c80a5, type: 3}
-    prefabScale: 0.8
-    showToast: 0
-    toastLabel:
-  - cardKey:
-    effectKey: projectile_pierce
-    eventType: 5
-    style: 2
-    color: {r: 0.75, g: 0.55, b: 1, a: 0.82}
-    durationSeconds: 0.45
-    radiusScale: 0.8
-    effectPrefab: {fileID: 5717868003165401260, guid: 5b1c5352f7322054189749ffb9552d1e, type: 3}
-    prefabScale: 0.8
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 0}
     showToast: 0
     toastLabel:
   - cardKey:
@@ -108,52 +98,179 @@ MonoBehaviour:
     color: {r: 1, g: 0.92, b: 0.45, a: 0.78}
     durationSeconds: 0.45
     radiusScale: 0.8
-    effectPrefab: {fileID: 5024009746357069194, guid: ec3f674830402cc45bce805cf6493db7, type: 3}
-    prefabScale: 0.75
+    effectPrefab: {fileID: 1518883088362504, guid: 2a2eb40ae9f1b1b4caf51d97f6c8fb10, type: 3}
+    prefabScale: 0.4
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
     showToast: 0
     toastLabel:
   - cardKey:
-    effectKey: projectile_speed_up
-    eventType: 2
-    style: 0
-    color: {r: 0.1, g: 0.85, b: 1, a: 0.82}
-    durationSeconds: 0.65
-    radiusScale: 0.9
-    effectPrefab: {fileID: 125138, guid: 506c5b916e031450c97f55a09c481b46, type: 3}
-    prefabScale: 0.85
-    showToast: 0
-    toastLabel:
-  - cardKey:
-    effectKey: projectile_size_up
-    eventType: 2
-    style: 1
-    color: {r: 1, g: 0.75, b: 0.2, a: 0.82}
-    durationSeconds: 0.65
-    radiusScale: 1.25
-    effectPrefab: {fileID: 137766, guid: 15479be0949474cd1b2f4a7148ce1cc7, type: 3}
-    prefabScale: 1
+    effectKey: projectile_terrain_impact
+    eventType: 3
+    style: 2
+    color: {r: 0.78, g: 0.72, b: 0.62, a: 0.85}
+    durationSeconds: 0.55
+    radiusScale: 0.85
+    effectPrefab: {fileID: 1471140406605954, guid: 65764dc3d99d1d4439ff6535f1533f92, type: 3}
+    prefabScale: 0.375
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
     showToast: 0
     toastLabel:
   - cardKey:
     effectKey: hit_knockback_up
-    eventType: 2
+    eventType: 3
     style: 2
-    color: {r: 1, g: 0.35, b: 0.18, a: 0.82}
-    durationSeconds: 0.55
-    radiusScale: 1
-    effectPrefab: {fileID: 1608183678725496526, guid: 6b69b557610810b488ddfa397dcba567, type: 3}
+    color: {r: 0.35, g: 0.65, b: 1, a: 0.82}
+    durationSeconds: 0.5
+    radiusScale: 0.9
+    effectPrefab: {fileID: 127072, guid: 7f45705f5f30d8a45af0fc2eb8c8998a, type: 3}
     prefabScale: 0.85
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
     showToast: 0
     toastLabel:
+  - cardKey:
+    effectKey: projectile_explosion
+    eventType: 6
+    style: 1
+    color: {r: 1, g: 0.55, b: 0.08, a: 0.72}
+    durationSeconds: 0.95
+    radiusScale: 2
+    effectPrefab: {fileID: 1324124168371050, guid: 9eb3b1a11c610cd418079f132e291197, type: 3}
+    prefabScale: 0.85
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: projectile_reflect
+    eventType: 4
+    style: 2
+    color: {r: 0.28, g: 0.7, b: 1, a: 0.82}
+    durationSeconds: 0.45
+    radiusScale: 0.25
+    effectPrefab: {fileID: 1135644536747142, guid: c105577ec49dfb3408a7a89c3b7730be, type: 3}
+    prefabScale: 0.75
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: hit_apply_burn
+    eventType: 7
+    style: 0
+    color: {r: 1, g: 0.32, b: 0.08, a: 0.88}
+    durationSeconds: 1.1
+    radiusScale: 1
+    effectPrefab: {fileID: 1687850434830208, guid: 0fc50fd3faa65944ea9ebd10b28a67ed, type: 3}
+    prefabScale: 1.7
+    alignLocalForwardToDirection: 1
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 0
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 1
+    followOffset: {x: 0, y: 0.45}
+    followZOffset: 0.05
+    overrideSortingOrder: 1
+    sortingOrder: 3
+    showToast: 1
+    toastLabel: BURN
+  - cardKey:
+    effectKey: hit_apply_poison
+    eventType: 7
+    style: 0
+    color: {r: 0.25, g: 1, b: 0.22, a: 0.86}
+    durationSeconds: 1.1
+    radiusScale: 1
+    effectPrefab: {fileID: 167276, guid: 48b70001f3e22c7429ee06b99087e45e, type: 3}
+    prefabScale: 1.6
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 1
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 1
+    followOffset: {x: 0, y: 0.45}
+    showToast: 1
+    toastLabel: POISON
+  - cardKey:
+    effectKey: hit_apply_frost
+    eventType: 7
+    style: 0
+    color: {r: 0.35, g: 0.8, b: 1, a: 0.82}
+    durationSeconds: 1.1
+    radiusScale: 1
+    effectPrefab: {fileID: 4038121563916466951, guid: a6c6b690a12b3104280a378d75ae12e6, type: 3}
+    prefabScale: 0.1833335
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 1
+    followOffset: {x: 0, y: 0}
+    showToast: 1
+    toastLabel: FROST
+  - cardKey:
+    effectKey: hit_apply_electric_stack
+    eventType: 7
+    style: 0
+    color: {r: 1, g: 0.95, b: 0.1, a: 0.9}
+    durationSeconds: 1.0
+    radiusScale: 1
+    effectPrefab: {fileID: 1981590522052008, guid: 3652379d21b4c824686891f8f3830088, type: 3}
+    prefabScale: 0.75
+    additionalEffectPrefabs:
+    - {fileID: 134696, guid: b7e5be8cde65c7c42915ee6e2273d19b, type: 3}
+    - {fileID: 109542, guid: 2ed06ab528b7c474eb9246421cd7c791, type: 3}
+    additionalEffectMinMagnitude: 3
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 1
+    followOffset: {x: 0, y: 0}
+    showToast: 1
+    toastLabel: ELECTRIC
   - cardKey:
     effectKey: reload_started
     eventType: 10
     style: 0
     color: {r: 0.45, g: 0.78, b: 1, a: 0.78}
-    durationSeconds: 0.55
+    durationSeconds: 0.8
     radiusScale: 0.75
-    effectPrefab: {fileID: 125138, guid: 506c5b916e031450c97f55a09c481b46, type: 3}
-    prefabScale: 0.7
+    effectPrefab: {fileID: 164574, guid: 343f26c4dc79f204f950a57bd6947d4c, type: 3}
+    prefabScale: 0.55
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 1
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 0}
     showToast: 0
     toastLabel:
   - cardKey:
@@ -163,19 +280,53 @@ MonoBehaviour:
     color: {r: 0.35, g: 1, b: 0.6, a: 0.84}
     durationSeconds: 0.65
     radiusScale: 0.9
-    effectPrefab: {fileID: 4400202450295462572, guid: 17ab42a1fd902014c8daa6cb7987190e, type: 3}
-    prefabScale: 0.75
+    effectPrefab: {fileID: 194684, guid: 03d8a7f245be3be4e9d1d42232a11cd6, type: 3}
+    prefabScale: 0.7
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
     showToast: 1
     toastLabel: RELOADED
   - cardKey:
     effectKey: reload_overcharge
+    eventType: 12
+    style: 0
+    color: {r: 0.2, g: 1, b: 0.4, a: 0.9}
+    durationSeconds: 0.9
+    radiusScale: 1
+    effectPrefab: {fileID: 119634, guid: 8d2980ba5e59f33419a0275c1ec29e38, type: 3}
+    prefabScale: 0.22
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 1
+    followSourcePlayer: 1
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 0}
+    overrideSortingOrder: 1
+    sortingOrder: 7
+    showToast: 1
+    toastLabel: OVERCHARGE READY
+  - cardKey:
+    effectKey: reload_overcharge
     eventType: 13
     style: 2
-    color: {r: 1, g: 0.9, b: 0.05, a: 0.9}
-    durationSeconds: 0.55
-    radiusScale: 1.35
-    effectPrefab: {fileID: 7143791316838673061, guid: c1896e117d6faa74ca12e533ed82d410, type: 3}
-    prefabScale: 0.85
+    color: {r: 0.2, g: 1, b: 0.4, a: 0.9}
+    durationSeconds: 1.1
+    radiusScale: 1.6
+    effectPrefab: {fileID: 119382, guid: 233adeb09e8111242a2a710da4874451, type: 3}
+    prefabScale: 0.7666666
+    alignLocalForwardToDirection: 1
+    rotationOffsetDegrees: 0
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
     showToast: 0
     toastLabel:
   - cardKey:
@@ -183,10 +334,14 @@ MonoBehaviour:
     eventType: 14
     style: 1
     color: {r: 1, g: 0.12, b: 0.18, a: 0.86}
-    durationSeconds: 0.75
+    durationSeconds: 0.95
     radiusScale: 1.1
-    effectPrefab: {fileID: 180010, guid: f7e3b66d8706841d19eb3ab0068d55b3, type: 3}
-    prefabScale: 1
+    effectPrefab: {fileID: 158308, guid: 96a96c08c36361544affb3c783e0056e, type: 3}
+    prefabScale: 0.9
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
     showToast: 0
     toastLabel:
   - cardKey:
@@ -194,30 +349,212 @@ MonoBehaviour:
     eventType: 15
     style: 0
     color: {r: 0.25, g: 0.85, b: 1, a: 0.82}
-    durationSeconds: 0.75
+    durationSeconds: 0.9
     radiusScale: 1
-    effectPrefab: {fileID: 127172, guid: 8a6b340f3d2454200b877f2ddd65f890, type: 3}
-    prefabScale: 0.9
+    effectPrefab: {fileID: 147642, guid: 685c97d007af49549b239b56b6d2000a, type: 3}
+    prefabScale: 0.85
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
     showToast: 1
     toastLabel: RESPAWN
   - cardKey:
-    effectKey: heal_on_kill
-    eventType: 16
+    effectKey: player_invulnerable
+    eventType: 26
     style: 0
-    color: {r: 0.28, g: 1, b: 0.45, a: 0.86}
-    durationSeconds: 0.65
-    radiusScale: 0.9
-    effectPrefab: {fileID: 5024009746357069194, guid: ec3f674830402cc45bce805cf6493db7, type: 3}
-    prefabScale: 0.7
-    showToast: 1
-    toastLabel: HEAL
+    color: {r: 1, g: 0.9, b: 0.18, a: 0.86}
+    durationSeconds: 1
+    radiusScale: 1
+    effectPrefab: {fileID: 181232, guid: b9cf594d1d8302e4a884738a176ead3a, type: 3}
+    prefabScale: 0.45
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 1
+    followOffset: {x: 0, y: 0.15}
+    overrideSortingOrder: 1
+    sortingOrder: 6
+    showToast: 0
+    toastLabel:
   - cardKey:
-    effectKey: segment_advance
-    eventType: 17
-    style: 1
-    color: {r: 0.55, g: 0.92, b: 1, a: 0.82}
-    durationSeconds: 0.95
-    radiusScale: 4.8
+    effectKey: victory_zone_confetti
+    eventType: 24
+    style: 2
+    color: {r: 1, g: 0.92, b: 0.35, a: 0.92}
+    durationSeconds: 5.5
+    radiusScale: 1
+    effectPrefab: {fileID: 155770, guid: 039f0809d882b7f44ac9a410a3f7fa26, type: 3}
+    prefabScale: 1
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 0
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 0}
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: emoji_1
+    eventType: 25
+    style: 2
+    color: {r: 1, g: 1, b: 1, a: 1}
+    durationSeconds: 2
+    radiusScale: 1
+    effectPrefab: {fileID: 153914, guid: 3b40e7ceb76425d4892cc33dffffffed, type: 3}
+    prefabScale: 1.5
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 1
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 2.35}
+    followZOffset: 0
+    overrideSortingOrder: 1
+    sortingOrder: 64
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: emoji_2
+    eventType: 25
+    style: 2
+    color: {r: 1, g: 1, b: 1, a: 1}
+    durationSeconds: 2
+    radiusScale: 1
+    effectPrefab: {fileID: 173990, guid: 69359de5f8759454bbfe449e619129bc, type: 3}
+    prefabScale: 1.5
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 1
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 2.35}
+    followZOffset: 0
+    overrideSortingOrder: 1
+    sortingOrder: 64
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: emoji_3
+    eventType: 25
+    style: 2
+    color: {r: 1, g: 1, b: 1, a: 1}
+    durationSeconds: 2
+    radiusScale: 1
+    effectPrefab: {fileID: 1546468253741688, guid: 780f9efde9439f345a63baff480c0755, type: 3}
+    prefabScale: 1.5
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 1
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 2.35}
+    followZOffset: 0
+    overrideSortingOrder: 1
+    sortingOrder: 64
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: emoji_4
+    eventType: 25
+    style: 2
+    color: {r: 1, g: 1, b: 1, a: 1}
+    durationSeconds: 2
+    radiusScale: 1
+    effectPrefab: {fileID: 135792, guid: 72e06155695f11040b722d672293fe98, type: 3}
+    prefabScale: 1.5
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 1
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 2.35}
+    followZOffset: 0
+    overrideSortingOrder: 1
+    sortingOrder: 64
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: emoji_5
+    eventType: 25
+    style: 2
+    color: {r: 1, g: 1, b: 1, a: 1}
+    durationSeconds: 2
+    radiusScale: 1
+    effectPrefab: {fileID: 1028507206187210, guid: 28765ba8fe1d7654aaf05bc05d3757bd, type: 3}
+    prefabScale: 1.5
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 1
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 2.35}
+    followZOffset: 0
+    overrideSortingOrder: 1
+    sortingOrder: 64
+    showToast: 0
+    toastLabel:
+  - cardKey:
+    effectKey: emoji_6
+    eventType: 25
+    style: 2
+    color: {r: 1, g: 1, b: 1, a: 1}
+    durationSeconds: 2
+    radiusScale: 1
+    effectPrefab: {fileID: 156528, guid: 93a7485b7f1564c4aae6a739c3edc50e, type: 3}
+    prefabScale: 1.5
+    alignLocalForwardToDirection: 0
+    rotationOffsetDegrees: 0
+    usePrefabRotation: 1
+    useHierarchyParticleScale: 1
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
+    followSourcePlayer: 1
+    followTargetPlayer: 0
+    followOffset: {x: 0, y: 2.35}
+    followZOffset: 0
+    overrideSortingOrder: 1
+    sortingOrder: 64
     showToast: 0
     toastLabel:
   - cardKey:
@@ -227,7 +564,11 @@ MonoBehaviour:
     color: {r: 0.64, g: 0.58, b: 0.76, a: 0.72}
     durationSeconds: 0.95
     radiusScale: 1.8
-    effectPrefab: {fileID: 180010, guid: f7e3b66d8706841d19eb3ab0068d55b3, type: 3}
+    effectPrefab: {fileID: 1889919486439536, guid: 35ad08272de78064cbd645a70f31f454, type: 3}
     prefabScale: 0.9
+    additionalEffectPrefabs: []
+    additionalEffectMinMagnitude: 0
+    tintParticlesWithPresetColor: 0
+    keepAliveUntilOverchargeShot: 0
     showToast: 0
     toastLabel:

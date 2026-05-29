@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
+using Fusion;
+using Colosseum.Game;
+using Colosseum.Network;
 using Colosseum.Player;
 
 namespace Colosseum.UI
@@ -16,6 +20,10 @@ namespace Colosseum.UI
     ///
     /// fill 갱신은 PlayerHPBar 측에서 PlayerHealth.OnHealthChangedEvent를 직접 구독한다.
     /// HPBarManager는 인스턴스 라이프사이클만 책임진다.
+    ///
+    /// A303-327: 바 위에 닉네임 라벨을 추가. PlayerHealth.Object.InputAuthority ↔ RoomManager.Player1/2
+    /// 매핑으로 슬롯 번호를 얻고, NetworkManager.LastRoomNicknames[slot]을 라벨에 주입한다.
+    /// 닉네임 갱신 이벤트(NetworkManager.OnNicknamesUpdated) 구독으로 늦게 도착하는 경우도 처리.
     /// </summary>
     public class HPBarManager : MonoBehaviour
     {
@@ -26,7 +34,12 @@ namespace Colosseum.UI
         [SerializeField] private float _barWidth = 80f;
         [SerializeField] private float _barHeight = 10f;
 
+        [Header("Nickname Label (A303-327)")]
+        [SerializeField] private float _nicknameFontSize = 12f;
+        [SerializeField] private float _nicknameGap = 2f;  // 바 상단 ↔ 닉네임 하단 사이 px
+
         private readonly Dictionary<PlayerHealth, PlayerHPBar> _bars = new Dictionary<PlayerHealth, PlayerHPBar>();
+        private RoomManager _roomManager;
 
         private void Awake()
         {
@@ -43,6 +56,7 @@ namespace Colosseum.UI
         {
             PlayerHealth.SpawnedEvent += Register;
             PlayerHealth.DespawnedEvent += Unregister;
+            NetworkManager.OnNicknamesUpdated += OnNicknamesUpdated;
             ReplayActivePlayers();
         }
 
@@ -50,6 +64,7 @@ namespace Colosseum.UI
         {
             PlayerHealth.SpawnedEvent -= Register;
             PlayerHealth.DespawnedEvent -= Unregister;
+            NetworkManager.OnNicknamesUpdated -= OnNicknamesUpdated;
         }
 
         private void OnDestroy()
@@ -163,9 +178,94 @@ namespace Colosseum.UI
             fillRect.offsetMin = Vector2.zero;
             fillRect.offsetMax = Vector2.zero;
 
-            // PlayerHPBar 초기화 — fillImage를 직접 인자로 전달 (이전 Reflection 패턴 제거)
-            hpBar.Init(player, fillImage);
+            // 닉네임 라벨 (A303-327) — 바 상단 위에 배치, 폭은 바보다 넓게 잡아 긴 닉네임도 보이게
+            GameObject nickObj = new GameObject("Nickname");
+            nickObj.transform.SetParent(barObj.transform, false);
+            var nickText = nickObj.AddComponent<TextMeshProUGUI>();
+            nickText.text = string.Empty;
+            nickText.fontSize = _nicknameFontSize;
+            nickText.color = Color.white;
+            nickText.alignment = TextAlignmentOptions.Center;
+            nickText.enableWordWrapping = false;
+            nickText.overflowMode = TextOverflowModes.Ellipsis;
+            nickText.raycastTarget = false;
+            var nickRect = nickObj.GetComponent<RectTransform>();
+            nickRect.anchorMin = new Vector2(0.5f, 0.5f);
+            nickRect.anchorMax = new Vector2(0.5f, 0.5f);
+            nickRect.pivot = new Vector2(0.5f, 0f);
+            nickRect.sizeDelta = new Vector2(_barWidth + 60f, _nicknameFontSize + 4f);
+            nickRect.anchoredPosition = new Vector2(0f, _barHeight * 0.5f + _nicknameGap);
+
+            // PlayerHPBar 초기화 — fillImage / nicknameLabel을 직접 인자로 전달 (이전 Reflection 패턴 제거)
+            hpBar.Init(player, fillImage, nickText);
+
+            // 초기 닉네임 반영 — 매핑 가능하면 즉시 주입, 아니면 OnNicknamesUpdated 콜백에서 갱신.
+            RefreshNicknameFor(hpBar, player);
             return hpBar;
+        }
+
+        /// <summary>
+        /// NetworkManager.OnNicknamesUpdated 이벤트 콜백. 모든 등록된 바의 닉네임을 재해석.
+        /// 닉네임 ARRIVAL과 PlayerHealth Spawn의 도착 순서가 보장되지 않으므로 이벤트 기반 refresh가 필요.
+        /// </summary>
+        private void OnNicknamesUpdated(string[] nicknames)
+        {
+            foreach (var pair in _bars)
+            {
+                if (pair.Key == null || pair.Value == null) continue;
+                RefreshNicknameFor(pair.Value, pair.Key);
+            }
+        }
+
+        /// <summary>
+        /// PlayerHealth.Object.InputAuthority ↔ RoomManager.Player1/2 매핑으로 슬롯 결정 →
+        /// NetworkManager.LastRoomNicknames[slot] 을 라벨에 주입.
+        /// 매핑 실패 시 빈 문자열로 비워둔다 (다음 OnNicknamesUpdated에서 재시도됨).
+        /// </summary>
+        private void RefreshNicknameFor(PlayerHPBar bar, PlayerHealth health)
+        {
+            if (bar == null) return;
+            if (health == null || health.Object == null || !health.Object.IsValid)
+            {
+                bar.SetNickname(string.Empty);
+                return;
+            }
+
+            var rm = ResolveRoomManager();
+            var nm = NetworkManager.Instance;
+            if (rm == null || nm == null)
+            {
+                bar.SetNickname(string.Empty);
+                return;
+            }
+
+            PlayerRef ownerRef = health.Object.InputAuthority;
+            int slot = -1;
+            if (ownerRef == rm.Player1) slot = 0;
+            else if (ownerRef == rm.Player2) slot = 1;
+
+            string nickname = null;
+            string[] nicks = nm.LastRoomNicknames;
+            if (slot >= 0 && nicks != null && slot < nicks.Length)
+            {
+                nickname = nicks[slot];
+            }
+
+            bar.SetNickname(nickname ?? string.Empty);
+        }
+
+        /// <summary>
+        /// RoomManager 참조 캐시 — 초기/이벤트 경로에서만 호출되는 cold path이므로 FindObjectOfType 허용.
+        /// 캐시가 stale(파괴됨) 한 경우 재해석.
+        /// </summary>
+        private RoomManager ResolveRoomManager()
+        {
+            if (_roomManager != null && _roomManager.Object != null && _roomManager.Object.IsValid)
+            {
+                return _roomManager;
+            }
+            _roomManager = FindObjectOfType<RoomManager>();
+            return _roomManager;
         }
     }
 }

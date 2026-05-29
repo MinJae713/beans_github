@@ -38,7 +38,8 @@ MonoBehaviour:
   jumpForceMultiplier: 1
   statusEffect: 0
   statusDuration: 0
-  explosionRadius: 2
+  explosionRadius: 1.1333334
+  explosionRadiusMultiplier: 1
   explosionDamageRatio: 0.5
   overchargeDamageMultiplier: 1
   specialEffect: 0

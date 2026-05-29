@@ -33,12 +33,24 @@ namespace Colosseum.Player
                 return false;
             }
 
+            // A303-306: 벽 옆면 오판정 방지. OverlapBox는 layer만 보고 접촉면 normal을 안 봐서
+            // wall layer == ground layer 또는 동일 collider의 측면 접촉을 ground로 잡았다.
+            // BoxCast로 바꿔 hit.normal.y > 0.7 (약 45° 이내의 위쪽 면)인 경우만 ground로 인정.
+            Vector2 origin = (Vector2)groundCheck.position + Vector2.up * (groundCheckSize.y * 0.5f);
+            Vector2 castSize = new Vector2(groundCheckSize.x, 0.02f);
+            float castDistance = groundCheckSize.y;
+
+            RaycastHit2D hit;
             if (runner != null)
             {
-                return runner.GetPhysicsScene2D().OverlapBox(groundCheck.position, groundCheckSize, 0f, groundLayer) != null;
+                hit = runner.GetPhysicsScene2D().BoxCast(origin, castSize, 0f, Vector2.down, castDistance, groundLayer);
+            }
+            else
+            {
+                hit = Physics2D.BoxCast(origin, castSize, 0f, Vector2.down, castDistance, groundLayer);
             }
 
-            return Physics2D.OverlapBox(groundCheck.position, groundCheckSize, 0f, groundLayer) != null;
+            return hit.collider != null && hit.normal.y > 0.7f;
         }
 
         /// <summary>

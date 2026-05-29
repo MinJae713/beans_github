@@ -12,7 +12,7 @@ namespace Colosseum.Status.Effects
     {
         [Header("Poison 전용 수치")]
         [Tooltip("OnTick 1회당 데미지 (HP).")]
-        [SerializeField] private float _damagePerTick = 2f;
+        [SerializeField] private float _damagePerTick = 6f;
 
         public override void OnApply(PlayerStatusController target, ref StatusEffectInstance instance) { }
 
@@ -20,7 +20,7 @@ namespace Colosseum.Status.Effects
         {
             var health = target.GetComponent<PlayerHealth>();
             if (health == null) return;
-            health.TakeDamage(_damagePerTick * instance.Magnitude, instance.Source, Weapon.BulletController.StatusEffect.None);
+            health.TakeDamage(StatusEffectDefinition.CalculateStackedTickDamage(_damagePerTick, instance.Magnitude, instance.Stacks), instance.Source, Weapon.StatusEffect.None);
         }
 
         public override void OnExpire(PlayerStatusController target, ref StatusEffectInstance instance) { }

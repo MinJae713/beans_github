@@ -1,5 +1,8 @@
 using Colosseum.Game;
 using Colosseum.Network;
+using Colosseum.Contracts;
+using Colosseum.NetworkGameplay.Diagnostics;
+using Colosseum.NetworkGameplay.VFX;
 using UnityEngine;
 using Fusion;
 
@@ -20,12 +23,16 @@ namespace Colosseum.Player
         private const float FallbackAscendGravityMultiplier = 1.0f;
 
         // A303-292: 벽 타기 fallback. Profile 미할당 안전망.
-        private const float FallbackWallSlideSpeed = 2.5f;
+        private const float FallbackWallSlideSpeed = 0.5f;
         private const float FallbackWallJumpVerticalForce = 11f;
         private const float FallbackWallJumpHorizontalForce = 7f;
         private const float FallbackWallJumpVariance = 0.1f;
         private const float FallbackWallReattachLockoutSeconds = 0.2f;
         private const float FallbackWallSlideStickInputThreshold = 0.5f;
+
+        // A303-306: detach velocity. Profile 노출 전 단계라 fallback 상수만 사용.
+        private const float FallbackWallDetachVelocityX = 2.5f;        // 벽 반대 방향 횡속 (m/s)
+        private const float FallbackWallDetachDurationSeconds = 0.15f; // detach 지속 시간 (s)
 
         private GameplayProfile _profile;
         private Rigidbody2D _rb;
@@ -49,6 +56,10 @@ namespace Colosseum.Player
         private float WallJumpVariance => _profile != null ? _profile.combat.baseline.wallJumpVariance : FallbackWallJumpVariance;
         private float WallReattachLockoutSeconds => _profile != null ? _profile.combat.baseline.wallReattachLockoutSeconds : FallbackWallReattachLockoutSeconds;
         private float WallSlideStickInputThreshold => _profile != null ? _profile.combat.baseline.wallSlideStickInputThreshold : FallbackWallSlideStickInputThreshold;
+
+        // A303-306: detach velocity는 아직 profile에 노출 안 함. 체감 확정 후 baseline에 추가 예정.
+        private float WallDetachVelocityX => FallbackWallDetachVelocityX;
+        private float WallDetachDurationSeconds => FallbackWallDetachDurationSeconds;
 
         public PlayerMovement(GameplayProfile profile)
         {
@@ -121,15 +132,37 @@ namespace Colosseum.Player
                 int wallSide = self.WallSide;
                 float varianceFactor = ComputeDeterministicJumpVariance(
                     self.Runner.Tick, self.Object.Id.Raw, WallJumpVariance);
-                float vy = WallJumpVerticalForce * varianceFactor;
-                float vx = -wallSide * WallJumpHorizontalForce; // 벽 반대 방향 추진
-                _rb.velocity = new Vector2(vx, vy);
+                // A303-306: 벽 점프 vy를 일반 JumpForce와 동일하게.
+                // 의도: "벽에 매달린 채 점프 → 기본 점프 높이만큼 올라가면서 벽에서 부드럽게 detach".
+                // 수평 추진은 즉발 ±WallJumpHorizontalForce 대신 detach velocity 시스템에 위임.
+                float vy = JumpForce * varianceFactor;
+                _rb.velocity = new Vector2(_rb.velocity.x, vy);
+
+                // A303-306: 벽 반대 방향으로 짧은 시간 부드럽게 밀어내는 detach 트리거.
+                self.WallDetachVelocityTimer =
+                    TickTimer.CreateFromSeconds(self.Runner, WallDetachDurationSeconds);
+                self.WallDetachSide = (sbyte)wallSide;
+
+                // A303-306: 벽 점프도 점프 횟수 1회 소모. 부착 시 리필했더라도 벽 점프로 공중에 나오면 추가 공중 점프 차단.
+                // (키 떼서 그냥 떨어진 경우엔 JumpsUsed가 0으로 남아 공중 점프 가능 — 의도된 비대칭)
+                self.JumpsUsed++;
+
+                // A303-306 진단: 벽 점프 발동 시점
+                DiagLog.Log($"[Wall/DIAG] WALL JUMP fired: wallSide={wallSide}, vy={vy:F2}, jumpDownThisTick={jumpDownThisTick}, bufferAlive={wallJumpBufferAlive}, input.x={input.Direction.x:F2}");
 
                 self.WallReattachLockoutTimer =
                     TickTimer.CreateFromSeconds(self.Runner, WallReattachLockoutSeconds);
                 self.WallReattachLockoutSide = (sbyte)wallSide;
                 self.SetWallSlidingState(false, 0);
                 self.JumpBufferTimer = TickTimer.None; // 명시적 buffer 소비
+                self.PublishMovementVfx(
+                    VfxEventType.PlayerJumpStarted,
+                    VfxPayloadFactory.GetPlayerMovementEffectKey(VfxEventType.PlayerJumpStarted),
+                    VfxAttachPoint.CharacterFeet,
+                    Vector2.down,
+                    0.55f,
+                    vy,
+                    PlayerController.PlayerJumpStartedVfxSequenceSalt);
                 ApplyVerticalGravityScale(isGroundedNow);
                 return;
             }
@@ -140,14 +173,27 @@ namespace Colosseum.Player
                 sbyte detectedSide = DetectWallStickSide(self, input);
                 if (detectedSide != 0)
                 {
+                    bool wasAlreadySliding = self.IsWallSliding;
                     self.SetWallSlidingState(true, detectedSide);
 
-                    // 슬라이드: velocity.y를 하강 한도로 clamp, 수평은 0 (벽 부착)
-                    float clampedY = Mathf.Max(_rb.velocity.y, -WallSlideSpeed);
+                    // 슬라이드: velocity.y를 [-WallSlideSpeed, 0] 범위로 clamp, 수평은 0 (벽 부착).
+                    // A303-306: 상한 0 추가 — 상승 중 진입 시 상승 관성 보존되면 base gravity 영향으로
+                    // 점프 높이가 폭증하던 회귀를 막는다.
+                    float vyBefore = _rb.velocity.y;
+                    float clampedY = Mathf.Clamp(vyBefore, -WallSlideSpeed, 0f);
                     _rb.velocity = new Vector2(0f, clampedY);
 
                     // 일정 속도 미끄러짐을 위해 fall/apex 가속 무시
                     _rb.gravityScale = _baseGravityScale;
+
+                    // A303-306 진단: 진입 시점에만 한 번 (유지 중 30 tick 폴링 로그는 A303-372에서 제거)
+                    if (!wasAlreadySliding)
+                    {
+                        // A303-306: 벽 부착 시 점프 횟수 리필.
+                        // 의도: 벽 점프든 슬라이드 해제 후 자유낙하 중 일반 점프든, 둘 다 항상 사용 가능.
+                        self.JumpsUsed = 0;
+                        DiagLog.Log($"[Wall/DIAG] WALL SLIDE entered: side={detectedSide}, input.x={input.Direction.x:F2}, vyBefore={vyBefore:F2}, clampedY={clampedY:F2}, WallSlideSpeed={WallSlideSpeed:F2}, jumpsUsed refilled");
+                    }
 
                     // jump buffer는 벽 점프 입력 수용 위해 유지
                     if (jumpDownThisTick)
@@ -160,13 +206,35 @@ namespace Colosseum.Player
                 }
                 else if (self.IsWallSliding)
                 {
-                    // 입력 매칭 깨짐 또는 벽 끊김 → 자유낙하
+                    // 입력 매칭 깨짐 또는 벽 끊김 → 자유낙하 + A303-306: 부드러운 detach 발동
+                    sbyte previousSide = (sbyte)self.WallSide;
                     self.SetWallSlidingState(false, 0);
+                    self.WallDetachVelocityTimer =
+                        TickTimer.CreateFromSeconds(self.Runner, WallDetachDurationSeconds);
+                    self.WallDetachSide = previousSide;
+                    DiagLog.Log($"[Wall/DIAG] WALL SLIDE released: input.x={input.Direction.x:F2}, vy={_rb.velocity.y:F2}, detachSide={previousSide}");
                 }
             }
 
-            // 공중/지상 동일하게 입력 기반 즉시 velocity set. 공중 관성·감속 차이 없음.
-            _rb.velocity = new Vector2(input.Direction.x * speed, _rb.velocity.y);
+            // A303-306: detach velocity 활성 동안에는 벽 반대 방향 추진을 우선 적용한다.
+            // 사용자 입력이 detach 방향과 같으면 더 큰 절댓값을 따라가고, 반대거나 0이면 detach 적용.
+            // (재부착 lockout과 별개 — lockout은 슬라이드 진입 차단, detach는 vx 횡속 보장.)
+            bool wallDetachAlive = !self.WallDetachVelocityTimer.ExpiredOrNotRunning(self.Runner);
+            if (wallDetachAlive)
+            {
+                float detachVx = -self.WallDetachSide * WallDetachVelocityX;
+                float inputVx = input.Direction.x * speed;
+                float resolvedVx =
+                    Mathf.Sign(inputVx) == Mathf.Sign(detachVx) && Mathf.Abs(inputVx) > Mathf.Abs(detachVx)
+                        ? inputVx
+                        : detachVx;
+                _rb.velocity = new Vector2(resolvedVx, _rb.velocity.y);
+            }
+            else
+            {
+                // 공중/지상 동일하게 입력 기반 즉시 velocity set. 공중 관성·감속 차이 없음.
+                _rb.velocity = new Vector2(input.Direction.x * speed, _rb.velocity.y);
+            }
 
             if (isGroundedNow)
             {
@@ -179,34 +247,23 @@ namespace Colosseum.Player
                 self.JumpBufferTimer = TickTimer.CreateFromSeconds(self.Runner, JumpBufferSeconds);
             }
 
-            if (jumpDownThisTick)
-            {
-                Collider2D gcHitDefault = null;
-                Collider2D gcHitRunner = null;
-                if (self.GroundCheck != null)
-                {
-                    gcHitDefault = Physics2D.OverlapBox(self.GroundCheck.position, self.GroundCheckSize, 0f, self.GroundLayer);
-                    if (self.Runner != null)
-                    {
-                        gcHitRunner = self.Runner.GetPhysicsScene2D().OverlapBox(self.GroundCheck.position, self.GroundCheckSize, 0f, self.GroundLayer);
-                    }
-                }
-
-                Debug.Log(
-                    $"[Colosseum/DIAG] Jump pressed: IsGrounded={isGroundedNow}, " +
-                    $"velocity.y={_rb.velocity.y:F2}, pos.y={self.transform.position.y:F2}, " +
-                    $"jumpsUsed={self.JumpsUsed}/{MaxJumps}, " +
-                    $"gcHitDefault={(gcHitDefault != null ? gcHitDefault.name : "NONE")}, " +
-                    $"gcHitRunner={(gcHitRunner != null ? gcHitRunner.name : "NONE")}, " +
-                    $"HasInputAuthority={self.Object.HasInputAuthority}");
-            }
-
             bool bufferAlive = !self.JumpBufferTimer.ExpiredOrNotRunning(self.Runner);
             if (bufferAlive && (isGroundedNow || self.JumpsUsed < MaxJumps))
             {
                 _rb.velocity = new Vector2(_rb.velocity.x, jump);
                 self.JumpsUsed++;
                 self.JumpBufferTimer = TickTimer.None;
+                self.PublishMovementVfx(
+                    VfxEventType.PlayerJumpStarted,
+                    VfxPayloadFactory.GetPlayerMovementEffectKey(VfxEventType.PlayerJumpStarted),
+                    VfxAttachPoint.CharacterFeet,
+                    Vector2.down,
+                    0.55f,
+                    jump,
+                    PlayerController.PlayerJumpStartedVfxSequenceSalt);
+
+                // A303-306 진단: 일반 점프 발동 시점 — 벽 점프와 구분
+                DiagLog.Log($"[Jump/DIAG] NORMAL JUMP fired: vy={jump:F2}, isGrounded={isGroundedNow}, jumpsUsed={self.JumpsUsed}/{MaxJumps}, input.x={input.Direction.x:F2}");
             }
 
             if (jumpReleasedThisTick && _rb.velocity.y > 0f)

@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-05-07
+last_updated: 2026-05-17
 audience: ai-first
 ---
 
@@ -58,4 +58,5 @@ audience: ai-first
 
 - A303-272: 카드 선택 화면은 Figma의 neon tactical / kinetic HUD 계열을 기준으로 3장 카드 레이아웃, 희귀도 배지, 선택 강조, 확인 버튼, 리스폰 카운트다운 표현을 우선 적용했다.
 - A303-274: MVP16 카드에는 `CardData.cardIcon` 직렬화 참조로 symbolic placeholder 아이콘을 매핑했다. 이 아이콘은 최종 상업 일러스트가 아니라 템플릿/정보구조 검증용이다.
+- A303-350: 카드 선택 화면은 희귀도별 외관 프레임과 `CardData.cardIcon` 기반 내부 일러스트를 분리 조립한다. MVP16 내부 일러스트는 1:1 generated candidate로 교체했지만, 최종 상업용 리소스나 카드 효과 truth로 보지 않는다. 현재 구현은 270x360 카드 rect 안에서 1024x1536 외관 프레임과 150x130 내부 일러스트 슬롯을 preserve aspect 기준으로 합성한다.
 - 카드 선택 화면 샘플, MR 본문, 캡처에는 MVP16에 없는 카드명(예: 저격총, 샷건)을 실제 구현 범위처럼 사용하지 않는다. Figma 예시는 시각 방향 참고로만 쓰고, 실제 카드명과 설명은 `40_카드_무기_설계/10_세부설계/03_MVP_카드_후보_카탈로그.md`를 따른다.

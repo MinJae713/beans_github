@@ -53,12 +53,12 @@ MVP 카드는 “총기 자체를 교체하는 시스템”이 아니라 “총�
 
 | No | cardId | key | displayName | rarity | maxStack | category | 핵심 효과 |
 |---:|---:|---|---|---|---:|---|---|
-| 1 | 1 | `projectile_size_up` | 대형탄 | Common | 3 | Projectile | 탄환 크기와 명중 판정이 커진다. |
+| 1 | 1 | `projectile_size_up` | 대형탄 | Common | 3 | Projectile | 카드 1장당 탄환 크기와 명중 판정이 기본 대비 +1배씩 선형 증가한다. |
 | 2 | 2 | `projectile_speed_up` | 고속탄 | Common | 3 | Projectile | 탄환이 더 빠르게 날아간다. |
 | 3 | 3 | `hit_knockback_up` | 넉백탄 | Common | 3 | Hit | 직접 명중 시 상대를 더 멀리 밀어낸다. |
 | 4 | 4 | `reload_time_down` | 빠른 장전 | Common | 3 | Reload | 재장전 시간이 감소한다. |
 | 5 | 5 | `ammo_capacity_up` | 탄창 확장 | Common | 3 | Reload | 한 번 장전해 쏠 수 있는 탄 수가 증가한다. |
-| 6 | 6 | `projectile_heavy` | 중량탄 | Common | 3 | Projectile | 탄환이 느려지지만 직접 피해와 폭발 반경이 커진다. |
+| 6 | 6 | `projectile_heavy` | 중량탄 | Common | 3 | Projectile | 탄환이 느려지지만 직접 피해가 커지고, 탄환 크기/명중 판정이 카드 1장당 +0.3배씩 선형 증가한다. 폭발탄을 보유한 경우에만 폭발 반경을 곱연산으로 키운다. |
 | 7 | 7 | `hit_apply_poison` | 중독탄 | Common | 3 | Status | 명중 시 독 지속 피해를 부여한다. |
 | 8 | 8 | `hit_apply_burn` | 화염탄 | Common | 3 | Status | 명중 시 짧은 시간 동안 화상 피해를 부여한다. |
 | 9 | 9 | `hit_apply_frost` | 냉기탄 | Common | 3 | Status | 명중 시 이동 속도를 잠시 둔화시킨다. |
@@ -66,9 +66,9 @@ MVP 카드는 “총기 자체를 교체하는 시스템”이 아니라 “총�
 | 11 | 11 | `reload_overcharge` | 오버차지 | Rare | 3 | Reload | 재장전 후 다음 발사가 강화된다. |
 | 12 | 12 | `projectile_reflect` | 반사탄 | Rare | 3 | Trajectory | 탄환이 벽에 튕긴다. |
 | 13 | 13 | `projectile_explosion` | 폭발탄 | Epic | 3 | Explosion | 탄환이 충돌 시 폭발한다. |
-| 14 | 14 | `projectile_pierce` | 관통탄 | Rare | 3 | Trajectory | 탄환이 대상을 맞힌 뒤 계속 진행한다. |
+| 14 | 14 | `projectile_pierce` | 관통탄 | Rare | 3 | Trajectory | 탄환이 벽/지형을 관통한다. 캐릭터 직격에는 관통을 적용하지 않는다. |
 | 15 | 15 | `projectile_multishot` | 벅샷 | Epic | 3 | Projectile | 고정 각도의 추가 탄환을 발사한다. |
-| 16 | 16 | `projectile_gravity_zero` | 안티-그래비티 | Legendary | 1 | Trajectory | 탄환이 중력 영향을 받지 않고 직선으로 날아간다. |
+| 16 | 16 | `projectile_gravity_zero` | 안티-그래비티 | Legendary | 1 | Trajectory | 탄환이 중력 영향을 받지 않고 직선으로 날아가며, 탄속이 30% 증가한다. |
 
 ## 제시와 보유 제한 원칙
 
@@ -88,7 +88,7 @@ MVP 카드는 “총기 자체를 교체하는 시스템”이 아니라 “총�
 
 - 상태이상 4종은 MVP16에 포함한다. 카드 시스템이 단순 수치 증가만이 아니라 전투 상태를 바꾸는 구조임을 보여주기 위해서다.
 - `폭발탄`과 `벅샷`은 조합 파급력이 크므로 Epic으로 둔다.
-- `안티-그래비티`는 기본 곡사탄 문법을 깨는 대표 변칙 카드이므로 Legendary로 둔다.
+- `안티-그래비티`는 기본 곡사탄 문법을 깨는 대표 변칙 카드이며, 직선 궤적의 체감이 약하지 않도록 탄속 30% 증가를 함께 제공하므로 Legendary로 둔다.
 - 무기 변환 카드는 두지 않는다.
 - 이동/체력/방어/회복 계열 카드는 MVP16에는 넣지 않고 전체 40장 확장 후보에서 별도로 다룬다.
 

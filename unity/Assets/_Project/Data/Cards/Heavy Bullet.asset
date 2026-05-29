@@ -17,13 +17,13 @@ MonoBehaviour:
   cardKey: projectile_heavy
   maxStack: 3
   category: 1
-  description: "\uD0C4\uD658\uC774 \uB290\uB824\uC9C0\uC9C0\uB9CC \uC9C1\uC811 \uD53C\uD574\uAC00 \uCEE4\uC9C4\uB2E4."
+  description: "\uD0C4\uD658\uC774 \uB290\uB824\uC9C0\uC9C0\uB9CC \uC9C1\uC811 \uD53C\uD574\uAC00 \uCEE4\uC9C4\uB2E4. \uD3ED\uBC1C\uD0C4\uC774 \uC788\uC744 \uB54C\uB9CC \uD3ED\uBC1C \uBC18\uACBD\uC744 \uACF1\uC5F0\uC0B0\uC73C\uB85C \uD0A4\uC6B4\uB2E4."
   cardIcon: {fileID: 21300000, guid: fe8b6005f76d4107b99342eb082a3443, type: 3}
   rarity: 0
   isDraftEnabled: 1
   damageMultiplier: 1.2
   speedMultiplier: 0.85
-  sizeMultiplier: 1.1
+  sizeMultiplier: 1.3
   extraBounce: 0
   gravityModifier: 0
   fireRateMultiplier: 1
@@ -39,6 +39,7 @@ MonoBehaviour:
   statusEffect: 0
   statusDuration: 0
   explosionRadius: 0
+  explosionRadiusMultiplier: 1.4
   explosionDamageRatio: 0.5
   overchargeDamageMultiplier: 1
   specialEffect: 0

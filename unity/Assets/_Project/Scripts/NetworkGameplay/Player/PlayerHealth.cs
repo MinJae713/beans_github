@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Fusion;
+using Fusion.Addons.Physics;
 using Colosseum.Weapon;
 using Colosseum.Game;
 using Colosseum.Card;
@@ -8,8 +9,7 @@ using Colosseum.Contracts;
 using Colosseum.NetworkGameplay.VFX;
 using Colosseum.Status;
 using Colosseum.Utils;
-using Colosseum.Contracts;
-using Colosseum.NetworkGameplay.VFX;
+using Colosseum.NetworkGameplay.Diagnostics;
 
 namespace Colosseum.Player
 {
@@ -23,10 +23,13 @@ namespace Colosseum.Player
         private const float FallbackMaxHealth = 100f;
         private const float FallbackRespawnDelay = 2f;
         private const float FallbackRespawnInvulnerable = 1f;
+        private const int PlayerSpawnVfxSequenceSalt = 200;
         private const int PlayerDeathVfxSequenceSalt = 201;
         private const int PlayerRespawnVfxSequenceSalt = 202;
         private const int PlayerHealOnKillVfxSequenceSalt = 203;
+        private const int PlayerInvulnerabilityStartedVfxSequenceSalt = 204;
         private const int PitFallDeathVfxSequenceSalt = 390;
+        private const float RespawnHorizontalCameraDeathGraceSeconds = 3f;
 
         /// <summary>플레이어 최대 체력. PlayerHPBar 등 외부에서 참조.</summary>
         public float MaxHealth => _profile != null ? _profile.combat.baseline.maxHealth : FallbackMaxHealth;
@@ -45,6 +48,7 @@ namespace Colosseum.Player
         [Networked] private TickTimer _respawnTimer { get; set; }
         // D48: A214 1초 무적 게이트. Spawned + DoRespawn 시점에 StartRespawnInvulnerability()로 갱신.
         [Networked] public TickTimer InvulnerabilityTimer { get; set; }
+        [Networked] private TickTimer _horizontalCameraDeathGraceTimer { get; set; }
 
         /// <summary>
         /// CurrentHealth가 변동될 때 외부 구독자에게 발행되는 이벤트.
@@ -77,6 +81,16 @@ namespace Colosseum.Player
                 IsDead = false;
                 // D48: 게임 시작 spawn 직후에도 1초 무적 적용 (P1/P2 첫 등장 안전 가드).
                 StartRespawnInvulnerability();
+                PublishInvulnerabilityStartedVfx();
+                PublishPlayerHealthVfx(
+                    VfxEventType.PlayerSpawn,
+                    VfxPayloadFactory.GetPlayerHealthEffectKey(VfxEventType.PlayerSpawn),
+                    Object.InputAuthority,
+                    Object.InputAuthority,
+                    transform.position,
+                    1f,
+                    MaxHealth,
+                    PlayerSpawnVfxSequenceSalt);
             }
 
             _roomManager = SceneSearch.FindInScene<RoomManager>(gameObject.scene);
@@ -109,37 +123,157 @@ namespace Colosseum.Player
             if (!Object.HasStateAuthority) return;
 
             // 리스폰 타이머
-            if (IsDead && CanRespawn() && _respawnTimer.Expired(Runner) && !IsWaitingForCardSelection())
+            if (IsDead && CanRespawn() && _respawnTimer.Expired(Runner))
             {
                 DoRespawn();
             }
 
-            // 맵 밖 사망 체크
-            if (!IsDead && _roomManager != null)
+            if (!IsDead && _roomManager != null && ShouldApplyOutOfBoundsDeath(_roomManager.IsVictoryRunActive))
             {
-                if (_roomManager.IsOutOfBounds(transform.position))
+                bool belowVisibleCamera = _roomManager.IsBelowVisibleCamera(transform.position);
+                bool horizontalGraceActive = IsHorizontalCameraDeathGraceActive();
+                bool horizontalOutOfRoomBounds = _roomManager.IsOutOfBounds(transform.position);
+                bool horizontalOutsideVisibleCamera = _roomManager.IsHorizontallyOutsideVisibleCamera(transform.position);
+                bool horizontalDeath = ShouldApplyHorizontalOutOfBoundsDeath(_roomManager.IsVictoryRunActive, horizontalGraceActive) &&
+                                       (horizontalOutOfRoomBounds || horizontalOutsideVisibleCamera);
+
+                if (belowVisibleCamera || horizontalDeath)
                 {
-                    // 맵 밖으로 떨어지면 상대방이 킬한 것으로 처리
+                    // 맵/카메라 밖으로 밀려나면 상대방이 킬한 것으로 처리
                     PlayerRef opponent = FindOpponentRef();
-                    Debug.Log($"[Colosseum] Player out of bounds! Credited to: {opponent}");
+                    DiagLog.Log(
+                        $"[Colosseum] Player out of combat bounds! " +
+                        $"roomHorizontal={horizontalOutOfRoomBounds}, cameraHorizontal={horizontalOutsideVisibleCamera}, " +
+                        $"cameraBelow={belowVisibleCamera}, horizontalGrace={horizontalGraceActive}, credited={opponent}");
                     Die(opponent);
                 }
             }
         }
 
-        public void TakeDamage(float damage, PlayerRef attacker, BulletController.StatusEffect status)
+        private static bool ShouldApplyOutOfBoundsDeath(bool isVictoryRunActive)
+        {
+            return !isVictoryRunActive;
+        }
+
+        private static bool ShouldApplyOutOfBoundsDeath(bool isVictoryRunActive, bool isRespawnInvulnerabilityActive)
+        {
+            return !isVictoryRunActive;
+        }
+
+        private static bool ShouldApplyHorizontalOutOfBoundsDeath(bool isVictoryRunActive, bool isRespawnCameraGraceActive)
+        {
+            return !isVictoryRunActive && !isRespawnCameraGraceActive;
+        }
+
+        private static bool ShouldIgnoreDamageDuringVictoryRun(bool isVictoryRunActive)
+        {
+            return isVictoryRunActive;
+        }
+
+        public static bool ShouldIgnoreEnvironmentDeath(bool isVictoryRunDamageProtected, bool isRespawnInvulnerabilityActive)
+        {
+            return isVictoryRunDamageProtected || isRespawnInvulnerabilityActive;
+        }
+
+        public static bool ShouldIgnoreCombatKnockback(bool isVictoryRunDamageProtected, bool isRespawnInvulnerabilityActive)
+        {
+            return isVictoryRunDamageProtected || isRespawnInvulnerabilityActive;
+        }
+
+        public bool IsVictoryRunDamageProtectionActive()
+        {
+            if (_roomManager == null)
+            {
+                _roomManager = SceneSearch.FindInScene<RoomManager>(gameObject.scene);
+            }
+
+            return _roomManager != null &&
+                   _roomManager.IsNetworkedStateReady &&
+                   ShouldIgnoreDamageDuringVictoryRun(_roomManager.IsVictoryRunActive);
+        }
+
+        public bool IsCombatKnockbackProtectionActive()
+        {
+            return ShouldIgnoreCombatKnockback(
+                IsVictoryRunDamageProtectionActive(),
+                IsRespawnInvulnerabilityActive());
+        }
+
+        public void TakeDamage(float damage, PlayerRef attacker, Colosseum.Weapon.StatusEffect status, float statusDuration = 0f, float statusMagnitude = 1f)
+        {
+            int statusMask = Colosseum.Weapon.StatusEffectExtensions.ToMask(status);
+            float freezeDuration = 0f;
+            float burnDuration = 0f;
+            float poisonDuration = 0f;
+            float electricDuration = 0f;
+            AssignStatusDuration(status, statusDuration, ref freezeDuration, ref burnDuration, ref poisonDuration, ref electricDuration);
+
+            TakeDamage(
+                damage,
+                attacker,
+                statusMask,
+                freezeDuration,
+                burnDuration,
+                poisonDuration,
+                electricDuration,
+                statusMagnitude);
+        }
+
+        public void TakeDamage(
+            float damage,
+            PlayerRef attacker,
+            int statusMask,
+            float freezeStatusDuration = 0f,
+            float burnStatusDuration = 0f,
+            float poisonStatusDuration = 0f,
+            float electricStatusDuration = 0f,
+            float statusMagnitude = 1f)
+        {
+            TakeDamage(
+                damage,
+                attacker,
+                statusMask,
+                freezeStatusDuration,
+                burnStatusDuration,
+                poisonStatusDuration,
+                electricStatusDuration,
+                statusMagnitude,
+                statusMagnitude,
+                statusMagnitude,
+                statusMagnitude);
+        }
+
+        public void TakeDamage(
+            float damage,
+            PlayerRef attacker,
+            int statusMask,
+            float freezeStatusDuration,
+            float burnStatusDuration,
+            float poisonStatusDuration,
+            float electricStatusDuration,
+            float freezeStatusMagnitude,
+            float burnStatusMagnitude,
+            float poisonStatusMagnitude,
+            float electricStatusMagnitude)
         {
             if (!Object.HasStateAuthority) return;
             if (IsDead) return;
+            // VictoryRun blocks both damage and status application so late projectiles cannot change the match result.
+            if (IsVictoryRunDamageProtectionActive())
+            {
+                DiagLog.Log($"[Colosseum] PlayerHealth: damage {damage} ignored — victory run active.");
+                return;
+            }
+
             // D48: A214 무적 게이트. 리스폰 직후 1초간 데미지 무시.
             if (!InvulnerabilityTimer.ExpiredOrNotRunning(Runner))
             {
-                Debug.Log($"[Colosseum] PlayerHealth: damage {damage} ignored — invulnerability active.");
+                DiagLog.Log($"[Colosseum] PlayerHealth: damage {damage} ignored — invulnerability active.");
                 return;
             }
 
             CurrentHealth -= damage;
-            Debug.Log($"[Colosseum] Player hit! HP: {CurrentHealth}/{MaxHealth}");
+            DiagLog.Log($"[Colosseum] Player hit! HP: {CurrentHealth}/{MaxHealth}");
 
             // 라이프스틸 처리
             if (LifestealPercent > 0f && attacker != Object.InputAuthority)
@@ -148,12 +282,19 @@ namespace Colosseum.Player
             }
 
             // 상태이상 forward — A303-261 인프라가 받아내는 진입점.
-            // status 인자가 None이 아니면 PlayerStatusController가 매핑된 SO를 찾아 Apply.
+            // statusMask가 0이 아니면 PlayerStatusController가 매핑된 SO를 찾아 모두 Apply.
             // SO 매핑 미할당 시 ApplyByEnum 내부에서 no-op (Debug.Log 한 줄과 동일 효과).
-            if (status != BulletController.StatusEffect.None && _statusController != null)
-            {
-                _statusController.ApplyByEnum(status, attacker);
-            }
+            ApplyStatusesByMask(
+                statusMask,
+                attacker,
+                freezeStatusMagnitude,
+                burnStatusMagnitude,
+                poisonStatusMagnitude,
+                electricStatusMagnitude,
+                freezeStatusDuration,
+                burnStatusDuration,
+                poisonStatusDuration,
+                electricStatusDuration);
 
             if (CurrentHealth <= 0f)
             {
@@ -161,10 +302,77 @@ namespace Colosseum.Player
             }
         }
 
+        private void ApplyStatusesByMask(
+            int statusMask,
+            PlayerRef attacker,
+            float freezeStatusMagnitude,
+            float burnStatusMagnitude,
+            float poisonStatusMagnitude,
+            float electricStatusMagnitude,
+            float freezeStatusDuration,
+            float burnStatusDuration,
+            float poisonStatusDuration,
+            float electricStatusDuration)
+        {
+            if (statusMask == 0 || _statusController == null)
+            {
+                return;
+            }
+
+            ApplyStatusIfPresent(statusMask, Colosseum.Weapon.StatusEffect.Freeze, attacker, freezeStatusMagnitude, freezeStatusDuration);
+            ApplyStatusIfPresent(statusMask, Colosseum.Weapon.StatusEffect.Burn, attacker, burnStatusMagnitude, burnStatusDuration);
+            ApplyStatusIfPresent(statusMask, Colosseum.Weapon.StatusEffect.Poison, attacker, poisonStatusMagnitude, poisonStatusDuration);
+            ApplyStatusIfPresent(statusMask, Colosseum.Weapon.StatusEffect.Electric, attacker, electricStatusMagnitude, electricStatusDuration);
+        }
+
+        private void ApplyStatusIfPresent(
+            int statusMask,
+            Colosseum.Weapon.StatusEffect status,
+            PlayerRef attacker,
+            float statusMagnitude,
+            float statusDuration)
+        {
+            if (!Colosseum.Weapon.StatusEffectExtensions.HasStatus(statusMask, status))
+            {
+                return;
+            }
+
+            _statusController.ApplyByEnum(status, attacker, statusMagnitude, statusDuration);
+        }
+
+        private static void AssignStatusDuration(
+            Colosseum.Weapon.StatusEffect status,
+            float statusDuration,
+            ref float freezeStatusDuration,
+            ref float burnStatusDuration,
+            ref float poisonStatusDuration,
+            ref float electricStatusDuration)
+        {
+            switch (status)
+            {
+                case Colosseum.Weapon.StatusEffect.Freeze:
+                    freezeStatusDuration = statusDuration;
+                    break;
+                case Colosseum.Weapon.StatusEffect.Burn:
+                    burnStatusDuration = statusDuration;
+                    break;
+                case Colosseum.Weapon.StatusEffect.Poison:
+                    poisonStatusDuration = statusDuration;
+                    break;
+                case Colosseum.Weapon.StatusEffect.Electric:
+                    electricStatusDuration = statusDuration;
+                    break;
+            }
+        }
+
         private void Die(PlayerRef killer, bool triggerCardDraw = false)
         {
             bool isSuicide = killer == default(PlayerRef) || killer == Object.InputAuthority;
             PlayerRef creditedKiller = isSuicide ? default(PlayerRef) : killer;
+            PlayerRef movementAuthority = ResolveMovementAuthorityAfterDeath(
+                creditedKiller,
+                Object.InputAuthority,
+                FindOpponentRefOrDefault());
 
             IsDead = true;
             CurrentHealth = 0f;
@@ -187,10 +395,15 @@ namespace Colosseum.Player
                     _cardDeck.StartDraw(Object.InputAuthority);
             }
 
-            // RoomManager에 킬 등록
+            // Camera/advance authority follows the surviving opponent even for pit/self deaths.
+            // Reward effects still use creditedKiller so self-kill does not grant heal-on-kill.
             if (_roomManager != null)
             {
-                _roomManager.RegisterKill(creditedKiller);
+                _roomManager.RegisterDeathRespawnAnchor(
+                    Object.InputAuthority,
+                    movementAuthority,
+                    FindPlayerPosition(movementAuthority, transform.position));
+                _roomManager.RegisterKill(movementAuthority);
             }
 
             PublishPlayerHealthVfx(
@@ -207,7 +420,7 @@ namespace Colosseum.Player
             ApplyHealOnKill(creditedKiller);
 
             _respawnTimer = TickTimer.CreateFromSeconds(Runner, RespawnDelay);
-            Debug.Log($"[Colosseum] Player died! Killer: {creditedKiller} (original: {killer}, suicide:{isSuicide}, cardDraw:{triggerCardDraw})");
+            DiagLog.Log($"[Colosseum] Player died! Killer: {creditedKiller} (authority: {movementAuthority}, original: {killer}, suicide:{isSuicide}, cardDraw:{triggerCardDraw})");
         }
 
         private void DoRespawn()
@@ -236,8 +449,9 @@ namespace Colosseum.Player
             if (_roomManager != null)
             {
                 Vector2 opponentPos = FindOpponentPosition();
-                Vector2 respawnPos = _roomManager.GetRespawnPosition(Object.InputAuthority, opponentPos);
-                transform.position = new Vector3(respawnPos.x, respawnPos.y, 0f);
+                Vector2 respawnPos = _roomManager.GetRespawnPosition(Object.InputAuthority, opponentPos, this);
+                TeleportNetworkedRigidbody(new Vector3(respawnPos.x, respawnPos.y, 0f));
+                _roomManager.RegisterRespawn(Object.InputAuthority);
             }
 
             PublishPlayerHealthVfx(
@@ -249,28 +463,14 @@ namespace Colosseum.Player
                 1f,
                 RespawnInvulnerableSeconds,
                 PlayerRespawnVfxSequenceSalt);
+            PublishInvulnerabilityStartedVfx();
 
-            Debug.Log("[Colosseum] Player respawned!");
-        }
-
-        private bool IsWaitingForCardSelection()
-        {
-            if (_cardDeck == null)
-            {
-                _cardDeck = SceneSearch.FindInScene<CardDeck>(gameObject.scene);
-            }
-
-            if (_cardDeck == null || _cardDeck.Object == null || !_cardDeck.Object.IsValid)
-            {
-                return false;
-            }
-
-            return _cardDeck.HasPendingDraw(Object.InputAuthority);
+            DiagLog.Log("[Colosseum] Player respawned!");
         }
 
         private bool CanRespawn()
         {
-            return _roomManager == null || !_roomManager.IsVictoryRunActive;
+            return _roomManager == null || !_roomManager.IsNetworkedStateReady || !_roomManager.IsVictoryRunActive;
         }
 
         /// <summary>
@@ -283,6 +483,31 @@ namespace Colosseum.Player
         {
             if (Object == null || !Object.HasStateAuthority) return;
             InvulnerabilityTimer = TickTimer.CreateFromSeconds(Runner, RespawnInvulnerableSeconds);
+            _horizontalCameraDeathGraceTimer = TickTimer.CreateFromSeconds(Runner, RespawnHorizontalCameraDeathGraceSeconds);
+        }
+
+        private bool IsRespawnInvulnerabilityActive()
+        {
+            return Runner != null && !InvulnerabilityTimer.ExpiredOrNotRunning(Runner);
+        }
+
+        private bool IsHorizontalCameraDeathGraceActive()
+        {
+            return Runner != null && !_horizontalCameraDeathGraceTimer.ExpiredOrNotRunning(Runner);
+        }
+
+        private void PublishInvulnerabilityStartedVfx()
+        {
+            PublishPlayerHealthVfx(
+                VfxEventType.PlayerInvulnerabilityStarted,
+                VfxPayloadFactory.GetPlayerHealthEffectKey(VfxEventType.PlayerInvulnerabilityStarted),
+                Object.InputAuthority,
+                Object.InputAuthority,
+                transform.position,
+                1f,
+                1f,
+                PlayerInvulnerabilityStartedVfxSequenceSalt,
+                RespawnInvulnerableSeconds);
         }
 
         public void ForceDeath(PlayerRef killer)
@@ -290,6 +515,43 @@ namespace Colosseum.Player
             if (!Object.HasStateAuthority) return;
             if (IsDead) return;
             Die(killer);
+        }
+
+        public static PlayerRef ResolveMovementAuthorityAfterDeath(
+            PlayerRef creditedKiller,
+            PlayerRef deadPlayer,
+            PlayerRef opponentPlayer)
+        {
+            if (creditedKiller != default(PlayerRef) && creditedKiller != deadPlayer)
+            {
+                return creditedKiller;
+            }
+
+            if (opponentPlayer != default(PlayerRef) && opponentPlayer != deadPlayer)
+            {
+                return opponentPlayer;
+            }
+
+            return default;
+        }
+
+        private void TeleportNetworkedRigidbody(Vector3 position)
+        {
+            var networkRigidbody = GetComponent<NetworkRigidbody2D>();
+            if (networkRigidbody != null)
+            {
+                networkRigidbody.Teleport(position);
+            }
+
+            transform.position = position;
+
+            if (_rb != null)
+            {
+                _rb.position = position;
+                _rb.velocity = Vector2.zero;
+            }
+
+            Physics2D.SyncTransforms();
         }
 
         public void PublishPitFallDeathVfx(Vector2 worldPosition)
@@ -378,6 +640,11 @@ namespace Colosseum.Player
             if (!IsDead)
             {
                 SetVisuals(true);
+                var animatorController = GetComponent<PlayerAnimatorController>();
+                if (animatorController != null)
+                {
+                    animatorController.ResetVisualStateAfterRespawn();
+                }
                 PublishRespawnVfx();
             }
 
@@ -444,6 +711,36 @@ namespace Colosseum.Player
             return Object.InputAuthority;
         }
 
+        private PlayerRef FindAliveOpponentRef()
+        {
+            var players = SceneSearch.FindAllInScene<PlayerHealth>(gameObject.scene);
+            foreach (var p in players)
+            {
+                var netObj = p.GetComponent<Fusion.NetworkObject>();
+                if (netObj != null && netObj.InputAuthority != Object.InputAuthority && !p.IsDead)
+                {
+                    return netObj.InputAuthority;
+                }
+            }
+
+            return default;
+        }
+
+        private PlayerRef FindOpponentRefOrDefault()
+        {
+            var players = SceneSearch.FindAllInScene<PlayerHealth>(gameObject.scene);
+            foreach (var p in players)
+            {
+                var netObj = p.GetComponent<Fusion.NetworkObject>();
+                if (netObj != null && netObj.InputAuthority != Object.InputAuthority)
+                {
+                    return netObj.InputAuthority;
+                }
+            }
+
+            return default;
+        }
+
         private Vector2 FindOpponentPosition()
         {
             var players = SceneSearch.FindAllInScene<NetworkObject>(gameObject.scene);
@@ -457,6 +754,25 @@ namespace Colosseum.Player
             return Vector2.zero;
         }
 
+        private Vector2 FindPlayerPosition(PlayerRef player, Vector2 fallbackPosition)
+        {
+            if (player == default(PlayerRef))
+            {
+                return fallbackPosition;
+            }
+
+            var players = SceneSearch.FindAllInScene<NetworkObject>(gameObject.scene);
+            foreach (var p in players)
+            {
+                if (p.InputAuthority == player && p.GetComponent<PlayerHealth>() != null)
+                {
+                    return p.transform.position;
+                }
+            }
+
+            return fallbackPosition;
+        }
+
         private void HealAttacker(PlayerRef attacker, float healAmount)
         {
             var players = SceneSearch.FindAllInScene<PlayerHealth>(gameObject.scene);
@@ -466,7 +782,7 @@ namespace Colosseum.Player
                 if (netObj == null || netObj.InputAuthority != attacker) continue;
 
                 p.CurrentHealth = Mathf.Min(p.CurrentHealth + healAmount, p.MaxHealth);
-                Debug.Log($"[Colosseum] Lifesteal: healed {attacker} for {healAmount:F1} HP");
+                DiagLog.Log($"[Colosseum] Lifesteal: healed {attacker} for {healAmount:F1} HP");
                 break;
             }
         }
@@ -495,7 +811,7 @@ namespace Colosseum.Player
                         0.85f,
                         cardEffect.HealOnKill,
                         PlayerHealOnKillVfxSequenceSalt);
-                    Debug.Log($"[Colosseum] HealOnKill: healed {killer} for {cardEffect.HealOnKill} HP");
+                    DiagLog.Log($"[Colosseum] HealOnKill: healed {killer} for {cardEffect.HealOnKill} HP");
                 }
                 break;
             }
@@ -509,7 +825,8 @@ namespace Colosseum.Player
             Vector2 position,
             float radius,
             float magnitude,
-            int sequenceSalt)
+            int sequenceSalt,
+            float duration = 0.9f)
         {
             Rpc_PublishPlayerHealthVfx(
                 (int)eventType,
@@ -519,6 +836,7 @@ namespace Colosseum.Player
                 position.x,
                 position.y,
                 radius,
+                duration,
                 magnitude,
                 sequenceSalt);
         }
@@ -532,6 +850,7 @@ namespace Colosseum.Player
             float x,
             float y,
             float radius,
+            float duration,
             float magnitude,
             int sequenceSalt)
         {
@@ -546,7 +865,7 @@ namespace Colosseum.Player
                 new Vector2(x, y),
                 Vector2.up,
                 radius,
-                0.9f,
+                duration,
                 magnitude,
                 VfxAttachPoint.CharacterBody,
                 sequenceSalt));

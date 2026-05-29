@@ -1,12 +1,14 @@
-# MVP16 Card Icon Sprites
+# MVP16 Card Illustration Sprites
 
-Purpose: placeholder-quality card icon sprites for S14P31A303-274.
+Purpose: generated internal card illustration candidates for S14P31A303-350.
 
 Mapping policy:
 - Use direct serialized `CardData.cardIcon` references for MVP16 cards.
+- `CardSelectionUI` consumes those references as the inner illustration layer.
+- Card frames are resolved separately from card rarity, so frame styling and card art do not share one sprite.
 - Do not add Resources, Addressables, or Sprite Atlas loading for this issue.
 - Keep `CardSelectionUI` fallback text for non-MVP cards or cards without `cardIcon`.
-- These sprites are symbolic placeholders, not final commercial illustrations.
+- These sprites are 1:1 generated illustration candidates, not final commercial illustrations or gameplay truth.
 
 Covered cards:
 - projectile_size_up, projectile_speed_up, hit_knockback_up

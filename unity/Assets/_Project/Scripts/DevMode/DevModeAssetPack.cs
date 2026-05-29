@@ -22,9 +22,8 @@ namespace Colosseum.DevMode
         [Tooltip("DevMode 덱에 사용할 CardData 목록")]
         public List<CardData> cardDataList = new List<CardData>();
 
-        [Header("총알 / 발사체")]
-        [Tooltip("DevMode에서 사용할 기본 탄환 프리팹 (NetworkPrefabRef — PrefabTable 등록 필수)")]
-        public NetworkPrefabRef bulletPrefab;
+        // [A303-171] bulletPrefab (NetworkPrefabRef) 필드는 Visual-only projectile 전환 이후 폐기.
+        // DevMode bullet 커스터마이즈는 향후 BulletVisual prefab 슬롯 (_bulletVisualPrefab) 으로 전환.
 
         [Header("UI 스프라이트")]
         [Tooltip("HUD·UI 오버레이에 쓸 스프라이트 목록 (순서: DevMode UI 담당자와 협의)")]

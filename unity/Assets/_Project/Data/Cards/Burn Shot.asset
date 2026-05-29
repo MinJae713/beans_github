@@ -37,7 +37,7 @@ MonoBehaviour:
   moveSpeedMultiplier: 1
   jumpForceMultiplier: 1
   statusEffect: 2
-  statusDuration: 2
+  statusDuration: 3
   explosionRadius: 0
   explosionDamageRatio: 0.5
   overchargeDamageMultiplier: 1

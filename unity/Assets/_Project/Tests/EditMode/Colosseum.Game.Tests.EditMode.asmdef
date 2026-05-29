@@ -2,8 +2,12 @@
     "name": "Colosseum.Game.Tests.EditMode",
     "rootNamespace": "Colosseum.Tests.EditMode",
     "references": [
+        "Colosseum.Game",
         "Colosseum.Game.Editor",
+        "Colosseum.Contracts",
         "Colosseum.NetworkGameplay",
+        "Colosseum.Presentation",
+        "Colosseum.StatusEffects",
         "Fusion.Unity",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

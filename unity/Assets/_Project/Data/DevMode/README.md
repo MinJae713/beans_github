@@ -13,7 +13,7 @@ Unity 에디터에서 다음 순서로 기본 인스턴스를 생성하세요:
 | 슬롯 | 타입 | 용도 |
 |------|------|------|
 | playerPrefab | GameObject | DevMode 스폰 플레이어 프리팹 |
-| cardDataList | List<CardData> | DevMode 덱 구성 카드 |
+| cardDataList | List<CardData> | DevMode 디버그 패널에 노출할 카드. `DefaultAssetPack`은 `docs/40_카드_무기_설계/10_세부설계/03_MVP_카드_후보_카탈로그.md`의 MVP16 16장만 순서대로 포함한다. |
 | bulletPrefab | GameObject | 기본 탄환 프리팹 |
 | uiSprites | List<Sprite> | HUD·UI 오버레이 스프라이트 |
 | materials | List<Material> | Override 머터리얼 |

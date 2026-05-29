@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Colosseum.Player;
 using Colosseum.Weapon;
 
 namespace Colosseum.UI
@@ -50,6 +51,7 @@ namespace Colosseum.UI
         private readonly List<Image> _dotPool = new List<Image>();
         private int _lastDisplayedAmmo = -1;
         private bool _initialized;
+        private PlayerHealth _ownerHealth;  // A303-168: 소유 플레이어 사망 감지용 (사망 시 ring/dots 숨김)
 
         private void Start()
         {
@@ -66,6 +68,10 @@ namespace Colosseum.UI
                 if (_muzzle == null)
                     _muzzle = transform; // 폴백: Gun 위치 자체
             }
+
+            // A303-168: 소유 플레이어의 PlayerHealth 캐싱 — 사망 시 indicator 숨김 처리용
+            if (_gun != null)
+                _ownerHealth = _gun.GetComponentInParent<PlayerHealth>();
 
             CreateIndicator();
         }
@@ -127,6 +133,16 @@ namespace Colosseum.UI
         private void LateUpdate()
         {
             if (!_initialized || _gun == null) return;
+
+            // A303-168: 소유 플레이어 사망 시 ring/dots 둘 다 숨김. respawn 시 정상 흐름으로 복귀.
+            if (_ownerHealth != null && _ownerHealth.IsDead)
+            {
+                if (_canvas != null && _canvas.gameObject.activeSelf)
+                    _canvas.gameObject.SetActive(false);
+                if (_dotsCanvasObj != null && _dotsCanvasObj.activeSelf)
+                    _dotsCanvasObj.SetActive(false);
+                return;
+            }
 
             Vector3 anchorPos = _muzzle.position;
             Vector3 targetPos = new Vector3(

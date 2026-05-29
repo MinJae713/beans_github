@@ -65,6 +65,16 @@ namespace Colosseum.Presentation.SFX
                 return;
             }
 
+            if (ShouldSuppressLegacyStatusImpact(payload))
+            {
+                return;
+            }
+
+            if (IsHandledByDedicatedRuntimeSfx(payload))
+            {
+                return;
+            }
+
             string key = GetSfxDedupeKey(payload);
             if (!_dedupeKeys.Add(key))
             {
@@ -91,6 +101,55 @@ namespace Colosseum.Presentation.SFX
         {
             // VfxEventPayload.GetDedupeKey may collapse object/sequence cases; SFX keeps card/effect distinct.
             return $"{payload.GetDedupeKey()}:{payload.CardKey}:{payload.EffectKey}";
+        }
+
+        private static bool IsHandledByDedicatedRuntimeSfx(VfxEventPayload payload)
+        {
+            if (payload.EventType == VfxEventType.ProjectileSpawnedWithModifier)
+            {
+                return true;
+            }
+
+            if (payload.EventType == VfxEventType.ProjectileImpact &&
+                payload.EffectKey == "projectile_impact")
+            {
+                return true;
+            }
+
+            if (payload.EventType == VfxEventType.ProjectileReflected &&
+                payload.EffectKey == "projectile_reflect")
+            {
+                return true;
+            }
+
+            if (payload.EventType == VfxEventType.ProjectilePierced &&
+                payload.EffectKey == "projectile_pierce")
+            {
+                return true;
+            }
+
+            return payload.EventType == VfxEventType.OverchargeReady &&
+                payload.EffectKey == "reload_overcharge";
+        }
+
+        private static bool ShouldSuppressLegacyStatusImpact(VfxEventPayload payload)
+        {
+            return payload.EventType == VfxEventType.ProjectileImpact &&
+                IsStatusEffectKey(payload.EffectKey);
+        }
+
+        private static bool IsStatusEffectKey(string effectKey)
+        {
+            switch (effectKey)
+            {
+                case "hit_apply_burn":
+                case "hit_apply_poison":
+                case "hit_apply_frost":
+                case "hit_apply_electric_stack":
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private void EnsureProfileLoaded()

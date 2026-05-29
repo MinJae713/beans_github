@@ -21,7 +21,6 @@ namespace Colosseum.UI
         private static readonly Color FrameBgColor = new Color(0.10f, 0.10f, 0.11f, 0.85f);
         private static readonly Color WhiteText = Color.white;
         private static readonly Color SubduedText = new Color(0.85f, 0.85f, 0.85f, 1f);
-        private static readonly Color FooterColor = new Color(0.78f, 0.78f, 0.78f, 1f);
 
         private const float PopupWidth = 280f;
         private const float PopupHeight = 400f;
@@ -39,7 +38,6 @@ namespace Colosseum.UI
         private Image _iconImage;
         private TextMeshProUGUI _nameText;
         private TextMeshProUGUI _descText;
-        private TextMeshProUGUI _footerText;
 
         /// <summary>
         /// playerSlot: 0=P1(좌하), 1=P2(우하). popupBottomY: 인벤토리 최상단에서 팝업 하단까지 y(local).
@@ -110,17 +108,8 @@ namespace Colosseum.UI
             dr.anchorMin = new Vector2(0f, 0f);
             dr.anchorMax = new Vector2(1f, 1f);
             dr.pivot = new Vector2(0.5f, 0.5f);
-            dr.offsetMin = new Vector2(Padding, 40f);
+            dr.offsetMin = new Vector2(Padding, Padding);
             dr.offsetMax = new Vector2(-Padding, -(GradeStripHeight + Padding + IconSize + Padding + 32f + Padding));
-
-            // 푸터
-            _footerText = CreateText(transform, "Footer", "READY TO ENGAGE", 14f, FontStyles.Bold, FooterColor, TextAlignmentOptions.Center);
-            RectTransform fr = _footerText.GetComponent<RectTransform>();
-            fr.anchorMin = new Vector2(0f, 0f);
-            fr.anchorMax = new Vector2(1f, 0f);
-            fr.pivot = new Vector2(0.5f, 0f);
-            fr.anchoredPosition = new Vector2(0f, Padding);
-            fr.sizeDelta = new Vector2(-Padding * 2f, 24f);
 
             gameObject.SetActive(false);
         }

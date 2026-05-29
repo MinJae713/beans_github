@@ -381,17 +381,19 @@ Photon 공식 입장: **AppID 는 클라이언트 .exe 에 번들되는 준-공�
 
 학생 프로젝트라 **별도 Photon App 을 만들지 않고 `AppVersion` 분기로 방 격리** 권장 (Photon Cloud 비용 절약):
 
-- prod: `AppVersion = "1.0.0"` (5/20 데모 빌드)
-- staging: `AppVersion = "0.9.0-staging"` (개발 빌드)
-- dev 개인: `AppVersion = "0.0.1-{이니셜}"` (각자 PC sidecar 에서 설정)
+- `AppVersion` = `Application.version` 의 **Major 숫자만** 추출 (예: `bundleVersion "0.1.0"` → AppVersion `"0"`)
+- Major 가 다른 빌드끼리는 Photon 세션 자체가 분리됨 (1st layer)
+- Major 동일 + Minor 불일치는 VERSION 핸드셰이크로 reject (2nd layer, `VersionMismatchUI` 팝업)
+- 환경 격리 예시: prod `bundleVersion "1.0.0"` → AppVersion `"1"` / dev `bundleVersion "0.x.x"` → AppVersion `"0"`
 
-클라이언트 간 `AppVersion` 다르면 자동으로 별도 룸 분리됨 (Photon 공식 동작).
+> **변경 사유 (A303-338)**: 기존 sidecar 풀 버전 방식에서 `Application.version` Major-only 방식으로 전환. 2중 방어 아키텍처 도입으로 Minor 검증은 VERSION 핸드셰이크가 담당하며, AppVersion 은 세션 그룹핑 역할만 수행.
 
 ### 6.4 AppVersion 활용 (M6)
 
-- sidecar `PhotonAppSettings.local.asset` 의 `AppVersion` 필드 사용
-- §3.2 Loader.cs 가 AppVersion 도 포함해서 덮어씀 (현재 코드 이미 포함)
-- 데모 직전 박병준이 5명 sidecar `AppVersion` 동기화 — Mattermost DM 으로 "v1.0.0 로 통일" 공지 → 각자 sidecar `.asset` 수정 후 Editor Play
+- `PhotonAppSettingsLoader.cs` 가 `VersionValidator.MajorVersion(Application.version)` 으로 AppVersion 을 설정 (sidecar AppVersion 필드는 더 이상 사용하지 않음)
+- `bundleVersion` 은 `ProjectSettings.asset` 에서 관리 (`Player Settings > Version`)
+- 데모 직전 박병준이 `bundleVersion` 통일 공지 → 빌드 배포 (각자 sidecar 수정 불필요)
+- sidecar 의 다른 필드 (AppIdFusion, AppIdChat, AppIdVoice, FixedRegion, Server) 는 기존대로 사용
 
 ---
 
@@ -400,6 +402,7 @@ Photon 공식 입장: **AppID 는 클라이언트 .exe 에 번들되는 준-공�
 - 2026-04-27 박병준: v0.1 작성. `S14P31A303-153` (인벤토리 #6) 산출물.
 - 2026-04-27 박병준: v0.2 보정. C1(§4.5 회전 SOP 신설) + C2(§3.4 빌드 훅) + C3(Loader.cs 신규) + H1(컨벤션 §16.2 경로 통일) + H2(§3.2 API 주석 보강) + H3(§6 Custom Auth 추가) + H4(.gitignore .meta 패턴) + M2/M3/M4/M5/M6/M7 일괄 보강. 부DRI: 유민재(1순위)/최진우(2순위). 채널: A303 공지/공유방.
 - 2026-04-30 박병준: v0.3 hotfix 반영. §2.3(사이드카 라벨 정리) 신설 + 기존 §2.3 → §2.4 번호 이동 + §3.2 장애 사례 박스 추가. 트리거: 박병준 PC 에서 Editor 기동 시 `FindDefaultAssetPath` throw 재현 (sidecar `.meta` 에 `FusionDefaultGlobal` 라벨 중복). 로컬 sidecar `.meta` 에서 라벨 제거하여 즉시 복구.
+- 2026-05-15 박병준: v0.4 §6.3/§6.4 갱신. A303-338 시멘틱 버전 검증 2중 방어 아키텍처 도입에 따라 AppVersion 소스를 sidecar 풀 버전 → `Application.version` Major-only 방식으로 정렬.
 
 ---
 

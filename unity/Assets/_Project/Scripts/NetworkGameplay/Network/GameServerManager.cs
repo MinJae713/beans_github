@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Colosseum.Contracts;
+using Colosseum.Player;
+using Colosseum.NetworkGameplay.Diagnostics;
 using Fusion;
 using Fusion.Sockets;
 using Fusion.Addons.Physics;
@@ -15,14 +18,14 @@ namespace Colosseum.Network
     /// 프로세스 1개 = 게임 방 1개. Fusion Runner도 1개만 운영.
     ///
     /// CLI 인자:
-    ///   --mode game --session "Room_xxx" --room-name "방이름" --max-players 2
+    ///   --mode game --session "Room_xxx" --room-name "방이름" --max-players 2 --scene "MVPArena"
     ///
     /// 방이 비면(모든 플레이어 퇴장) 자체 프로세스 종료.
     /// </summary>
     public class GameServerManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         [Header("Game Scene")]
-        [SerializeField] private string _gameSceneName = "SampleScene";
+        [SerializeField] private string _gameSceneName = SelectableSceneExtensions.DefaultSceneName;
 
         [Header("Player")]
         [SerializeField] private NetworkPrefabRef _playerPrefab;
@@ -47,36 +50,37 @@ namespace Colosseum.Network
         private float _gameOverTimer;
         private Dictionary<PlayerRef, bool> _playerReady = new();
         private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
+        private System.Diagnostics.Stopwatch _initializeSw;
+        private System.Diagnostics.Stopwatch _startGameRunnerSw;
+        private System.Diagnostics.Stopwatch _startGameCallSw;
         // PlayerRef ↔ 닉네임. 클라가 방 입장 직후 NICKNAME:이름 으로 등록.
         private Dictionary<PlayerRef, string> _nicknames = new();
+        private readonly HashSet<PlayerRef> _pendingDisconnect = new();
 
-        // ── 빈 방 자동 종료 타이머 ──
-        private float _emptyRoomTimeout = 30f;  // 30초간 비어있으면 종료
-        private float _emptyRoomTimer;
-        private bool _everHadPlayers = false;
-
-        public void Initialize(string sessionName, string roomName, int maxPlayers)
+        public void Initialize(string sessionName, string roomName, int maxPlayers, string sceneName = SelectableSceneExtensions.DefaultSceneName)
         {
+            _initializeSw = System.Diagnostics.Stopwatch.StartNew();
             _sessionName = sessionName;
             _roomName = roomName;
             _maxPlayers = maxPlayers;
+            _gameSceneName = sceneName;
+            var initializeEnteredAt = DateTimeOffset.UtcNow;
+            DiagLog.Log($"[Colosseum-Timing][GameServer - Initialize Enter][GT1] room='{_roomName}' session='{_sessionName}' scene='{_gameSceneName}' at='{initializeEnteredAt:O}'");
 
-            Debug.Log($"[Colosseum Game] Initializing Game Server - Room: {_roomName}, Session: {_sessionName}");
+            DiagLog.Log($"[Colosseum Game] Initializing Game Server - Room: {_roomName}, Session: {_sessionName}, Scene: {_gameSceneName}");
 
             // SerializeField가 비어있으면 Resources에서 로드 (AddComponent 동적 생성 대응)
             if (!_playerPrefab.IsValid)
             {
                 _playerPrefabFallback = Resources.Load<NetworkObject>("Player");
                 if (_playerPrefabFallback != null)
-                    Debug.Log("[Colosseum Game] Player prefab loaded from Resources (runtime fallback)");
+                    DiagLog.Log("[Colosseum Game] Player prefab loaded from Resources (runtime fallback)");
                 else
                     Debug.LogError("[Colosseum Game] Player prefab not found in Resources/Player!");
             }
 
             // RoomManager 게임 오버 이벤트 구독
             Colosseum.Game.RoomManager.OnGameOverEvent += OnRoomGameOver;
-
-            _emptyRoomTimer = _emptyRoomTimeout;
 
             // 로비 서버에 초기 상태 보고
             Console.WriteLine("##STATUS:waiting");
@@ -120,16 +124,6 @@ namespace Colosseum.Network
                 }
             }
 
-            // 빈 방 자동 종료
-            if (_everHadPlayers && _playerCount <= 0)
-            {
-                _emptyRoomTimer -= Time.deltaTime;
-                if (_emptyRoomTimer <= 0f)
-                {
-                    Debug.Log($"[Colosseum Game] Room '{_roomName}' empty for {_emptyRoomTimeout}s, shutting down.");
-                    ShutdownAndQuit();
-                }
-            }
         }
 
         // ──────────────────────────────────────────────
@@ -138,6 +132,10 @@ namespace Colosseum.Network
 
         private async void StartGameRunner()
         {
+            var startGameRunnerEnteredAt = DateTimeOffset.UtcNow;
+            DiagLog.Log($"[Colosseum-Timing][GameServer - StartGameRunner Enter][GT2] room='{_roomName}' session='{_sessionName}' at='{startGameRunnerEnteredAt:O}' elapsed_from_gt1_ms={_initializeSw?.ElapsedMilliseconds ?? 0}");
+            _startGameRunnerSw = System.Diagnostics.Stopwatch.StartNew();
+
             var runnerObj = new GameObject("GameRunner");
             DontDestroyOnLoad(runnerObj);
             _gameRunner = runnerObj.AddComponent<NetworkRunner>();
@@ -150,12 +148,20 @@ namespace Colosseum.Network
 
             // 게임 씬 참조
             var sceneInfo = new NetworkSceneInfo();
-            var sceneIndex = SceneUtility.GetBuildIndexByScenePath(_gameSceneName);
+            string scenePath = SelectableSceneExtensions.ToBuildScenePath(_gameSceneName);
+            var sceneIndex = SceneUtility.GetBuildIndexByScenePath(scenePath);
             if (sceneIndex >= 0)
             {
                 sceneInfo.AddSceneRef(SceneRef.FromIndex(sceneIndex));
             }
+            else
+            {
+                Debug.LogError($"[Colosseum Game] Scene '{_gameSceneName}' resolved to '{scenePath}' but is not registered in Build Settings.");
+            }
 
+            var startGameCallAt = DateTimeOffset.UtcNow;
+            _startGameCallSw = System.Diagnostics.Stopwatch.StartNew();
+            DiagLog.Log($"[Colosseum-Timing][GameServer - StartGame Call][GT3] room='{_roomName}' session='{_sessionName}' at='{startGameCallAt:O}' elapsed_from_gt2_ms={_startGameRunnerSw?.ElapsedMilliseconds ?? 0}");
             var result = await _gameRunner.StartGame(new StartGameArgs
             {
                 GameMode = GameMode.Server,
@@ -170,13 +176,20 @@ namespace Colosseum.Network
                 // STUN 프로브 스킵용 placeholder. Relay 아키텍처라 실제 주소값은 사용되지 않음. EC2 Dedicated Server 도입 시 실제 공인 주소로 교체.
                 CustomPublicAddress = NetAddress.CreateFromIpPort("127.0.0.1", 0),
             });
+            _startGameCallSw?.Stop();
+            _startGameRunnerSw?.Stop();
+            var startGameReturnedAt = DateTimeOffset.UtcNow;
+            DiagLog.Log($"[Colosseum-Timing][GameServer - StartGame Returned][GT4] room='{_roomName}' session='{_sessionName}' ok={result.Ok} reason='{result.ShutdownReason}' at='{startGameReturnedAt:O}' elapsed_from_gt3_ms={_startGameCallSw?.ElapsedMilliseconds ?? 0}");
 
             if (result.Ok)
             {
                 // Worker Agent가 이 마커를 받으면 실제 Fusion 세션이 열린 것으로 보고
                 // Lobby에 ROOM_CREATED 응답을 반환한다.
+                var readySignalAt = DateTimeOffset.UtcNow;
+                _initializeSw?.Stop();
+                DiagLog.Log($"[Colosseum-Timing][GameServer - Ready Signal][GT5] room='{_roomName}' session='{_sessionName}' at='{readySignalAt:O}' elapsed_from_gt1_ms={_initializeSw?.ElapsedMilliseconds ?? 0}");
                 Console.WriteLine("##READY:session_open");
-                Debug.Log($"[Colosseum Game] Room '{_roomName}' started (session: {_sessionName})");
+                DiagLog.Log($"[Colosseum Game] Room '{_roomName}' started (session: {_sessionName})");
             }
             else
             {
@@ -199,7 +212,7 @@ namespace Colosseum.Network
         {
             _status = "playing";
             BroadcastToAll("GAME_START");
-            Debug.Log($"[Colosseum Game] Room '{_roomName}' game started!");
+            DiagLog.Log($"[Colosseum Game] Room '{_roomName}' game started!");
 
             bool hasPrefabRef = _playerPrefab.IsValid;
             bool hasFallback = _playerPrefabFallback != null;
@@ -245,21 +258,16 @@ namespace Colosseum.Network
             _gameOverTimer = 5f;
 
             BroadcastToAll($"GAME_OVER:{winnerName}");
-            Debug.Log($"[Colosseum Game] Room '{_roomName}' game over! Winner: {winnerName}");
+            DiagLog.Log($"[Colosseum Game] Room '{_roomName}' game over! Winner: {winnerName}");
             UpdateSessionProperty("status", "gameover");
         }
 
         private void ResetRoom()
         {
-            Debug.Log($"[Colosseum Game] Resetting room '{_roomName}' for rematch");
+            DiagLog.Log($"[Colosseum Game] Resetting room '{_roomName}' for rematch");
 
-            // 플레이어 디스폰
-            foreach (var kvp in _spawnedPlayers)
-            {
-                if (kvp.Value != null && _gameRunner != null)
-                    _gameRunner.Despawn(kvp.Value);
-            }
-            _spawnedPlayers.Clear();
+            // 플레이어 디스폰. 딕셔너리 누락/late spawn race가 있어도 씬의 PlayerHealth까지 훑어 승자 오브젝트가 맵에 남지 않게 한다.
+            DespawnAllSpawnedPlayerObjects();
 
             // RoomManager 초기화.
             // SceneManager.GetSceneByName(_gameSceneName)은 Fusion NetworkSceneManager가
@@ -317,9 +325,11 @@ namespace Colosseum.Network
         {
             if (_gameRunner == null) return;
 
-            Vector3 spawnPos = _spawnedPlayers.Count == 0
-                ? new Vector3(-3f, 2f, 0f)
-                : new Vector3(3f, 2f, 0f);
+            var roomManager = FindRoomManagerInLoadedScenes();
+            bool isFirstPlayer = _spawnedPlayers.Count == 0;
+            Vector3 spawnPos = roomManager != null
+                ? roomManager.GetInitialSpawnPosition(isFirstPlayer)
+                : Game.RoomManager.CalculateFallbackInitialSpawnPosition(isFirstPlayer);
 
             // SerializeField가 설정되어 있으면 NetworkPrefabRef 사용, 아니면 fallback NetworkObject 사용
             NetworkObject playerObj;
@@ -331,10 +341,8 @@ namespace Colosseum.Network
             if (playerObj != null)
             {
                 _spawnedPlayers[player] = playerObj;
-                Debug.Log($"[Colosseum Game] Spawned player {player} at {spawnPos}");
+                DiagLog.Log($"[Colosseum Game] Spawned player {player} at {spawnPos}");
 
-                var roomManager = Utils.SceneSearch.FindInScene<Game.RoomManager>(
-                    SceneManager.GetSceneByName(_gameSceneName));
                 if (roomManager != null)
                 {
                     if (_spawnedPlayers.Count == 1)
@@ -359,15 +367,83 @@ namespace Colosseum.Network
             }
         }
 
+        private void DespawnAllSpawnedPlayerObjects()
+        {
+            if (_gameRunner == null)
+            {
+                _spawnedPlayers.Clear();
+                return;
+            }
+
+            var despawned = new HashSet<NetworkObject>();
+            foreach (var playerObj in _spawnedPlayers.Values)
+            {
+                TryDespawnPlayerObject(playerObj, despawned);
+            }
+
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (!scene.IsValid() || !scene.isLoaded) continue;
+
+                foreach (var health in Utils.SceneSearch.FindAllInScene<PlayerHealth>(scene))
+                {
+                    if (health == null) continue;
+                    TryDespawnPlayerObject(health.GetComponent<NetworkObject>(), despawned);
+                }
+            }
+
+            _spawnedPlayers.Clear();
+        }
+
+        private void TryDespawnPlayerObject(NetworkObject playerObj, HashSet<NetworkObject> despawned)
+        {
+            if (playerObj == null || _gameRunner == null || despawned == null || despawned.Contains(playerObj))
+            {
+                return;
+            }
+
+            despawned.Add(playerObj);
+            if (playerObj.IsValid)
+            {
+                _gameRunner.Despawn(playerObj);
+            }
+        }
+
         // ──────────────────────────────────────────────
         //  메시지 처리
         // ──────────────────────────────────────────────
 
         private void HandleMessage(PlayerRef player, string message)
         {
-            Debug.Log($"[Colosseum Game] Room '{_roomName}' message from {player}: {message}");
+            if (_pendingDisconnect.Contains(player)) return;
+            DiagLog.Log($"[Colosseum Game] Room '{_roomName}' message from {player}: {message}");
 
-            if (message.StartsWith("NICKNAME:"))
+            if (message.StartsWith("VERSION:"))
+            {
+                string clientVersion = VersionValidator.ParseVersionPayload(message);
+                if (string.IsNullOrEmpty(clientVersion))
+                {
+                    SendToPlayer(player, $"VERSION_MISMATCH:{Application.version}|");
+                    Debug.LogWarning($"[Colosseum Game] Empty version from {player}. Disconnecting.");
+                    DisconnectDelayed(player);
+                    return;
+                }
+                // Production 서버에서는 Development Build 사용 금지 — IsDevBuild()가 true면 모든 버전을 허용한다.
+                if (VersionValidator.IsDevBuild() || VersionValidator.IsCompatible(Application.version, clientVersion))
+                {
+                    SendToPlayer(player, "VERSION_OK");
+                    DiagLog.Log($"[Colosseum Game] Version OK: server={Application.version}, client={clientVersion}");
+                }
+                else
+                {
+                    SendToPlayer(player, $"VERSION_MISMATCH:{Application.version}|{clientVersion}");
+                    Debug.LogWarning($"[Colosseum Game] Version mismatch: server={Application.version}, client={clientVersion}. Disconnecting {player}.");
+                    DisconnectDelayed(player);
+                }
+                return;
+            }
+            else if (message.StartsWith("NICKNAME:"))
             {
                 string nickname = message.Substring(9);
                 var result = NicknameValidator.Validate(nickname);
@@ -378,7 +454,7 @@ namespace Colosseum.Network
                     return;
                 }
                 _nicknames[player] = nickname;
-                Debug.Log($"[Colosseum Game] Nickname registered: {player} -> '{nickname}'");
+                DiagLog.Log($"[Colosseum Game] Nickname registered: {player} -> '{nickname}'");
                 BroadcastNicknames();
                 return;
             }
@@ -388,7 +464,8 @@ namespace Colosseum.Network
                 // 대기 상태에서만 Ready 허용 (게임 중/카운트다운 중 무시)
                 if (_status != "waiting")
                 {
-                    Debug.Log($"[Colosseum Game] Ignoring READY from {player} (status: {_status})");
+                    DiagLog.Log($"[Colosseum Game] Ignoring READY from {player} (status: {_status})");
+                    SendToPlayer(player, "ERROR:ready_not_available");
                     return;
                 }
                 // 닉네임 미등록 상태에서 Ready 거절 — 클라가 NICKNAME 보내기 전 Ready 누른 케이스
@@ -400,6 +477,7 @@ namespace Colosseum.Network
                 }
                 _playerReady[player] = true;
                 _readyCount = CountReady();
+                SendToPlayer(player, "READY_STATE:1");
                 BroadcastToAll($"READY_UPDATE:{_readyCount}/{_playerCount}");
 
                 if (_playerCount >= 2 && _readyCount >= _playerCount)
@@ -408,7 +486,7 @@ namespace Colosseum.Network
                     _countdownTimer = 3f;
                     _lastCountdownSecond = -1;
                     BroadcastToAll("COUNTDOWN_START");
-                    Debug.Log($"[Colosseum Game] Room '{_roomName}' countdown started!");
+                    DiagLog.Log($"[Colosseum Game] Room '{_roomName}' countdown started!");
                     UpdateSessionProperty("status", "countdown");
                 }
             }
@@ -417,11 +495,13 @@ namespace Colosseum.Network
                 // 대기/카운트다운 상태에서만 Unready 허용
                 if (_status != "waiting" && _status != "countdown")
                 {
-                    Debug.Log($"[Colosseum Game] Ignoring UNREADY from {player} (status: {_status})");
+                    DiagLog.Log($"[Colosseum Game] Ignoring UNREADY from {player} (status: {_status})");
+                    SendToPlayer(player, "ERROR:ready_not_available");
                     return;
                 }
                 _playerReady[player] = false;
                 _readyCount = CountReady();
+                SendToPlayer(player, "READY_STATE:0");
                 BroadcastToAll($"READY_UPDATE:{_readyCount}/{_playerCount}");
 
                 if (_status == "countdown")
@@ -437,6 +517,20 @@ namespace Colosseum.Network
         //  메시지 전송
         // ──────────────────────────────────────────────
 
+        private void DisconnectDelayed(PlayerRef player)
+        {
+            _pendingDisconnect.Add(player);
+            StartCoroutine(DisconnectAfterDelay(player, 1f));
+        }
+
+        private System.Collections.IEnumerator DisconnectAfterDelay(PlayerRef player, float delay)
+        {
+            yield return new UnityEngine.WaitForSeconds(delay);
+            if (!_pendingDisconnect.Contains(player)) yield break;
+            if (_gameRunner != null)
+                _gameRunner.Disconnect(player);
+        }
+
         private ReliableKey NextReliableKey()
         {
             _reliableKeyCounter++;
@@ -447,9 +541,36 @@ namespace Colosseum.Network
         {
             if (_gameRunner == null) return;
             byte[] data = Encoding.UTF8.GetBytes(message);
-            foreach (var player in _playerReady.Keys)
+            foreach (var player in GetBroadcastRecipients())
             {
                 _gameRunner.SendReliableDataToPlayer(player, NextReliableKey(), data);
+            }
+        }
+
+        private List<PlayerRef> GetBroadcastRecipients()
+        {
+            var recipients = new HashSet<PlayerRef>();
+            AddBroadcastRecipients(recipients, _playerReady.Keys);
+            AddBroadcastRecipients(recipients, _nicknames.Keys);
+            AddBroadcastRecipients(recipients, _spawnedPlayers.Keys);
+            return recipients.ToList();
+        }
+
+        private static void AddBroadcastRecipients(HashSet<PlayerRef> recipients, IEnumerable<PlayerRef> players)
+        {
+            if (recipients == null || players == null)
+            {
+                return;
+            }
+
+            foreach (var player in players)
+            {
+                if (player == default)
+                {
+                    continue;
+                }
+
+                recipients.Add(player);
             }
         }
 
@@ -512,7 +633,7 @@ namespace Colosseum.Network
 
         private void ShutdownAndQuit()
         {
-            Debug.Log($"[Colosseum Game] Shutting down game server process for '{_roomName}'");
+            DiagLog.Log($"[Colosseum Game] Shutting down game server process for '{_roomName}'");
 
             if (_gameRunner != null)
             {
@@ -522,7 +643,7 @@ namespace Colosseum.Network
             // 프로세스 종료
 #if UNITY_EDITOR
             // 에디터에서는 종료하지 않음
-            Debug.Log("[Colosseum Game] Would quit, but running in editor.");
+            DiagLog.Log("[Colosseum Game] Would quit, but running in editor.");
 #else
             Application.Quit();
 #endif
@@ -576,11 +697,12 @@ namespace Colosseum.Network
             }
 
             _playerCount++;
-            _playerReady[player] = false;
-            _everHadPlayers = true;
-            _emptyRoomTimer = _emptyRoomTimeout;  // 타이머 리셋
+            if (!_playerReady.ContainsKey(player))
+            {
+                _playerReady[player] = false;
+            }
 
-            Debug.Log($"[Colosseum Game] Player {player} joined room '{_roomName}' ({_playerCount}/{_maxPlayers})");
+            DiagLog.Log($"[Colosseum Game] Player {player} joined room '{_roomName}' ({_playerCount}/{_maxPlayers})");
             Console.WriteLine($"##PLAYERS:{_playerCount}");
             BroadcastToAll($"PLAYER_JOINED:{_playerCount}/{_maxPlayers}");
         }
@@ -588,12 +710,13 @@ namespace Colosseum.Network
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
             DespawnPlayer(player);
+            _pendingDisconnect.Remove(player);
 
             _playerCount--;
             _playerReady.Remove(player);
             _readyCount = CountReady();
 
-            Debug.Log($"[Colosseum Game] Player {player} left room '{_roomName}' ({_playerCount}/{_maxPlayers})");
+            DiagLog.Log($"[Colosseum Game] Player {player} left room '{_roomName}' ({_playerCount}/{_maxPlayers})");
             Console.WriteLine($"##PLAYERS:{_playerCount}");
 
             // 카운트다운 중이면 취소
@@ -619,11 +742,12 @@ namespace Colosseum.Network
             _nicknames.Remove(player);
             BroadcastNicknames();
 
-            // 빈 방이면 빈 방 타이머 시작 (Update에서 카운트다운)
+            // 빈 방이면 즉시 서버 종료. worker-agent가 프로세스 종료를 감지해 Room API 삭제를 수행한다.
             if (_playerCount <= 0)
             {
-                _emptyRoomTimer = _emptyRoomTimeout;
-                Debug.Log($"[Colosseum Game] Room '{_roomName}' is empty. Will shutdown in {_emptyRoomTimeout}s.");
+                DiagLog.Log($"[Colosseum Game] Room '{_roomName}' is empty. Shutting down immediately.");
+                ShutdownAndQuit();
+                return;
             }
         }
 
@@ -636,7 +760,7 @@ namespace Colosseum.Network
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
-            Debug.Log($"[Colosseum Game] Room '{_roomName}' runner shutdown: {shutdownReason}");
+            DiagLog.Log($"[Colosseum Game] Room '{_roomName}' runner shutdown: {shutdownReason}");
             _gameRunner = null;
 
             // Runner가 셧다운되면 프로세스도 종료

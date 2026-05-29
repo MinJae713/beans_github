@@ -46,8 +46,13 @@ namespace Colosseum.Network
             if (string.IsNullOrEmpty(exePath))
                 exePath = Environment.GetCommandLineArgs()[0];
 
+            // 알려진 씬만 허용 (CLI 인자 인젝션 차단)
+            string safeScene = request.SceneName;
+            if (safeScene != "SampleScene" && safeScene != "MVPArena" && safeScene != "DuskCity")
+                safeScene = "MVPArena";
+
             string arguments =
-                $"-logFile - --mode game --session \"{request.SessionName}\" --room-name \"{request.RoomName}\" --max-players {request.MaxPlayers}";
+                $"-logFile - --mode game --session \"{request.SessionName}\" --room-name \"{request.RoomName}\" --max-players {request.MaxPlayers} --scene \"{safeScene}\"";
 
             try
             {
