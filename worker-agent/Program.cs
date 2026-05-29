@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -62,25 +63,37 @@ app.MapGet("/workers/rooms", () =>
 
 app.MapPost("/workers/spawn-room", async (SpawnRoomRequest request) =>
 {
+    var workerRequestReceivedAt = DateTimeOffset.UtcNow;
+    var workerRequestSw = Stopwatch.StartNew();
+    Console.WriteLine($"[Colosseum-Timing][Worker - Request From Lobby][WT1] room='{request.RoomName}' session='{request.SessionName}' at='{workerRequestReceivedAt:O}'");
+
+    IResult CreateFailureResponse(string errorCode)
+    {
+        workerRequestSw.Stop();
+        var workerResponseAt = DateTimeOffset.UtcNow;
+        Console.WriteLine($"[Colosseum-Timing][Worker - Response To Lobby][WT4] room='{request.RoomName}' session='{request.SessionName}' ok=false error='{errorCode}' at='{workerResponseAt:O}' elapsed_from_wt1_ms={workerRequestSw.ElapsedMilliseconds}");
+        return Results.Ok(new SpawnRoomResponse(false, errorCode));
+    }
+
     if (string.IsNullOrWhiteSpace(request.SessionName) || string.IsNullOrWhiteSpace(request.RoomName))
     {
-        return Results.Ok(new SpawnRoomResponse(false, "room_name_empty"));
+        return CreateFailureResponse("room_name_empty");
     }
 
     if (!IsValidName(request.SessionName))
     {
-        return Results.Ok(new SpawnRoomResponse(false, "invalid_session_name"));
+        return CreateFailureResponse("invalid_session_name");
     }
 
     if (!IsValidName(request.RoomName))
     {
-        return Results.Ok(new SpawnRoomResponse(false, "invalid_room_name"));
+        return CreateFailureResponse("invalid_room_name");
     }
 
     lock (syncLock)
     {
         if (runningRooms.ContainsKey(request.SessionName))
-            return Results.Ok(new SpawnRoomResponse(false, "duplicate_session"));
+            return CreateFailureResponse("duplicate_session");
     }
 
     try
@@ -103,10 +116,16 @@ app.MapPost("/workers/spawn-room", async (SpawnRoomRequest request) =>
         startInfo.ArgumentList.Add(request.RoomName);
         startInfo.ArgumentList.Add("--max-players");
         startInfo.ArgumentList.Add(request.MaxPlayers.ToString());
+        startInfo.ArgumentList.Add("--scene");
+        startInfo.ArgumentList.Add(request.SceneName ?? "SampleScene");
 
         var process = Process.Start(startInfo);
         if (process == null)
-            return Results.Ok(new SpawnRoomResponse(false, "ROOM_CREATE_FAILED"));
+            return CreateFailureResponse("ROOM_CREATE_FAILED");
+        var gameServerInitializedAt = DateTimeOffset.UtcNow;
+        var gameServerCreateSw = Stopwatch.StartNew();
+        var readyLogged = 0;
+        Console.WriteLine($"[Colosseum-Timing][Worker - Game Server initialized][WT2] room='{request.RoomName}' session='{request.SessionName}' pid={process.Id} at='{gameServerInitializedAt:O}'");
 
         var room = new RunningRoom
         {
@@ -140,7 +159,15 @@ app.MapPost("/workers/spawn-room", async (SpawnRoomRequest request) =>
             if (e.Data.StartsWith("##READY:", StringComparison.Ordinal))
             {
                 if (string.Equals(e.Data.Substring(8), "session_open", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (Interlocked.Exchange(ref readyLogged, 1) == 0)
+                    {
+                        gameServerCreateSw.Stop();
+                        var gameServerReadyAt = DateTimeOffset.UtcNow;
+                        Console.WriteLine($"[Colosseum-Timing][Worker - Game Server Create Finished][WT3] room='{request.RoomName}' session='{request.SessionName}' ready='session_open' at='{gameServerReadyAt:O}' elapsed_from_wt2_ms={gameServerCreateSw.ElapsedMilliseconds}");
+                    }
                     roomReadyTcs.TrySetResult(true);
+                }
                 return;
             }
 
@@ -236,7 +263,7 @@ app.MapPost("/workers/spawn-room", async (SpawnRoomRequest request) =>
         {
             await CleanupRoomAsync(request.SessionName, stopProcess: true, deleteRoomApiEntry: false);
             Console.Error.WriteLine($"[WorkerAgent] Room API create failed: HTTP {(int)createResponse.StatusCode}");
-            return Results.Ok(new SpawnRoomResponse(false, "ROOM_CREATE_FAILED"));
+            return CreateFailureResponse("ROOM_CREATE_FAILED");
         }
 
         RoomPatchRequestDto? pendingPatch = null;
@@ -268,16 +295,19 @@ app.MapPost("/workers/spawn-room", async (SpawnRoomRequest request) =>
         {
             await CleanupRoomAsync(request.SessionName, stopProcess: true, deleteRoomApiEntry: true);
             Console.Error.WriteLine($"[WorkerAgent] Room ready wait failed for '{request.RoomName}': {e.Message}");
-            return Results.Ok(new SpawnRoomResponse(false, "ROOM_CREATE_FAILED"));
+            return CreateFailureResponse("ROOM_CREATE_FAILED");
         }
 
+        workerRequestSw.Stop();
+        var workerResponseAt = DateTimeOffset.UtcNow;
+        Console.WriteLine($"[Colosseum-Timing][Worker - Response To Lobby][WT4] room='{request.RoomName}' session='{request.SessionName}' ok=true at='{workerResponseAt:O}' elapsed_from_wt1_ms={workerRequestSw.ElapsedMilliseconds}");
         Console.WriteLine($"[WorkerAgent] Spawned room '{request.RoomName}' ({request.SessionName}) pid={process.Id}");
         return Results.Ok(new SpawnRoomResponse(true, null));
     }
     catch (Exception e)
     {
         Console.Error.WriteLine($"[WorkerAgent] Spawn failed: {e.Message}");
-        return Results.Ok(new SpawnRoomResponse(false, "ROOM_CREATE_FAILED"));
+        return CreateFailureResponse("ROOM_CREATE_FAILED");
     }
 });
 
@@ -413,7 +443,7 @@ static bool IsValidName(string roomName)
     return Regex.IsMatch(roomName, "^[A-Za-z0-9_-]{1,32}$");
 }
 
-record SpawnRoomRequest(string SessionName, string RoomName, string? HostNickname, int MaxPlayers);
+record SpawnRoomRequest(string SessionName, string RoomName, string? HostNickname, int MaxPlayers, string? SceneName);
 record SpawnRoomResponse(bool Ok, string? ErrorCode);
 record RoomCreateRequestDto(
     string SessionName,

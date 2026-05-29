@@ -9,5 +9,6 @@ namespace Colosseum.Network
         public NetworkBool IsJumpPressed;
         public NetworkBool IsFirePressed;
         public Vector2 AimDirection;
+        public byte EmojiIndex;
     }
 }

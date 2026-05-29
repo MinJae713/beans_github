@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using Colosseum.Player;
 
 namespace Colosseum.UI
@@ -8,11 +9,13 @@ namespace Colosseum.UI
     /// 단일 플레이어의 HP 바 표시 컴포넌트.
     /// fill 비율은 PlayerHealth.OnHealthChangedEvent를 구독하여 변동 시점에만 갱신된다.
     /// LateUpdate는 위치 추적 + 사망 시 숨김만 담당 (fill 폴링 없음).
+    /// A303-327: 바 위에 닉네임 라벨을 함께 표시. 닉네임 텍스트 갱신은 HPBarManager가 SetNickname으로 주입.
     /// </summary>
     public class PlayerHPBar : MonoBehaviour
     {
         [Header("UI References")]
         [SerializeField] private Image _fillImage;
+        [SerializeField] private TMP_Text _nicknameLabel;
 
         [Header("Settings")]
         [SerializeField] private Vector3 _offset = new Vector3(0f, 1.6f, 0f);
@@ -25,12 +28,13 @@ namespace Colosseum.UI
         private Camera _cam;
 
         /// <summary>
-        /// HPBarManager가 인스턴스 생성 직후 호출. PlayerHealth 참조 + fillImage 주입 + 이벤트 구독.
+        /// HPBarManager가 인스턴스 생성 직후 호출. PlayerHealth 참조 + fillImage / nickname 주입 + 이벤트 구독.
         /// </summary>
-        public void Init(PlayerHealth health, Image fillImage)
+        public void Init(PlayerHealth health, Image fillImage, TMP_Text nicknameLabel)
         {
             _playerHealth = health;
             _fillImage = fillImage;
+            _nicknameLabel = nicknameLabel;
             _target = health.transform;
             _spriteRenderer = health.GetComponent<SpriteRenderer>();
             _cam = Camera.main;
@@ -40,6 +44,15 @@ namespace Colosseum.UI
 
             // 초기 fill 한 번 반영 (현재 CurrentHealth 기준)
             UpdateFill(_playerHealth);
+        }
+
+        /// <summary>
+        /// HPBarManager가 닉네임 갱신 시 호출. null/empty 들어오면 빈 문자열로 처리.
+        /// </summary>
+        public void SetNickname(string nickname)
+        {
+            if (_nicknameLabel == null) return;
+            _nicknameLabel.text = string.IsNullOrEmpty(nickname) ? string.Empty : nickname;
         }
 
         private void OnDestroy()
@@ -77,15 +90,17 @@ namespace Colosseum.UI
                 return;
             }
 
-            // 죽었으면 숨기기
+            // 죽었으면 바 + 닉네임 함께 숨기기
             if (_playerHealth.IsDead)
             {
                 _fillImage.transform.parent.gameObject.SetActive(false);
+                if (_nicknameLabel != null) _nicknameLabel.gameObject.SetActive(false);
                 return;
             }
             else
             {
                 _fillImage.transform.parent.gameObject.SetActive(true);
+                if (_nicknameLabel != null) _nicknameLabel.gameObject.SetActive(true);
             }
 
             // 월드 좌표 → 스크린 좌표로 변환 (캐릭터 transform 추적)

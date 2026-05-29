@@ -1,5 +1,8 @@
 using Colosseum.Game;
+using Colosseum.CameraSystem;
+using Colosseum.NetworkGameplay.Diagnostics;
 using Fusion;
+using Fusion.Addons.Physics;
 using UnityEngine;
 
 namespace Colosseum.Player
@@ -34,6 +37,37 @@ namespace Colosseum.Player
 
             float currentX = self.transform.position.x;
             float horizontalExtent = GetHorizontalBoundaryExtent(self.BodyCollider, self.SpriteRenderer, self.BoundaryPadding);
+            bool hasMovementAuthority = roomManager.LastKiller != default(PlayerRef);
+
+            if (!hasMovementAuthority)
+            {
+                float openingLeftClampX = GetOpeningViewportLeftClampX(room, horizontalExtent);
+                float openingRightClampX = GetOpeningViewportRightClampX(room, horizontalExtent);
+
+                if (openingLeftClampX > openingRightClampX)
+                {
+                    float midpointX = (openingLeftClampX + openingRightClampX) * 0.5f;
+                    ClampToX(self.transform, self.Rigidbody, midpointX);
+                    _wasAtForwardBound = false;
+                    return;
+                }
+
+                bool pushingLeftOut = moveX < 0f;
+                if (currentX < openingLeftClampX || (currentX <= openingLeftClampX && pushingLeftOut))
+                {
+                    ClampToX(self.transform, self.Rigidbody, openingLeftClampX);
+                    _wasAtForwardBound = false;
+                    return;
+                }
+
+                bool pushingRightOut = moveX > 0f;
+                if (currentX > openingRightClampX || (currentX >= openingRightClampX && pushingRightOut))
+                {
+                    ClampToX(self.transform, self.Rigidbody, openingRightClampX);
+                    _wasAtForwardBound = false;
+                    return;
+                }
+            }
 
             // P1-3 디버그 (1인 단독 시연용): RoomManager._debugAllowBothDirections=true 시
             // P1/P2 비대칭 own-side clamp 비활성. 좌/우 양 boundary 모두 forward 가능.
@@ -59,7 +93,7 @@ namespace Colosseum.Player
                 {
                     if (!_wasAtForwardBound)
                     {
-                        Debug.Log($"[Colosseum/DBG] DebugBothDir reached right bound (P1 forward).");
+                        DiagLog.Log($"[Colosseum/DBG] DebugBothDir reached right bound (P1 forward).");
                     }
                     if (roomManager.TryAdvanceRoom(self.Object.InputAuthority, 1))
                     {
@@ -79,7 +113,7 @@ namespace Colosseum.Player
                 {
                     if (!_wasAtForwardBound)
                     {
-                        Debug.Log($"[Colosseum/DBG] DebugBothDir reached left bound (P2 forward).");
+                        DiagLog.Log($"[Colosseum/DBG] DebugBothDir reached left bound (P2 forward).");
                     }
                     if (roomManager.TryAdvanceRoom(self.Object.InputAuthority, -1))
                     {
@@ -112,9 +146,17 @@ namespace Colosseum.Player
 
             if (isPlayer1)
             {
-                float ownSideClampX = GetVisibleLeftBoundary(room) + horizontalExtent;
-                bool pushingOwnSideOutward = moveX < 0f;
-                if (currentX < ownSideClampX || (currentX <= ownSideClampX && pushingOwnSideOutward))
+                float ownSideClampX = ResolveOwnSideClampX(
+                    self,
+                    roomManager,
+                    room,
+                    horizontalExtent,
+                    ownSideIsLeft: true);
+                if (ShouldClampOwnSideBoundary(
+                    currentX,
+                    ownSideClampX,
+                    moveX,
+                    ownSideIsLeft: true))
                 {
                     ClampToX(self.transform, self.Rigidbody, ownSideClampX);
                     // own-side clamp 영역(자기 진영 끝)은 logically forward bound 반대.
@@ -131,7 +173,7 @@ namespace Colosseum.Player
                 {
                     if (!_wasAtForwardBound)
                     {
-                        Debug.Log($"[Colosseum] Player1 reached right bound! LastKiller:{roomManager.LastKiller}");
+                        DiagLog.Log($"[Colosseum] Player1 reached right bound! LastKiller:{roomManager.LastKiller}");
                     }
                     if (roomManager.TryAdvanceRoom(self.Object.InputAuthority, 1))
                     {
@@ -148,9 +190,17 @@ namespace Colosseum.Player
                 return;
             }
 
-            float ownSideRightClampX = GetVisibleRightBoundary(room) - horizontalExtent;
-            bool pushingOwnSideOutwardRight = moveX > 0f;
-            if (currentX > ownSideRightClampX || (currentX >= ownSideRightClampX && pushingOwnSideOutwardRight))
+            float ownSideRightClampX = ResolveOwnSideClampX(
+                self,
+                roomManager,
+                room,
+                horizontalExtent,
+                ownSideIsLeft: false);
+            if (ShouldClampOwnSideBoundary(
+                currentX,
+                ownSideRightClampX,
+                moveX,
+                ownSideIsLeft: false))
             {
                 ClampToX(self.transform, self.Rigidbody, ownSideRightClampX);
                 // P2 own-side clamp early return — P1 분기와 동일 사유로 깃발 reset. (리뷰 반영)
@@ -165,7 +215,7 @@ namespace Colosseum.Player
             {
                 if (!_wasAtForwardBound)
                 {
-                    Debug.Log($"[Colosseum] Player2 reached left bound! LastKiller:{roomManager.LastKiller}");
+                    DiagLog.Log($"[Colosseum] Player2 reached left bound! LastKiller:{roomManager.LastKiller}");
                 }
                 if (roomManager.TryAdvanceRoom(self.Object.InputAuthority, -1))
                 {
@@ -180,6 +230,156 @@ namespace Colosseum.Player
             _wasAtForwardBound = atForwardBoundP2;
         }
 
+        private float ResolveOwnSideClampX(
+            PlayerController self,
+            RoomManager roomManager,
+            RoomData room,
+            float horizontalExtent,
+            bool ownSideIsLeft)
+        {
+            if (TryResolveMovementAuthorityBoundaryCameraX(self, roomManager, room, out float cameraX))
+            {
+                return ownSideIsLeft
+                    ? GetVisibleLeftBoundary(cameraX, room.leftBound, room.cameraSize) + horizontalExtent
+                    : GetVisibleRightBoundary(cameraX, room.rightBound, room.cameraSize) - horizontalExtent;
+            }
+
+            return ownSideIsLeft
+                ? GetVisibleLeftBoundary(room) + horizontalExtent
+                : GetVisibleRightBoundary(room) - horizontalExtent;
+        }
+
+        private bool TryResolveMovementAuthorityBoundaryCameraX(
+            PlayerController self,
+            RoomManager roomManager,
+            RoomData room,
+            out float cameraX)
+        {
+            cameraX = room != null ? room.centerX : 0f;
+            if (self == null || roomManager == null || room == null)
+            {
+                return false;
+            }
+
+            PlayerRef authority = roomManager.LastKiller;
+            if (authority == default(PlayerRef))
+            {
+                return false;
+            }
+
+            if (roomManager.TryGetAuthoritativeMovementCameraX(out cameraX))
+            {
+                return true;
+            }
+
+            int direction = RoomManager.ResolveAuthorityDirection(
+                authority,
+                roomManager.Player1,
+                roomManager.Player2,
+                default);
+            if (direction == 0)
+            {
+                return false;
+            }
+
+            if (!TryResolvePlayerX(self, authority, out float authorityX))
+            {
+                return false;
+            }
+
+            bool preferEntrySide = roomManager.IsCurrentRoomAdvanceAuthority(authority);
+            cameraX = CalculateMovementAuthorityBoundaryCameraX(
+                authorityX,
+                room.centerX,
+                room.leftBound,
+                room.rightBound,
+                room.cameraSize,
+                direction,
+                preferEntrySide);
+            return true;
+        }
+
+        private static bool TryResolvePlayerX(PlayerController self, PlayerRef player, out float x)
+        {
+            x = 0f;
+            if (self != null &&
+                self.Object != null &&
+                self.Object.IsValid &&
+                self.Object.InputAuthority == player)
+            {
+                x = self.transform.position.x;
+                return true;
+            }
+
+            foreach (var activePlayer in PlayerController.ActivePlayersInternal)
+            {
+                if (activePlayer == null || activePlayer.Object == null || !activePlayer.Object.IsValid)
+                {
+                    continue;
+                }
+
+                if (self != null && activePlayer.gameObject.scene != self.gameObject.scene)
+                {
+                    continue;
+                }
+
+                if (activePlayer.Object.InputAuthority == player)
+                {
+                    x = activePlayer.transform.position.x;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static float CalculateMovementAuthorityBoundaryCameraX(
+            float authorityX,
+            float roomCenterX,
+            float roomLeftBound,
+            float roomRightBound,
+            float cameraSize,
+            int direction,
+            bool preferEntrySide)
+        {
+            float viewHalfWidth = Mathf.Max(0.01f, cameraSize * CameraController.DesignViewportAspect);
+            float minCameraX = roomLeftBound + viewHalfWidth;
+            float maxCameraX = roomRightBound - viewHalfWidth;
+            float neutralCameraX = CameraController.CalculateMovementAuthorityNeutralCameraTargetX(
+                roomCenterX,
+                minCameraX,
+                maxCameraX);
+            float baseCameraX = preferEntrySide
+                ? CameraController.CalculateMovementAuthorityRoomEntryCameraTargetX(
+                    neutralCameraX,
+                    minCameraX,
+                    maxCameraX,
+                    direction,
+                    preferEntrySide: true)
+                : neutralCameraX;
+
+            return CameraController.CalculateMovementAuthorityCameraTargetX(
+                baseCameraX,
+                authorityX,
+                midpointX: baseCameraX,
+                viewHalfWidth,
+                minCameraX,
+                maxCameraX,
+                direction,
+                recenterToMidpoint: false);
+        }
+
+        public static bool ShouldClampOwnSideBoundary(
+            float currentX,
+            float ownSideClampX,
+            float moveX,
+            bool ownSideIsLeft)
+        {
+            return ownSideIsLeft
+                ? currentX <= ownSideClampX && moveX < 0f
+                : currentX >= ownSideClampX && moveX > 0f;
+        }
+
         public void MoveIntoAdvancedRoom(bool isPlayer1, PlayerController self, RoomManager roomManager)
         {
             // 50/04 Fusion 가드레일: resimulation tick에서 transform write 비결정성 차단 (PitTrigger.cs 동일 패턴).
@@ -192,24 +392,20 @@ namespace Colosseum.Player
             }
 
             float horizontalExtent = GetHorizontalBoundaryExtent(self.BodyCollider, self.SpriteRenderer, self.BoundaryPadding);
-            float targetX = isPlayer1
-                ? advancedRoom.leftBound + horizontalExtent
-                : advancedRoom.rightBound - horizontalExtent;
-
-            // X1'-α (D77 D-15 시한부): advance 시 Y도 안전 floor 위로 강제 set (낙사 방지).
-            // Y=2 = 1층(floor1Y=0) 위 2 단위. 자유낙하 후 1층 floor 안착. velocity 0 reset.
-            // post-demo closure (D74-2): SpawnPoint adapter 도입 후 Y 좌표를 placeholder data 기반으로 결정.
-            self.transform.position = new Vector3(targetX, 2f, 0f);
-            if (self.Rigidbody != null) self.Rigidbody.velocity = Vector2.zero;
+            Vector3 targetPosition = roomManager.GetAdvanceEntryPosition(
+                self,
+                isPlayer1,
+                horizontalExtent);
+            TeleportNetworkedRigidbody(self, targetPosition);
         }
 
         /// <summary>
         /// P1-3 디버그 (1인 단독 시연용): 양방향 advance 후 새 room의 반대 끝으로 player 이동.
-        /// rightForward=true → +1 advance, 새 room 좌측 끝(leftBound+extent)으로 이동.
-        /// rightForward=false → -1 advance, 새 room 우측 끝(rightBound-extent)으로 이동.
+        /// rightForward=true → +1 advance, 새 room 좌측 edge 안쪽 clearance로 이동.
+        /// rightForward=false → -1 advance, 새 room 우측 edge 안쪽 clearance로 이동.
         /// internal: assembly 내부에서만 호출 (PlayerBoundary 자체 호출만 의도).
         /// 진입부 HasStateAuthority 가드로 proxy 클라이언트의 transform write 차단 (Fusion 안전).
-        /// X1'-α: Y=2 강제 set (1층 floor 위 자유낙하 안전).
+        /// X1'-α: entry X는 구간 경계 기준, Y는 현재 room의 실제 지형 raycast로 정렬.
         /// </summary>
         internal void DebugMoveAfterAdvance(PlayerController self, RoomManager roomManager, bool rightForward)
         {
@@ -221,13 +417,11 @@ namespace Colosseum.Player
             if (advancedRoom == null) return;
 
             float horizontalExtent = GetHorizontalBoundaryExtent(self.BodyCollider, self.SpriteRenderer, self.BoundaryPadding);
-            float targetX = rightForward
-                ? advancedRoom.leftBound + horizontalExtent
-                : advancedRoom.rightBound - horizontalExtent;
-
-            // X1'-α (D77): Y도 안전 floor 위로 set + velocity reset (advance 시 낙사 방지).
-            self.transform.position = new Vector3(targetX, 2f, 0f);
-            if (self.Rigidbody != null) self.Rigidbody.velocity = Vector2.zero;
+            Vector3 targetPosition = roomManager.GetAdvanceEntryPosition(
+                self,
+                rightForward,
+                horizontalExtent);
+            TeleportNetworkedRigidbody(self, targetPosition);
         }
 
         public float GetHorizontalBoundaryExtent(Collider2D bodyCollider, SpriteRenderer spriteRenderer, float boundaryPadding)
@@ -249,16 +443,46 @@ namespace Colosseum.Player
 
         public float GetVisibleLeftBoundary(RoomData room)
         {
-            float aspect = 16f / 9f;
-            float visibleLeft = room.centerX - room.cameraSize * aspect;
-            return Mathf.Max(visibleLeft, room.leftBound);
+            return GetVisibleLeftBoundary(room.centerX, room.leftBound, room.cameraSize);
+        }
+
+        public float GetVisibleLeftBoundary(float roomCenterX, float roomLeftBound, float cameraSize)
+        {
+            float aspect = CameraController.DesignViewportAspect;
+            float visibleLeft = roomCenterX - cameraSize * aspect;
+            return Mathf.Max(visibleLeft, roomLeftBound);
         }
 
         public float GetVisibleRightBoundary(RoomData room)
         {
-            float aspect = 16f / 9f;
-            float visibleRight = room.centerX + room.cameraSize * aspect;
-            return Mathf.Min(visibleRight, room.rightBound);
+            return GetVisibleRightBoundary(room.centerX, room.rightBound, room.cameraSize);
+        }
+
+        public float GetVisibleRightBoundary(float roomCenterX, float roomRightBound, float cameraSize)
+        {
+            float aspect = CameraController.DesignViewportAspect;
+            float visibleRight = roomCenterX + cameraSize * aspect;
+            return Mathf.Min(visibleRight, roomRightBound);
+        }
+
+        public float GetOpeningViewportLeftClampX(RoomData room, float horizontalExtent)
+        {
+            return GetOpeningViewportLeftClampX(room.centerX, room.leftBound, room.cameraSize, horizontalExtent);
+        }
+
+        public float GetOpeningViewportLeftClampX(float roomCenterX, float roomLeftBound, float cameraSize, float horizontalExtent)
+        {
+            return GetVisibleLeftBoundary(roomCenterX, roomLeftBound, cameraSize) + horizontalExtent;
+        }
+
+        public float GetOpeningViewportRightClampX(RoomData room, float horizontalExtent)
+        {
+            return GetOpeningViewportRightClampX(room.centerX, room.rightBound, room.cameraSize, horizontalExtent);
+        }
+
+        public float GetOpeningViewportRightClampX(float roomCenterX, float roomRightBound, float cameraSize, float horizontalExtent)
+        {
+            return GetVisibleRightBoundary(roomCenterX, roomRightBound, cameraSize) - horizontalExtent;
         }
 
         public void ClampToX(Transform tr, Rigidbody2D rb, float targetX)
@@ -271,6 +495,27 @@ namespace Colosseum.Player
             {
                 rb.velocity = new Vector2(0f, rb.velocity.y);
             }
+        }
+
+        private static void TeleportNetworkedRigidbody(PlayerController player, Vector3 position)
+        {
+            if (player == null) return;
+
+            var networkRigidbody = player.GetComponent<NetworkRigidbody2D>();
+            if (networkRigidbody != null)
+            {
+                networkRigidbody.Teleport(position);
+            }
+
+            player.transform.position = position;
+
+            if (player.Rigidbody != null)
+            {
+                player.Rigidbody.position = position;
+                player.Rigidbody.velocity = Vector2.zero;
+            }
+
+            Physics2D.SyncTransforms();
         }
     }
 }

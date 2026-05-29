@@ -2,6 +2,8 @@ using UnityEngine;
 using Fusion;
 using Colosseum.Player;
 using Colosseum.Utils;
+using Colosseum.NetworkGameplay.Diagnostics;
+using System.Collections.Generic;
 
 namespace Colosseum.CameraSystem
 {
@@ -30,6 +32,10 @@ namespace Colosseum.CameraSystem
         [Tooltip("hot-seat 2P 활성 시 중간점 계산 대상 Transform. 비활성/null 시 _winnerTransform fallback.")]
         [SerializeField] private Transform[] _playerTransforms;
 
+        [Header("Movement Authority Camera (A303-331)")]
+        [Tooltip("이동 주도권 보유자 기준 85%/15% 전진 anchor 추적. 주도권 없음은 room center, 구간 변경은 진입 방향 camera edge에서 시작.")]
+        [SerializeField] private bool _movementAuthorityTrackingActive = true;
+
         [Tooltip("디버그/시연용: IsVictoryRunActive=false + winnerTransform=null 시 씬의 첫 PlayerController follow. MVPArena 1인 단독 시연 한정. SampleScene은 default false 유지(회귀 0). P1-6에서 PlayerSpawnPoint adapter 도입 후 deprecate 예정. post-demo closure 의무 (D74).")]
         [SerializeField] private bool _fallbackFollowFirstPlayer = false;
 
@@ -41,12 +47,17 @@ namespace Colosseum.CameraSystem
         private bool _cameraInitialized = false;
         private bool _hasNetworkObject = false;
 
-        // 카메라 목표 위치 (NetworkObject 있으면 [Networked]로 동기화, 없으면 로컬)
+        // 실제 카메라 transform은 로컬 보간 대상이다. 기준 X는 RoomManager의 networked camera state가 우선이다.
         private Vector2 _targetPosition;
         private float _targetSize;
 
         private int _lastRoomIndex = -1;
         private Transform _winnerTransform;
+        private Transform _player1Transform;
+        private Transform _player2Transform;
+        public const float DesignViewportAspect = 16f / 9f;
+        private const float MovementAuthorityForwardViewportAnchor = 0.85f;
+        private const float MovementAuthorityAnchorOffsetRatio = MovementAuthorityForwardViewportAnchor * 2f - 1f;
 
         public override void Spawned()
         {
@@ -112,7 +123,7 @@ namespace Colosseum.CameraSystem
                 }
             }
 
-            Debug.Log("[Colosseum] CameraController initialized");
+            DiagLog.Log("[Colosseum] CameraController initialized");
         }
 
         // ──────────────────────────────────────────────
@@ -121,10 +132,11 @@ namespace Colosseum.CameraSystem
 
         public override void FixedUpdateNetwork()
         {
-            // 카메라는 각 클라이언트가 "동기화된 입력"(VictoryRunner, CurrentRoomIndex, [Networked] 위치)으로
-            // 결정적으로 계산하므로 State Authority 체크 없이 모든 클라이언트에서 실행해야 한다.
-            // (Dedicated Server는 ApplyCameraPosition 내부에서 _camera == null 가드로 무시됨)
-            UpdateTargetPosition();
+            // Camera target uses Render snapshots and a local SmoothDamp velocity.
+            // Mutating camera state in both simulation and render ticks made host/join
+            // clients converge through different intermediate targets, so networked
+            // clients update the target only from Render. Non-networked scenes still
+            // use LateUpdate below.
         }
 
         public override void Render()
@@ -186,27 +198,34 @@ namespace Colosseum.CameraSystem
             if (room == null) return;
             UpdateWinnerTarget();
 
-            bool isWide = room.cameraSlideMode == Game.CameraSlideMode.Wide;
-            if (isWide)
+            bool isVictoryRun = _roomManager.IsVictoryRunActive;
+            if (ShouldTrackRoomTarget(room.cameraSlideMode, isVictoryRun))
             {
-                // 넓은 방: hot-seat 2P 활성 시 양플레이어 중간점, 비활성 시 winner 추적
-                Vector2? trackingPoint = ResolveTrackingPoint();
-                if (trackingPoint.HasValue)
+                if (TryResolveMovementAuthorityCameraX(room, out float authorityCameraX))
                 {
-                    float aspect = _camera != null ? _camera.aspect : 16f / 9f;
-                    float orthoSize = _camera != null ? _camera.orthographicSize : room.cameraSize;
-
-                    float clampedX = Mathf.Clamp(
-                        trackingPoint.Value.x,
-                        room.leftBound + orthoSize * aspect,
-                        room.rightBound - orthoSize * aspect);
-
-                    _targetPosition = new Vector2(clampedX, room.cameraY);
+                    _targetPosition = new Vector2(authorityCameraX, room.cameraY);
                 }
                 else
                 {
-                    // 추적 대상 없음 — 방 중앙 fallback
-                    _targetPosition = new Vector2(room.centerX, room.cameraY);
+                    // 넓은 방 또는 VictoryRun: 전투 중에는 hot-seat 중간점, VictoryRun 중에는 winner/sole survivor 추적.
+                    Vector2? trackingPoint = ResolveTrackingPoint();
+                    if (trackingPoint.HasValue)
+                    {
+                        float aspect = DesignViewportAspect;
+                        float orthoSize = _camera != null ? _camera.orthographicSize : room.cameraSize;
+
+                        float clampedX = ClampCameraTargetX(
+                            trackingPoint.Value.x,
+                            room.leftBound + orthoSize * aspect,
+                            room.rightBound - orthoSize * aspect);
+
+                        _targetPosition = new Vector2(clampedX, room.cameraY);
+                    }
+                    else
+                    {
+                        // 추적 대상 없음 — 방 중앙 fallback
+                        _targetPosition = new Vector2(room.centerX, room.cameraY);
+                    }
                 }
             }
             else
@@ -216,6 +235,248 @@ namespace Colosseum.CameraSystem
             }
 
             _targetSize = room.cameraSize;
+        }
+
+        private bool TryResolveMovementAuthorityCameraX(Game.RoomData room, out float cameraX)
+        {
+            cameraX = room != null ? room.centerX : 0f;
+            if (!_movementAuthorityTrackingActive || room == null || _roomManager == null || _camera == null)
+                return false;
+            if (_roomManager.IsVictoryRunActive)
+            {
+                ResetMovementAuthorityCameraState();
+                return false;
+            }
+
+            if (TryResolveLocalMovementAuthorityCameraX(room, out cameraX))
+            {
+                return true;
+            }
+
+            if (_roomManager.TryGetAuthoritativeMovementCameraX(out cameraX))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryResolveLocalMovementAuthorityCameraX(Game.RoomData room, out float cameraX)
+        {
+            cameraX = room != null ? room.centerX : 0f;
+            if (room == null || _roomManager == null)
+            {
+                return false;
+            }
+
+            if (!_roomManager.TryGetAuthoritativeMovementCameraX(out float authoritativeCameraX))
+            {
+                return false;
+            }
+
+            cameraX = authoritativeCameraX;
+            NetworkRunner runner = Runner != null ? Runner : _roomManager.Runner;
+            if (runner == null)
+            {
+                return false;
+            }
+
+            PlayerRef localPlayer = runner.LocalPlayer;
+            if (localPlayer == default ||
+                _roomManager.MovementCameraAuthority == default ||
+                _roomManager.MovementCameraAuthority != localPlayer)
+            {
+                return false;
+            }
+
+            Transform localTransform = ResolvePlayerTransform(localPlayer);
+            if (localTransform == null || IsPlayerDead(localTransform))
+            {
+                return false;
+            }
+
+            int direction = ResolveAuthorityDirection(localPlayer, _roomManager.Player1, _roomManager.Player2);
+            if (direction == 0)
+            {
+                return false;
+            }
+
+            float viewHalfWidth = Mathf.Max(0.01f, room.cameraSize * DesignViewportAspect);
+            float minCameraX = room.leftBound + viewHalfWidth;
+            float maxCameraX = room.rightBound - viewHalfWidth;
+            cameraX = CalculateMovementAuthorityCameraTargetX(
+                authoritativeCameraX,
+                localTransform.position.x,
+                authoritativeCameraX,
+                viewHalfWidth,
+                minCameraX,
+                maxCameraX,
+                direction,
+                recenterToMidpoint: false);
+            return true;
+        }
+
+        private Transform ResolvePlayerTransform(PlayerRef player)
+        {
+            if (player == default)
+            {
+                return null;
+            }
+
+            if (_roomManager != null)
+            {
+                if (_roomManager.Player1 == player && _player1Transform != null)
+                {
+                    return _player1Transform;
+                }
+
+                if (_roomManager.Player2 == player && _player2Transform != null)
+                {
+                    return _player2Transform;
+                }
+            }
+
+            foreach (var activePlayer in PlayerController.ActivePlayersInternal)
+            {
+                if (activePlayer == null ||
+                    activePlayer.Object == null ||
+                    !activePlayer.Object.IsValid ||
+                    activePlayer.gameObject.scene != gameObject.scene ||
+                    activePlayer.Object.InputAuthority != player)
+                {
+                    continue;
+                }
+
+                return activePlayer.transform;
+            }
+
+            return null;
+        }
+
+        public static float CalculateMovementAuthorityCameraTargetX(
+            float currentCameraX,
+            float authorityX,
+            float midpointX,
+            float viewHalfWidth,
+            float minCameraX,
+            float maxCameraX,
+            int direction,
+            bool recenterToMidpoint)
+        {
+            if (recenterToMidpoint)
+                return ClampCameraTargetX(midpointX, minCameraX, maxCameraX);
+
+            float anchorOffset = Mathf.Max(0f, viewHalfWidth) * MovementAuthorityAnchorOffsetRatio;
+            if (direction > 0)
+            {
+                float target = authorityX > currentCameraX + anchorOffset
+                    ? authorityX - anchorOffset
+                    : currentCameraX;
+                return ClampCameraTargetX(Mathf.Max(currentCameraX, target), minCameraX, maxCameraX);
+            }
+
+            if (direction < 0)
+            {
+                float target = authorityX < currentCameraX - anchorOffset
+                    ? authorityX + anchorOffset
+                    : currentCameraX;
+                return ClampCameraTargetX(Mathf.Min(currentCameraX, target), minCameraX, maxCameraX);
+            }
+
+            return ClampCameraTargetX(currentCameraX, minCameraX, maxCameraX);
+        }
+
+        public static float CalculateMovementAuthorityNeutralCameraTargetX(
+            float roomCenterX,
+            float minCameraX,
+            float maxCameraX)
+        {
+            return ClampCameraTargetX(roomCenterX, minCameraX, maxCameraX);
+        }
+
+        public static float CalculateMovementAuthorityRoomEntryCameraTargetX(
+            float roomCenterX,
+            float minCameraX,
+            float maxCameraX,
+            int direction,
+            bool preferEntrySide)
+        {
+            if (!preferEntrySide)
+                return ClampCameraTargetX(roomCenterX, minCameraX, maxCameraX);
+            if (direction > 0)
+                return ClampCameraTargetX(minCameraX, minCameraX, maxCameraX);
+            if (direction < 0)
+                return ClampCameraTargetX(maxCameraX, minCameraX, maxCameraX);
+            return ClampCameraTargetX(roomCenterX, minCameraX, maxCameraX);
+        }
+
+        public static bool ShouldResetMovementAuthorityCameraContext(
+            bool cameraInitialized,
+            int lastAuthorityPlayerId,
+            int currentAuthorityPlayerId,
+            int lastRoomIndex,
+            int currentRoomIndex)
+        {
+            return !cameraInitialized ||
+                lastAuthorityPlayerId != currentAuthorityPlayerId ||
+                lastRoomIndex != currentRoomIndex;
+        }
+
+        public static bool ShouldRecenterMovementAuthorityCameraAfterRespawn(
+            float currentCameraX,
+            float authorityX,
+            float otherX,
+            float viewHalfWidth)
+        {
+            float halfWidth = Mathf.Max(0f, viewHalfWidth);
+            return Mathf.Abs(authorityX - currentCameraX) > halfWidth ||
+                Mathf.Abs(otherX - currentCameraX) > halfWidth;
+        }
+
+        private static float ClampCameraTargetX(float x, float minCameraX, float maxCameraX)
+        {
+            if (minCameraX > maxCameraX)
+                return (minCameraX + maxCameraX) * 0.5f;
+            return Mathf.Clamp(x, minCameraX, maxCameraX);
+        }
+
+        private static bool IsPlayerDead(Transform playerTransform)
+        {
+            if (playerTransform == null) return false;
+            var health = playerTransform.GetComponent<PlayerHealth>();
+            return health != null && health.IsDead;
+        }
+
+        private static int ResolveAuthorityDirection(PlayerRef authority, PlayerRef p1, PlayerRef p2)
+        {
+            if (authority == default) return 0;
+            if (p1 != default && authority == p1) return 1;
+            if (p2 != default && authority == p2) return -1;
+            return 0;
+        }
+
+        private int ResolveRoomEntryCameraDirection(Game.RoomData room, PlayerRef authority, PlayerRef p1, PlayerRef p2)
+        {
+            int authorityDirection = ResolveAuthorityDirection(authority, p1, p2);
+            if (authorityDirection != 0)
+                return authorityDirection;
+
+            bool p1Inside = IsPlayerInsideRoom(_player1Transform, room);
+            bool p2Inside = IsPlayerInsideRoom(_player2Transform, room);
+            if (p1Inside && !p2Inside) return 1;
+            if (p2Inside && !p1Inside) return -1;
+            return 0;
+        }
+
+        private static bool IsPlayerInsideRoom(Transform playerTransform, Game.RoomData room)
+        {
+            if (playerTransform == null || room == null) return false;
+            float x = playerTransform.position.x;
+            return x >= room.leftBound && x <= room.rightBound;
+        }
+
+        private void ResetMovementAuthorityCameraState()
+        {
         }
 
         /// <summary>
@@ -228,14 +489,23 @@ namespace Colosseum.CameraSystem
         private Vector2? ResolveTrackingPoint()
         {
             bool isVictoryRun = _roomManager != null && _roomManager.IsVictoryRunActive;
-            if (_hotSeatActive && !isVictoryRun && _playerTransforms != null && _playerTransforms.Length > 0)
+            return ResolveTrackingPointForCamera(_hotSeatActive, isVictoryRun, _winnerTransform, _playerTransforms);
+        }
+
+        private static Vector2? ResolveTrackingPointForCamera(
+            bool hotSeatActive,
+            bool isVictoryRun,
+            Transform winnerTransform,
+            IReadOnlyList<Transform> playerTransforms)
+        {
+            if (hotSeatActive && !isVictoryRun && playerTransforms != null && playerTransforms.Count > 0)
             {
                 float sumX = 0f;
                 float sumY = 0f;
                 int count = 0;
-                for (int i = 0; i < _playerTransforms.Length; i++)
+                for (int i = 0; i < playerTransforms.Count; i++)
                 {
-                    var t = _playerTransforms[i];
+                    var t = playerTransforms[i];
                     if (t == null) continue;
                     sumX += t.position.x;
                     sumY += t.position.y;
@@ -247,12 +517,57 @@ namespace Colosseum.CameraSystem
                 }
             }
 
-            if (_winnerTransform != null)
+            if (winnerTransform != null)
             {
-                return new Vector2(_winnerTransform.position.x, _winnerTransform.position.y);
+                return new Vector2(winnerTransform.position.x, winnerTransform.position.y);
+            }
+
+            if (isVictoryRun && TryGetSoleCameraFocusableTransform(playerTransforms, out Transform solePlayer))
+            {
+                return new Vector2(solePlayer.position.x, solePlayer.position.y);
             }
 
             return null;
+        }
+
+        private static bool TryGetSoleCameraFocusableTransform(
+            IReadOnlyList<Transform> playerTransforms,
+            out Transform solePlayer)
+        {
+            solePlayer = null;
+            if (playerTransforms == null) return false;
+
+            for (int i = 0; i < playerTransforms.Count; i++)
+            {
+                Transform candidate = playerTransforms[i];
+                if (!IsCameraFocusablePlayer(candidate)) continue;
+
+                if (solePlayer != null)
+                {
+                    solePlayer = null;
+                    return false;
+                }
+
+                solePlayer = candidate;
+            }
+
+            return solePlayer != null;
+        }
+
+        private static bool IsCameraFocusablePlayer(Transform playerTransform)
+        {
+            if (playerTransform == null || !playerTransform.gameObject.activeInHierarchy)
+                return false;
+
+            var rigidbody = playerTransform.GetComponent<Rigidbody2D>();
+            if (rigidbody != null && !rigidbody.simulated)
+                return false;
+
+            var health = playerTransform.GetComponent<PlayerHealth>();
+            if (health != null && health.Object != null && health.Object.IsValid && health.IsDead)
+                return false;
+
+            return true;
         }
 
         private void ApplyCameraPosition()
@@ -267,9 +582,10 @@ namespace Colosseum.CameraSystem
             var room = _roomManager.GetCurrentRoom();
             if (room == null) return;
 
-            if (room.cameraSlideMode == Game.CameraSlideMode.Wide)
+            bool isVictoryRun = _roomManager.IsVictoryRunActive;
+            if (ShouldTrackRoomTarget(room.cameraSlideMode, isVictoryRun))
             {
-                // 넓은 방: Vector3.SmoothDamp로 frame-rate independent 부드러운 추적 (A303-324)
+                // 넓은 방 또는 VictoryRun: Vector3.SmoothDamp로 frame-rate independent 부드러운 추적 (A303-324)
                 Vector3 currentPos = _camera.transform.position;
                 Vector3 targetPos = new Vector3(_targetPosition.x, _targetPosition.y, currentPos.z);
                 _camera.transform.position = Vector3.SmoothDamp(currentPos, targetPos, ref _cameraVelocity, _transitionDuration);
@@ -330,6 +646,12 @@ namespace Colosseum.CameraSystem
                 }
             }
 
+            if (TryResolveVictoryRunnerFromActivePlayers(out Transform activeVictoryPlayer))
+            {
+                _winnerTransform = activeVictoryPlayer;
+                return;
+            }
+
             foreach (var player in SceneSearch.FindAllInScene<PlayerController>(gameObject.scene))
             {
                 if (player.Object != null && player.Object.InputAuthority == _roomManager.VictoryRunner)
@@ -339,7 +661,77 @@ namespace Colosseum.CameraSystem
                 }
             }
 
+            if (TryResolveSoleVictoryRunPlayer(out Transform soleVictoryPlayer))
+            {
+                _winnerTransform = soleVictoryPlayer;
+                return;
+            }
+
             _winnerTransform = null;
+        }
+
+        private bool TryResolveSoleVictoryRunPlayer(out Transform solePlayer)
+        {
+            if (TryGetSoleCameraFocusableTransform(_playerTransforms, out solePlayer))
+            {
+                return true;
+            }
+
+            if (TryGetSoleCameraFocusablePlayer(PlayerController.ActivePlayersInternal, out solePlayer))
+            {
+                return true;
+            }
+
+            solePlayer = null;
+            return TryGetSoleCameraFocusablePlayer(
+                SceneSearch.FindAllInScene<PlayerController>(gameObject.scene),
+                out solePlayer);
+        }
+
+        private bool TryResolveVictoryRunnerFromActivePlayers(out Transform winner)
+        {
+            winner = null;
+
+            foreach (var player in PlayerController.ActivePlayersInternal)
+            {
+                if (player == null || player.Object == null || !player.Object.IsValid) continue;
+                if (player.Object.InputAuthority != _roomManager.VictoryRunner) continue;
+                if (!IsCameraFocusablePlayer(player.transform)) continue;
+
+                winner = player.transform;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetSoleCameraFocusablePlayer(
+            IReadOnlyList<PlayerController> players,
+            out Transform solePlayer)
+        {
+            solePlayer = null;
+            if (players == null) return false;
+
+            for (int i = 0; i < players.Count; i++)
+            {
+                PlayerController player = players[i];
+                if (player == null || !IsCameraFocusablePlayer(player.transform)) continue;
+
+                if (solePlayer != null)
+                {
+                    solePlayer = null;
+                    return false;
+                }
+
+                solePlayer = player.transform;
+            }
+
+            return solePlayer != null;
+        }
+
+        private static bool ShouldTrackRoomTarget(Game.CameraSlideMode cameraSlideMode, bool isVictoryRun)
+        {
+            return cameraSlideMode == Game.CameraSlideMode.Wide || isVictoryRun;
         }
 
         /// <summary>
@@ -351,17 +743,48 @@ namespace Colosseum.CameraSystem
         }
 
         /// <summary>
-        /// 방 전환 시 호출 — 타겟만 업데이트, ApplyCameraPosition의 SmoothDamp가 자연 보간 (A303-324)
+        /// 방 전환 시 호출 — 구간 전환 프레임은 새 room center로 즉시 정렬하고 이후 SmoothDamp를 재개한다.
         /// </summary>
         public void OnRoomChanged()
         {
             var room = _roomManager?.GetCurrentRoom();
             if (room == null || _camera == null) return;
 
-            // 타겟만 업데이트 — SmoothDamp가 ApplyCameraPosition에서 자연 보간 (REVISE 2: direct write 제거).
-            _targetPosition = new Vector2(room.centerX, room.cameraY);
+            ResetMovementAuthorityCameraState();
+            float cameraX = _roomManager != null && _roomManager.TryGetAuthoritativeMovementCameraX(out float authoritativeCameraX)
+                ? authoritativeCameraX
+                : ResolveRoomChangeCameraTargetX(room);
+            _targetPosition = new Vector2(cameraX, room.cameraY);
             _targetSize = room.cameraSize;
+            Vector3 pos = _camera.transform.position;
+            pos.x = cameraX;
+            pos.y = room.cameraY;
+            _camera.transform.position = pos;
+            _camera.orthographicSize = room.cameraSize;
+            _cameraVelocity = Vector3.zero;
+            _sizeVelocity = 0f;
             _lastRoomIndex = _roomManager.CurrentRoomIndex;
+        }
+
+        private float ResolveRoomChangeCameraTargetX(Game.RoomData room)
+        {
+            float aspect = DesignViewportAspect;
+            float orthoSize = _camera != null ? _camera.orthographicSize : room.cameraSize;
+            float viewHalfWidth = Mathf.Max(0.01f, orthoSize * aspect);
+            float minCameraX = room.leftBound + viewHalfWidth;
+            float maxCameraX = room.rightBound - viewHalfWidth;
+            float roomCenterX = CalculateMovementAuthorityNeutralCameraTargetX(room.centerX, minCameraX, maxCameraX);
+
+            PlayerRef p1 = _roomManager != null ? _roomManager.Player1 : default;
+            PlayerRef p2 = _roomManager != null ? _roomManager.Player2 : default;
+            PlayerRef authority = _roomManager != null ? _roomManager.LastKiller : default;
+            int direction = ResolveRoomEntryCameraDirection(room, authority, p1, p2);
+            return CalculateMovementAuthorityRoomEntryCameraTargetX(
+                roomCenterX,
+                minCameraX,
+                maxCameraX,
+                direction,
+                preferEntrySide: direction != 0);
         }
 
         /// <summary>
@@ -376,7 +799,7 @@ namespace Colosseum.CameraSystem
             _roomManager = SceneSearch.FindInScene<Game.RoomManager>(gameObject.scene);
             if (_roomManager != null)
             {
-                Debug.Log("[Colosseum] CameraController re-acquired RoomManager via SceneSearch");
+                DiagLog.Log("[Colosseum] CameraController re-acquired RoomManager via SceneSearch");
                 // 재획득 시점에 _lastRoomIndex를 맞추지 않으면 다음 프레임에 OnRoomChanged가
                 // 트리거되어 카메라가 한 번 점프한다. 최초 매칭이면 의도한 동작이지만,
                 // 중간에 재획득됐을 때는 현재 방으로 스냅시키는 게 안전.
@@ -410,19 +833,24 @@ namespace Colosseum.CameraSystem
 
             if (t1 != null && t2 != null)
             {
+                _player1Transform = t1;
+                _player2Transform = t2;
                 _playerTransforms = new Transform[] { t1, t2 };
                 _hotSeatActive = true;
             }
             else
             {
+                _player1Transform = null;
+                _player2Transform = null;
                 _playerTransforms = System.Array.Empty<Transform>();
                 _hotSeatActive = false;
             }
+            ResetMovementAuthorityCameraState();
         }
 
         /// <summary>
         /// A303-263: Main Camera GameObject에 CameraEdgeBulletWalls 컴포넌트 자동 부착.
-        /// 카메라 ortho 영역 4변에 invisible Trigger collider를 자식으로 두어 총알이 화면 밖으로 못 나가게 막는다.
+        /// 카메라 ortho 영역 4변에 invisible Trigger collider를 자식으로 두어 반사탄의 카메라 경계 반사를 감지한다.
         /// 이미 부착되어 있으면 no-op (idempotent).
         /// SampleScene 변경 0 — 런타임 동적 부착이라 SCENE-LOCK 무관.
         /// </summary>
@@ -432,7 +860,7 @@ namespace Colosseum.CameraSystem
             if (_camera.GetComponent<CameraEdgeBulletWalls>() != null) return;
 
             _camera.gameObject.AddComponent<CameraEdgeBulletWalls>();
-            Debug.Log("[Colosseum] CameraEdgeBulletWalls 자동 부착됨 (총알 카메라 경계 벽 활성화)");
+            DiagLog.Log("[Colosseum] CameraEdgeBulletWalls 자동 부착됨 (총알 카메라 경계 벽 활성화)");
         }
 
         /// <summary>
@@ -443,8 +871,7 @@ namespace Colosseum.CameraSystem
         private bool IsRoomManagerReady()
         {
             if (_roomManager == null) return false;
-            var obj = _roomManager.Object;
-            return obj != null && obj.IsValid;
+            return _roomManager.IsNetworkedStateReady;
         }
     }
 }

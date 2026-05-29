@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-05-08
+last_updated: 2026-05-17
 audience: ai-first
 ---
 
@@ -97,10 +97,12 @@ A303-272 이후 카드 선택 화면의 시각 방향은 `45/00 디자인 참조
 | 희귀도 | Common/Rare/Epic/Legendary를 배지와 색상으로 구분 |
 | 타이머 | "리스폰까지 N초" 또는 동등 문구로 ChoicePending 남은 시간 표시 |
 | 확정 | 선택 후 confirm affordance를 보여주되 StateAuthority 확정 전제를 흐리지 않음 |
-| 데이터 출처 | 카드명, 설명, 희귀도, 아이콘은 `CardData` 계열 데이터에서 읽음 |
+| 데이터 출처 | 카드명, 설명, 희귀도, 내부 일러스트는 `CardData` 계열 데이터에서 읽음 |
 | 금지 | UI가 전투 수치나 카드 효과를 자체 계산하거나 전투 컴포넌트를 직접 변경 |
 
-A303-274 기준 MVP16 아이콘은 `Assets/_Project/Sprites/CardIcons/MVP16/`의 symbolic placeholder다. 실제 카드 내부 일러스트나 상업용 리소스가 확정되기 전까지는 아이콘을 정보 식별용으로만 취급하고, 카드 효과의 truth나 밸런스 수치로 해석하지 않는다.
+A303-350 기준 카드 선택 UI는 희귀도별 카드 프레임 4종과 카드별 내부 일러스트를 분리 조립한다. MVP16의 기존 `CardData.cardIcon` 직렬화 참조는 데이터 호환성을 유지하기 위해 그대로 두되, 카드 선택 화면에서는 내부 일러스트 레이어로 소비한다. `Assets/_Project/Sprites/CardFrames/MVP16/`의 1024x1536 프레임 sprite는 카드 외관 레이어, `Assets/_Project/Sprites/CardIcons/MVP16/`의 1:1 generated illustration candidate는 내부 일러스트 레이어로만 취급한다. 현재 Unity 카드 rect는 270x360, 내부 일러스트 슬롯은 150x130이며 preserve aspect 기준으로 1:1 후보가 130x130에 가깝게 보이도록 둔다. 두 sprite 그룹 모두 실제 상업용 리소스가 확정되기 전까지 정보 식별용 시각 자료이며, 카드 효과의 truth나 밸런스 수치로 해석하지 않는다.
+
+A303-350 후속 시각 검수 기준으로 카드 선택 화면의 3장 카드는 모두 정방향으로 세운다. 카드 등급은 좌측 상단 배지에, 카드명은 하단 내부 프레임 상단의 중앙 정렬 박스에, 설명은 하단 큰 내부 프레임 안의 설명 박스에 표시한다. 텍스트 박스는 위치/레이아웃만 담당하고 배경과 외곽선은 투명하게 두며, 등급/카드명/설명 글자는 흰색으로 표시해 카드 프레임 위에서 읽히게 한다. 선택 가능한 카드의 하단에는 "READY TO ENGAGE" 같은 별도 상태 문구를 표시하지 않고, 선택 확정/빈 슬롯처럼 상태 구분이 필요한 경우에만 짧은 상태 문구를 쓴다. 이 텍스트들은 `CardData.rarity`, `CardData.cardName`, `CardData.description`을 읽기 위한 presentation 레이어이며 카드 효과나 전투 수치를 자체 계산하지 않는다.
 
 Figma 예시에는 시각 설명을 위해 MVP16 밖의 무기명이나 카드명이 포함될 수 있다. 구현, MR 본문, QA 캡처에서는 실제 제안 풀과 혼동되지 않도록 MVP16 카드명과 `CardData` 기준 설명을 사용한다.
 

@@ -5,7 +5,7 @@ namespace Colosseum.CameraSystem
 {
     /// <summary>
     /// 카메라에 부착되어 ortho 영역 4변에 invisible Trigger BoxCollider2D 4개를 자동 생성·동기화한다.
-    /// 총알이 화면 밖으로 못 나가게 막는 "카메라 경계 = 총알 벽" 시스템의 코어.
+    /// 총알의 카메라 경계 접촉을 감지하는 시스템의 코어.
     ///
     /// 동작:
     ///   Awake: Camera 컴포넌트 캐시 + 4개 자식 GameObject 생성 (각 GameObject에 BoxCollider2D + CameraEdgeWall 부착, isTrigger=true)
@@ -16,13 +16,13 @@ namespace Colosseum.CameraSystem
     ///   - 캐릭터의 OnTriggerEnter2D는 CameraEdgeWall을 무시 (PlayerController/PlayerHealth가 검사 안 함)
     ///
     /// 총알 처리:
-    ///   - BulletController 자식 trigger collider가 본 trigger와 만나면 OnTriggerEnter2D 발화
-    ///   - BulletController.OnHitTrigger가 GetComponent&lt;CameraEdgeWall&gt;() 분기로 처리
-    ///   - 일반탄 → Runner.Despawn / 반사탄 → velocity 반사 + BounceCount 차감
+    ///   - BulletServerSimulation 이 Runner physics scene 에서 CircleCast 할 때 CameraEdgeWall 컴포넌트로 식별한다.
+    ///   - 일반탄 → 통과 / 반사탄 → 상/좌/우 edge에서 velocity 반사 + BounceCount 차감
+    ///   - 하단 edge는 낙하/화면 하단 이탈 의미를 보존하기 위해 반사탄도 통과
     ///
     /// 네트워크 결정론:
     ///   - 카메라 위치는 RoomManager.CurrentRoomIndex 기반 (모든 클라 같은 값) + 넓은 방 추적 (NetworkObject 기반)
-    ///   - BulletController는 SA 한정 충돌 처리 (HasStateAuthority 가드)
+    ///   - BulletServerSimulation은 SA 한정 충돌 처리
     /// </summary>
     [RequireComponent(typeof(UnityCamera))]
     public class CameraEdgeBulletWalls : MonoBehaviour
@@ -83,11 +83,12 @@ namespace Colosseum.CameraSystem
             if (halfHeight <= 0f || halfWidth <= 0f) return; // 패딩이 너무 커서 음수면 무시
 
             // collider는 카메라 transform 기준 local. 카메라 자식이라 카메라 이동 자동 추적.
-            // 좌측 변: x=-halfWidth, y=0, size=(thickness, halfHeight*2 + thickness)
-            UpdateEdge(_leftCollider,  new Vector2(-halfWidth, 0f),    new Vector2(_wallThickness, halfHeight * 2f + _wallThickness));
-            UpdateEdge(_rightCollider, new Vector2( halfWidth, 0f),    new Vector2(_wallThickness, halfHeight * 2f + _wallThickness));
-            UpdateEdge(_topCollider,   new Vector2(0f,  halfHeight),   new Vector2(halfWidth * 2f + _wallThickness, _wallThickness));
-            UpdateEdge(_bottomCollider,new Vector2(0f, -halfHeight),   new Vector2(halfWidth * 2f + _wallThickness, _wallThickness));
+            // trigger를 화면 바깥쪽에 붙여 inner surface가 실제 카메라 경계와 일치하게 둔다.
+            float halfThickness = _wallThickness * 0.5f;
+            UpdateEdge(_leftCollider,  new Vector2(-halfWidth - halfThickness, 0f),    new Vector2(_wallThickness, halfHeight * 2f + _wallThickness));
+            UpdateEdge(_rightCollider, new Vector2( halfWidth + halfThickness, 0f),    new Vector2(_wallThickness, halfHeight * 2f + _wallThickness));
+            UpdateEdge(_topCollider,   new Vector2(0f,  halfHeight + halfThickness),   new Vector2(halfWidth * 2f + _wallThickness, _wallThickness));
+            UpdateEdge(_bottomCollider,new Vector2(0f, -halfHeight - halfThickness),   new Vector2(halfWidth * 2f + _wallThickness, _wallThickness));
         }
 
         private static void UpdateEdge(BoxCollider2D col, Vector2 localPos, Vector2 size)

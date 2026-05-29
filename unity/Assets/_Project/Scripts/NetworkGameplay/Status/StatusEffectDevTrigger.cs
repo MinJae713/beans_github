@@ -2,6 +2,7 @@
 using UnityEngine;
 using Fusion;
 using Colosseum.Weapon;
+using Colosseum.NetworkGameplay.Diagnostics;
 
 namespace Colosseum.Status
 {
@@ -45,23 +46,23 @@ namespace Colosseum.Status
             // 본 컴포넌트는 Editor 전용 검증용이라 RPC 없이 직접 호출 (DevMode Host = SA 가정).
             if (Input.GetKeyDown(KeyCode.F1))
             {
-                Debug.Log("[Colosseum/DEV] Trigger Burn on self");
-                _controller.ApplyByEnum(BulletController.StatusEffect.Burn, _netObj.InputAuthority);
+                DiagLog.Log("[Colosseum/DEV] Trigger Burn on self");
+                _controller.ApplyByEnum(StatusEffect.Burn, _netObj.InputAuthority);
             }
             else if (Input.GetKeyDown(KeyCode.F2))
             {
-                Debug.Log("[Colosseum/DEV] Trigger Poison on self");
-                _controller.ApplyByEnum(BulletController.StatusEffect.Poison, _netObj.InputAuthority);
+                DiagLog.Log("[Colosseum/DEV] Trigger Poison on self");
+                _controller.ApplyByEnum(StatusEffect.Poison, _netObj.InputAuthority);
             }
             else if (Input.GetKeyDown(KeyCode.F3))
             {
-                Debug.Log("[Colosseum/DEV] Trigger Frost on self (enum 이름은 Freeze, SO는 FrostEffect — 같은 효과)");
-                _controller.ApplyByEnum(BulletController.StatusEffect.Freeze, _netObj.InputAuthority);
+                DiagLog.Log("[Colosseum/DEV] Trigger Frost on self (enum 이름은 Freeze, SO는 FrostEffect — 같은 효과)");
+                _controller.ApplyByEnum(StatusEffect.Freeze, _netObj.InputAuthority);
             }
             else if (Input.GetKeyDown(KeyCode.F4))
             {
-                Debug.Log("[Colosseum/DEV] Trigger Electric +1 stack on self");
-                _controller.ApplyByEnum(BulletController.StatusEffect.Electric, _netObj.InputAuthority);
+                DiagLog.Log("[Colosseum/DEV] Trigger Electric +1 stack on self");
+                _controller.ApplyByEnum(StatusEffect.Electric, _netObj.InputAuthority);
             }
         }
     }

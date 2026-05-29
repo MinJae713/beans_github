@@ -131,6 +131,7 @@ DevMode 씬에는 5종 어댑터(`PlayerSpawnAdapter`, `BulletInjectionAdapter`,
 1. `CardData` ScriptableObject를 생성한다.
 2. `DevModeAssetPack` Inspector에서 `cardDataList` 슬롯에 드래그해 추가한다.
 3. 명명 규칙이나 PrefabTable 등록 불필요.
+4. Debug Card Panel의 Apply는 런타임 `CardDeck.ApplyCard`와 같은 핵심 경로를 따라 `CardEffect`, `Gun`, `PlayerHealth`에 값을 반영한다. Ammo Capacity Up은 현재 탄창도 새 최대치에 맞춰 보정한다.
 
 ---
 

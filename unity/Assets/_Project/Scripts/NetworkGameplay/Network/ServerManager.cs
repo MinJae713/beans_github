@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Colosseum.Contracts;
+using Colosseum.NetworkGameplay.Diagnostics;
 using UnityEngine;
 
 namespace Colosseum.Network
@@ -52,6 +54,21 @@ namespace Colosseum.Network
                 return;
             }
 
+            // [A303-371] dedicated server headless mode 의 main loop CPU 폭주 차단.
+            // Unity headless (-batchmode -nographics) 는 Application.targetFrameRate 기본값이 -1
+            // (cap 없음) 이라, batchmode 에서는 vsync 도 무시되어 main loop 가 CPU 가 허락하는 한
+            // 수백 FPS 까지 폭주하면서 sustained 1 vCPU 점유.
+            //
+            // Fusion 의 simulation tick (64Hz, NetworkProjectConfig.TickRateSelection.Client) 은
+            // Unity main loop 와 분리된 fixed step 이라, targetFrameRate 를 낮춰도 sim 정확성에는
+            // 영향 0. main frame 사이의 idle 시간을 OS 에 양보해 CPU 점유만 절감된다.
+            //
+            // 30 을 택한 근거: server 는 headless 라 화면을 안 그리니 Render() 호출 빈도가 낮아도 됨.
+            // 우리 코드의 Render() 본문은 RoomManager 의 ChangeDetector 폴링 정도라 30Hz 로도
+            // [Networked] 값 변화를 한 frame (33ms) 안에 감지. 게임 진행 체감 영향 0.
+            // client 빌드에는 본 코드 path 가 IsServerMode() 가드로 안 닿아 모니터 hz 그대로 동작.
+            Application.targetFrameRate = 60;
+
             DontDestroyOnLoad(gameObject);
         }
 
@@ -60,7 +77,7 @@ namespace Colosseum.Network
             if (!IsServerMode()) return;
 
             CurrentMode = DetermineMode();
-            Debug.Log($"[Colosseum Server] Starting in {CurrentMode} mode...");
+            DiagLog.Log($"[Colosseum Server] Starting in {CurrentMode} mode...");
 
             switch (CurrentMode)
             {
@@ -116,7 +133,7 @@ namespace Colosseum.Network
             _lobbyManager.enabled = true;
             _lobbyManager.Initialize();
 
-            Debug.Log("[Colosseum Server] Lobby server initialized.");
+            DiagLog.Log("[Colosseum Server] Lobby server initialized.");
         }
 
         private void InitializeGameMode()
@@ -127,6 +144,7 @@ namespace Colosseum.Network
             string sessionName = GetCommandLineArg("--session");
             string roomName = GetCommandLineArg("--room-name") ?? "Unknown";
             int maxPlayers = GetCommandLineArgInt("--max-players", 2);
+            string sceneName = GetCommandLineArg("--scene") ?? SelectableSceneExtensions.DefaultSceneName;
 
             if (string.IsNullOrEmpty(sessionName))
             {
@@ -141,9 +159,9 @@ namespace Colosseum.Network
                 _gameManager = gameObject.AddComponent<GameServerManager>();
             }
             _gameManager.enabled = true;
-            _gameManager.Initialize(sessionName, roomName, maxPlayers);
+            _gameManager.Initialize(sessionName, roomName, maxPlayers, sceneName);
 
-            Debug.Log($"[Colosseum Server] Game server initialized: {roomName} ({sessionName})");
+            DiagLog.Log($"[Colosseum Server] Game server initialized: {roomName} ({sessionName}), scene: {sceneName}");
         }
 
         // ──────────────────────────────────────────────

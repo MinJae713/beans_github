@@ -85,20 +85,20 @@ namespace Colosseum.Game
 
             [Header("Weapon")]
             [Tooltip("baseline.fireInterval")]
-            public float fireInterval = 1f;
+            public float fireInterval = 0.5f;
 
             [Tooltip("baseline.ammoCapacity")]
-            public int ammoCapacity = 3;
+            public int ammoCapacity = 6;
 
             [Tooltip("baseline.reloadTime")]
             public float reloadTime = 1.5f;
 
             [Header("Projectile")]
             [Tooltip("baseline.directHitDamage")]
-            public float directHitDamage = 10f;
+            public float directHitDamage = 20f;
 
             [Tooltip("baseline.projectileSpeed")]
-            public float projectileSpeed = 15f;
+            public float projectileSpeed = 32.2f;
 
             [Tooltip("baseline.projectileGravityScale")]
             public float projectileGravityScale = 1f;
@@ -107,7 +107,7 @@ namespace Colosseum.Game
             public float projectileLifetimeSeconds = 5f;
 
             [Tooltip("baseline.projectileBaseScale")]
-            public float projectileBaseScale = 1f;
+            public float projectileBaseScale = 2f;
 
             [Tooltip("baseline.directHitKnockbackImpulse")]
             public float directHitKnockbackImpulse = 0f;

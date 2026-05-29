@@ -25,6 +25,8 @@ namespace Colosseum.Game
     /// </summary>
     public class SegmentBoundary : MonoBehaviour
     {
+        private const string CombatHitboxName = "CombatHitbox";
+
         [Tooltip("이 boundary가 진입 신호로 보낼 다음 segment index. RoomManager.CurrentRoomIndex가 이 값보다 작으면 advance 트리거.")]
         [SerializeField] private int _nextSegmentIndex;
 
@@ -46,6 +48,7 @@ namespace Colosseum.Game
 
         private void OnTriggerEnter2D(Collider2D other)
         {
+            if (IsCombatHitbox(other)) return;
             if (_consumed) return;
             if (_roomManager == null) return;
 
@@ -57,6 +60,7 @@ namespace Colosseum.Game
             }
 
             // 다른 boundary가 먼저 발화해 RoomManager.CurrentRoomIndex가 이미 진행한 경우 무시.
+            if (!_roomManager.IsNetworkedStateReady) return;
             if (_roomManager.CurrentRoomIndex >= _nextSegmentIndex) return;
 
             _consumed = true;
@@ -95,6 +99,11 @@ namespace Colosseum.Game
             {
                 _roomManager.HandleRoomAdvance(netObj.InputAuthority);
             }
+        }
+
+        private static bool IsCombatHitbox(Collider2D other)
+        {
+            return other != null && other.isTrigger && other.name == CombatHitboxName;
         }
 
 #if UNITY_EDITOR

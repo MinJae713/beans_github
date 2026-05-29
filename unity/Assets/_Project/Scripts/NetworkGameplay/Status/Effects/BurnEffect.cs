@@ -11,8 +11,8 @@ namespace Colosseum.Status.Effects
     public class BurnEffect : StatusEffectDefinition, IVisualTintEffect
     {
         [Header("Burn 전용 수치")]
-        [Tooltip("OnTick 1회당 데미지 (HP). baseDuration / tickInterval 회만큼 누적 발행됨.")]
-        [SerializeField] private float _damagePerTick = 6f;
+        [Tooltip("OnTick 1회당 데미지 (HP). floor(baseDuration / tickInterval) 회만큼 누적 발행됨.")]
+        [SerializeField] private float _damagePerTick = 3f;
 
         public override void OnApply(PlayerStatusController target, ref StatusEffectInstance instance)
         {
@@ -26,7 +26,7 @@ namespace Colosseum.Status.Effects
             if (health == null) return;
 
             // status 인자는 None — 재귀 적용 방지 (Burn이 또 Burn을 적용하지 않게)
-            health.TakeDamage(_damagePerTick * instance.Magnitude, instance.Source, Weapon.BulletController.StatusEffect.None);
+            health.TakeDamage(StatusEffectDefinition.CalculateStackedTickDamage(_damagePerTick, instance.Magnitude, instance.Stacks), instance.Source, Weapon.StatusEffect.None);
         }
 
         public override void OnExpire(PlayerStatusController target, ref StatusEffectInstance instance)
@@ -39,5 +39,6 @@ namespace Colosseum.Status.Effects
             // 운영 시 비주얼팀이 visualTint 필드 자체를 조정. 본 메서드는 단순 위임.
             return visualTint;
         }
+
     }
 }

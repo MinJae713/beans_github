@@ -60,6 +60,8 @@ namespace Colosseum.UI
         private RoomManager _roomManager;
         private CardDeck _cardDeck;
         private PlayerRef _myPlayerRef;
+        private bool _subscribedToCardDeck;
+        private int _lastSyncedAppliedCardCount = -1;
 
         private RectTransform _rect;
         private TextMeshProUGUI _label;
@@ -116,6 +118,22 @@ namespace Colosseum.UI
             TryCompleteBinding();
         }
 
+        private void Update()
+        {
+            if (_cardDeck == null ||
+                _cardDeck.Object == null ||
+                !_cardDeck.Object.IsValid ||
+                _myPlayerRef == default ||
+                !_subscribedToCardDeck)
+            {
+                TryBindCardDeckFromScene();
+                TryAssignPlayerRef();
+                TryCompleteBinding();
+            }
+
+            TrySyncAppliedCardsFromDeck();
+        }
+
         private void SubscribeNicknames()
         {
             NetworkManager.OnNicknamesUpdated += OnNicknamesUpdated;
@@ -133,12 +151,16 @@ namespace Colosseum.UI
                 _roomManager.OnPlayerSlotsChanged -= HandlePlayerSlotsChanged;
             }
             if (_cardDeck != null) _cardDeck.OnCardApplied -= OnCardApplied;
+            _subscribedToCardDeck = false;
             NetworkManager.OnNicknamesUpdated -= OnNicknamesUpdated;
         }
 
         private void HandleCardDeckSpawned(CardDeck deck)
         {
-            if (deck == null || deck.gameObject.scene != gameObject.scene)
+            // HUD GameObject가 InGameHUDManager에 의해 active scene(보통 MainMenu)에 동적 생성되는 반면,
+            // CardDeck은 GameRunner 산하 별도 씬에 살아 SceneSearch 기반 동일 씬 비교가 영영 실패한다(A303-363).
+            // 단일 client process엔 CardDeck이 1개만 존재하므로 FindObjectOfType이 안전.
+            if (deck == null)
             {
                 return;
             }
@@ -153,7 +175,7 @@ namespace Colosseum.UI
                 return;
             }
 
-            BindCardDeck(SceneSearch.FindInScene<CardDeck>(gameObject.scene));
+            BindCardDeck(FindObjectOfType<CardDeck>());
         }
 
         private void BindCardDeck(CardDeck deck)
@@ -169,6 +191,8 @@ namespace Colosseum.UI
             }
 
             _cardDeck = deck;
+            _subscribedToCardDeck = false;
+            _lastSyncedAppliedCardCount = -1;
             TryCompleteBinding();
         }
 
@@ -180,7 +204,15 @@ namespace Colosseum.UI
                 return;
             }
 
+            if (_cardDeck != null && _subscribedToCardDeck)
+            {
+                _cardDeck.OnCardApplied -= OnCardApplied;
+                _subscribedToCardDeck = false;
+            }
+
             _myPlayerRef = nextPlayerRef;
+            ClearEntries();
+            _lastSyncedAppliedCardCount = -1;
             TryCompleteBinding();
         }
 
@@ -197,7 +229,15 @@ namespace Colosseum.UI
                 return;
             }
 
+            if (_cardDeck != null && _subscribedToCardDeck)
+            {
+                _cardDeck.OnCardApplied -= OnCardApplied;
+                _subscribedToCardDeck = false;
+            }
+
             _myPlayerRef = nextPlayerRef;
+            ClearEntries();
+            _lastSyncedAppliedCardCount = -1;
         }
 
         private void TryCompleteBinding()
@@ -212,8 +252,14 @@ namespace Colosseum.UI
                 return;
             }
 
-            _cardDeck.OnCardApplied -= OnCardApplied;
+            if (_subscribedToCardDeck)
+            {
+                return;
+            }
+
             _cardDeck.OnCardApplied += OnCardApplied;
+            _subscribedToCardDeck = true;
+            Debug.Log($"[CardInventoryHUD] Bound slot={_playerSlot} player={_myPlayerRef}");
         }
 
         private void BuildContainerAndLabel()
@@ -234,6 +280,8 @@ namespace Colosseum.UI
             _rect.sizeDelta = new Vector2(width, height);
 
             // 라벨: 두 줄 슬롯 위에 배치
+            // A303-327: 닉네임은 캐릭터 머리 위 체력바 위에 표시(PlayerHPBar)로 이동.
+            // 하단 P1/P2 라벨 GameObject는 비활성 — 닉네임 갱신 경로(ApplyNicknames)는 그대로 두되 표시되지 않음.
             GameObject labelObj = new GameObject("Label");
             labelObj.transform.SetParent(transform, false);
             _label = labelObj.AddComponent<TextMeshProUGUI>();
@@ -248,6 +296,7 @@ namespace Colosseum.UI
             labelRect.pivot = new Vector2(IsMirrored ? 1f : 0f, 1f);
             labelRect.anchoredPosition = Vector2.zero;
             labelRect.sizeDelta = new Vector2(0f, LabelHeight);
+            labelObj.SetActive(false);
 
             // Hover 팝업 빌드 (1회). 인벤토리 자식이라 위치 추적 자동.
             // popupBottomY = 인벤토리 height + gap. 인벤토리 anchor가 (ax,0) pivot (ax,0)이라
@@ -264,6 +313,48 @@ namespace Colosseum.UI
             if (player != _myPlayerRef) return;
             if (card == null) return;
 
+            AddOrIncrementEntry(card, rebuild: true);
+            _lastSyncedAppliedCardCount = -1;
+            Debug.Log($"[CardInventoryHUD] Event applied slot={_playerSlot} player={_myPlayerRef} card={card.cardName}");
+        }
+
+        private bool TrySyncAppliedCardsFromDeck(bool force = false)
+        {
+            if (_cardDeck == null ||
+                _cardDeck.Object == null ||
+                !_cardDeck.Object.IsValid ||
+                _myPlayerRef == default)
+            {
+                return false;
+            }
+
+            int count = _cardDeck.GetAppliedCardCount(_myPlayerRef);
+            if (!force && count == _lastSyncedAppliedCardCount)
+            {
+                return true;
+            }
+
+            ClearEntries();
+            for (int i = 0; i < count; i++)
+            {
+                CardData card = _cardDeck.GetAppliedCard(_myPlayerRef, i);
+                if (card == null)
+                {
+                    Debug.LogWarning($"[CardInventoryHUD] Missing applied card data slot={_playerSlot} player={_myPlayerRef} index={i}");
+                    continue;
+                }
+
+                AddOrIncrementEntry(card, rebuild: false);
+            }
+
+            _lastSyncedAppliedCardCount = count;
+            RebuildLayout();
+            Debug.Log($"[CardInventoryHUD] Synced slot={_playerSlot} player={_myPlayerRef} count={count}");
+            return true;
+        }
+
+        private void AddOrIncrementEntry(CardData card, bool rebuild)
+        {
             // 같은 cardId 이미 있음 → count++ + 배지 갱신만
             SlotEntry existing = FindEntryByCardId(card.cardId);
             if (existing != null)
@@ -287,7 +378,34 @@ namespace Colosseum.UI
                 FirstAcquiredOrder = _acquireCounter++,
             };
             _entries.Add(entry);
-            RebuildLayout();
+            if (rebuild)
+            {
+                RebuildLayout();
+            }
+        }
+
+        private void ClearEntries()
+        {
+            if (_hoverDelayCoroutine != null)
+            {
+                StopCoroutine(_hoverDelayCoroutine);
+                _hoverDelayCoroutine = null;
+            }
+            if (_popup != null) _popup.Hide();
+
+            for (int i = 0; i < _entries.Count; i++)
+            {
+                if (_entries[i].SlotGO != null)
+                {
+                    Destroy(_entries[i].SlotGO);
+                    _entries[i].SlotGO = null;
+                    _entries[i].BadgeRoot = null;
+                    _entries[i].BadgeText = null;
+                }
+            }
+
+            _entries.Clear();
+            _acquireCounter = 0;
         }
 
         private SlotEntry FindEntryByCardId(int cardId)

@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Colosseum.Contracts;
 using UnityEngine;
 
 namespace Colosseum.Network
@@ -52,7 +53,8 @@ namespace Colosseum.Network
                     sessionName = request.SessionName,
                     roomName = request.RoomName,
                     hostNickname = request.HostNickname ?? string.Empty,
-                    maxPlayers = request.MaxPlayers
+                    maxPlayers = request.MaxPlayers,
+                    sceneName = request.SceneName ?? SelectableSceneExtensions.DefaultSceneName
                 };
                 string json = JsonUtility.ToJson(payload);
                 
@@ -197,5 +199,6 @@ namespace Colosseum.Network
         public string roomName;
         public string hostNickname;
         public int maxPlayers;
+        public string sceneName;
     }
 }

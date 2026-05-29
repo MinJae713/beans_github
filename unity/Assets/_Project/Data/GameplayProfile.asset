@@ -30,20 +30,20 @@ MonoBehaviour:
       apexHangThreshold: 0.8
       apexGravityMultiplier: 0.4
       ascendGravityMultiplier: 2.5
-      wallSlideSpeed: 2.5
+      wallSlideSpeed: 0.5
       wallJumpVerticalForce: 11
       wallJumpHorizontalForce: 7
       wallJumpVariance: 0.1
       wallReattachLockoutSeconds: 0.2
       wallSlideStickInputThreshold: 0.5
-      fireInterval: 1
-      ammoCapacity: 3
+      fireInterval: 0.5
+      ammoCapacity: 6
       reloadTime: 1.5
-      directHitDamage: 10
-      projectileSpeed: 23
+      directHitDamage: 20
+      projectileSpeed: 32.2
       projectileGravityScale: 2.7
       projectileLifetimeSeconds: 5
-      projectileBaseScale: 1
+      projectileBaseScale: 2
       directHitKnockbackImpulse: 0
     resolvedCaps:
       projectileSizeMin: 0.7

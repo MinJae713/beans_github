@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using Fusion;
 using Fusion.Sockets;
 using System;
@@ -9,6 +10,17 @@ namespace Colosseum.Network
 {
     public class InputProvider : MonoBehaviour, INetworkRunnerCallbacks
     {
+        private byte _pendingEmojiIndex;
+
+        private void Update()
+        {
+            byte emojiIndex = ReadEmojiInput();
+            if (emojiIndex > 0)
+            {
+                _pendingEmojiIndex = emojiIndex;
+            }
+        }
+
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
             BotInputBridge bridge = GetComponent<BotInputBridge>();
@@ -18,17 +30,32 @@ namespace Colosseum.Network
                 return;
             }
 
+            bool isOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+
             var data = new NetworkInputData
             {
                 Direction = new Vector2(
                     Input.GetAxisRaw("Horizontal"),
                     Input.GetAxisRaw("Vertical")),
                 IsJumpPressed = Input.GetKey(KeyCode.Space),
-                IsFirePressed = Input.GetMouseButton(0),
-                AimDirection = GetMouseWorldPosition()
+                IsFirePressed = !isOverUI && Input.GetMouseButton(0),
+                AimDirection = GetMouseWorldPosition(),
+                EmojiIndex = _pendingEmojiIndex
             };
+            _pendingEmojiIndex = 0;
 
             input.Set(data);
+        }
+
+        private static byte ReadEmojiInput()
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) return 1;
+            if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) return 2;
+            if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) return 3;
+            if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) return 4;
+            if (Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5)) return 5;
+            if (Input.GetKeyDown(KeyCode.Alpha6) || Input.GetKeyDown(KeyCode.Keypad6)) return 6;
+            return 0;
         }
 
         private Vector2 GetMouseWorldPosition()

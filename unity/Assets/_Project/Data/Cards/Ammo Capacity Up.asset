@@ -29,6 +29,7 @@ MonoBehaviour:
   fireRateMultiplier: 1
   reloadSpeedMultiplier: 1
   extraBullets: 0
+  extraAmmoCapacity: 1
   extraPierce: 0
   knockbackForce: 0
   healAmount: 0

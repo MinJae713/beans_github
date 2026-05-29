@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-05-06
+last_updated: 2026-05-16
 audience: ai-first
 ---
 
@@ -120,6 +120,8 @@ Asmdef 바로 옆의 `Assets/_Project/Scripts/NetworkGameplay/Colosseum.NetworkG
 | 기록 | Server Mode 전환 시 바꿔야 하는 임시 브리지는 리스크로 남김 |
 
 Dedicated Server 프로토타입에서 `Lobby -> Worker Agent -> GameServer` 계층을 둘 수 있다. 이때 `Lobby <-> Worker Agent` HTTP 통신은 Fusion gameplay state가 아니라 **서버 프로세스 실행 제어용 control plane**으로 취급한다. 카드/피격/리스폰/승패 같은 gameplay authoritative 결과는 여전히 Fusion `StateAuthority` 규칙을 따른다.
+
+카메라 transform 자체는 presentation으로 각 클라이언트가 보간할 수 있지만, 이동 주도권 카메라의 기준 X와 적용 구간은 gameplay 경계 판정과 연결되므로 local-only 계산으로 두지 않는다. `RoomManager` 같은 `StateAuthority` 소유자가 `[Networked]` camera target state를 확정하고, `CameraController`와 이동 경계 판정은 같은 target을 읽어 host/join divergence를 막는다. 로컬 클라이언트가 현재 movement camera authority인 경우에는 이 networked target을 기준점으로 유지한 채 자기 predicted transform X로 presentation target을 보강할 수 있다. 이 보강은 카메라 표시 부드러움 전용이며 경계 판정과 승패 truth를 변경하지 않는다.
 
 현재 구현에서는 Room Registry도 같은 control plane에 속한다.
 

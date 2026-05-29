@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Colosseum.Game;
 using Colosseum.Utils;
 using Colosseum.Contracts;
+using Colosseum.NetworkGameplay.Diagnostics;
 using Colosseum.NetworkGameplay.VFX;
 
 namespace Colosseum.Card
@@ -13,6 +14,7 @@ namespace Colosseum.Card
         private const int MaxPendingPlayers = 2;
         private const int FixedDrawChoices = 3;
         private const int InvalidCardId = -1;
+        private const int MaxAppliedCardsPerPlayer = 16;
         private const string UnknownCardKeyPrefix = "unknown-card";
         private const int EpicOwnershipCap = 2;
         private const int LegendaryOwnershipCap = 1;
@@ -40,6 +42,10 @@ namespace Colosseum.Card
 
         [Networked, Capacity(MaxPendingPlayers)] private NetworkArray<PlayerRef> _pendingPlayers => default;
         [Networked, Capacity(6)] private NetworkArray<int> _drawnCardIndices => default;
+        [Networked, Capacity(MaxAppliedCardsPerPlayer)] private NetworkArray<int> _appliedCardIds0 => default;
+        [Networked, Capacity(MaxAppliedCardsPerPlayer)] private NetworkArray<int> _appliedCardIds1 => default;
+        [Networked] private int _appliedCardCount0 { get; set; }
+        [Networked] private int _appliedCardCount1 { get; set; }
         [Networked] private int _offerSeedCounter { get; set; }
         [Networked] private TickTimer _drawTimeout0 { get; set; }
         [Networked] private TickTimer _drawTimeout1 { get; set; }
@@ -104,7 +110,7 @@ namespace Colosseum.Card
             int existingSlot = GetPendingSlot(player);
             if (existingSlot >= 0)
             {
-                Debug.Log($"[Colosseum] Draw already pending for {player}, skipping duplicate request.");
+                DiagLog.Log($"[Colosseum] Draw already pending for {player}, skipping duplicate request.");
                 return;
             }
 
@@ -124,7 +130,7 @@ namespace Colosseum.Card
             int drawSeed = GetNextOfferSeed(player, slot);
             FillDrawChoices(slot, draftPool, drawSeed);
 
-            Debug.Log($"[Colosseum] Draw started for {player}: " +
+            DiagLog.Log($"[Colosseum] Draw started for {player}: " +
                 $"{GetDrawnCard(player, 0)?.cardName}, {GetDrawnCard(player, 1)?.cardName}, {GetDrawnCard(player, 2)?.cardName} (seed={drawSeed})");
         }
 
@@ -138,6 +144,20 @@ namespace Colosseum.Card
             SelectCard(slot, choiceIndex);
         }
 
+        public bool TrySelectCardForPlayer(PlayerRef player, int choiceIndex)
+        {
+            if (!Object.HasStateAuthority) return false;
+
+            int slot = GetPendingSlot(player);
+            if (slot < 0)
+            {
+                Debug.LogWarning($"[Colosseum] Card select rejected: {player} has no pending draw");
+                return false;
+            }
+
+            return SelectCard(slot, choiceIndex);
+        }
+
         public void CancelDraw()
         {
             if (!Object.HasStateAuthority) return;
@@ -146,7 +166,7 @@ namespace Colosseum.Card
             {
                 if (_pendingPlayers[slot] == default) continue;
 
-                Debug.Log($"[Colosseum] Card draw cancelled for {_pendingPlayers[slot]}");
+                DiagLog.Log($"[Colosseum] Card draw cancelled for {_pendingPlayers[slot]}");
                 ClearPendingSlot(slot);
             }
         }
@@ -156,7 +176,25 @@ namespace Colosseum.Card
             if (!Object.HasStateAuthority) return;
 
             _playerCardStacks.Clear();
-            Debug.Log("[Colosseum] Card stacks reset for rematch.");
+            ClearAppliedCardHistory();
+            DiagLog.Log("[Colosseum] Card stacks reset for rematch.");
+        }
+
+        public int GetAppliedCardCount(PlayerRef player)
+        {
+            int slot = ResolveHudSlot(player);
+            if (slot < 0) return 0;
+            return GetAppliedCardCountBySlot(slot);
+        }
+
+        public CardData GetAppliedCard(PlayerRef player, int index)
+        {
+            int slot = ResolveHudSlot(player);
+            if (slot < 0) return null;
+            if (index < 0 || index >= GetAppliedCardCountBySlot(slot)) return null;
+
+            int cardId = GetAppliedCardIdBySlot(slot, index);
+            return LookupCardById(cardId);
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -166,6 +204,7 @@ namespace Colosseum.Card
             if (slot < 0)
             {
                 Debug.LogWarning($"[Colosseum] Card select rejected: {info.Source} has no pending draw");
+                Rpc_NotifySelectionRejected(info.Source);
                 return;
             }
 
@@ -213,23 +252,24 @@ namespace Colosseum.Card
             return t.IsRunning ? t.RemainingTime(Runner) ?? 0f : 0f;
         }
 
-        private void SelectCard(int slot, int choiceIndex)
+        private bool SelectCard(int slot, int choiceIndex)
         {
-            if (!Object.HasStateAuthority) return;
+            if (!Object.HasStateAuthority) return false;
 
             PlayerRef drawingPlayer = _pendingPlayers[slot];
-            if (drawingPlayer == default) return;
+            if (drawingPlayer == default) return false;
 
             CardData selected = GetDrawnCard(drawingPlayer, choiceIndex);
-            if (selected == null) return;
+            if (selected == null) return false;
             if (!CanPlayerTakeCard(drawingPlayer, selected))
             {
                 Debug.LogWarning($"[Colosseum] Selection rejected for {drawingPlayer}: stack/rarity cap reached for {selected.cardKey}");
                 Rpc_NotifySelectionRejected(drawingPlayer);
-                return;
+                return false;
             }
 
-            ApplyCard(drawingPlayer, selected);
+            int selectedCardStackCount = GetPlayerCardStack(drawingPlayer, selected) + 1;
+            ApplyCard(drawingPlayer, selected, selectedCardStackCount);
             IncrementPlayerCardStack(drawingPlayer, selected);
             Vector2 vfxPosition = TryGetPlayerPosition(drawingPlayer, out Vector2 playerPosition)
                 ? playerPosition
@@ -240,8 +280,9 @@ namespace Colosseum.Card
                 vfxPosition.x,
                 vfxPosition.y,
                 _offerSeedCounter);
-            Debug.Log($"[Colosseum] {drawingPlayer} selected: {selected.cardName}");
+            DiagLog.Log($"[Colosseum] {drawingPlayer} selected: {selected.cardName}");
             ClearPendingSlot(slot);
+            return true;
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
@@ -283,7 +324,7 @@ namespace Colosseum.Card
                 sequenceSalt + CardToastVfxSequenceSaltOffset));
         }
 
-        private void ApplyCard(PlayerRef player, CardData card)
+        private void ApplyCard(PlayerRef player, CardData card, int cardStackCount)
         {
             var allHealth = SceneSearch.FindAllInScene<Player.PlayerHealth>(gameObject.scene);
             foreach (var health in allHealth)
@@ -292,6 +333,7 @@ namespace Colosseum.Card
                 if (netObj == null || netObj.InputAuthority != player) continue;
 
                 var gun = netObj.GetComponentInChildren<Weapon.Gun>();
+                int magazineCapacityBeforeCard = gun != null ? gun.MagazineCapacity : 0;
                 if (gun != null)
                 {
                     gun.FireRateMultiplier *= card.fireRateMultiplier;
@@ -308,17 +350,25 @@ namespace Colosseum.Card
                 var cardEffect = netObj.GetComponent<CardEffect>();
                 if (cardEffect != null)
                 {
-                    cardEffect.ApplyCard(card);
-                    Debug.Log($"[Colosseum] CardEffect AFTER apply - SizeMul:{cardEffect.BulletSizeMultiplier}, SpeedMul:{cardEffect.BulletSpeedMultiplier}, Bounce:{cardEffect.BonusBounce}");
+                    cardEffect.ApplyCard(card, cardStackCount);
+                    if (gun != null)
+                    {
+                        gun.ApplyMagazineCapacityChange(magazineCapacityBeforeCard);
+                    }
+
+                    DiagLog.Log($"[Colosseum] CardEffect AFTER apply - SizeMul:{cardEffect.BulletSizeMultiplier}, SpeedMul:{cardEffect.BulletSpeedMultiplier}, " +
+                        $"Bounce:{cardEffect.BonusBounce}, AmmoBonus:{cardEffect.BonusAmmoCapacity}, Gravity:{cardEffect.GravityModifier}");
                 }
                 else
                 {
                     Debug.LogWarning("[Colosseum] CardEffect NOT FOUND on player!");
                 }
 
-                Debug.Log($"[Colosseum] Card applied: {card.cardName} to {player}");
+                DiagLog.Log($"[Colosseum] Card applied: {card.cardName} to {player}");
                 break;
             }
+
+            RecordAppliedCard(player, card);
 
             // ApplyCard는 서버 권한에서만 실행되므로 OnCardApplied를 직접 invoke하면
             // 클라이언트 구독자(CardInventoryHUD 등)에 도달 못 함. RPC로 모든 클라에 fan-out.
@@ -343,6 +393,96 @@ namespace Colosseum.Card
                 if (c != null && c.cardId == cardId) return c;
             }
             return null;
+        }
+
+        private void RecordAppliedCard(PlayerRef player, CardData card)
+        {
+            if (!Object.HasStateAuthority || card == null) return;
+
+            int slot = ResolveHudSlot(player);
+            if (slot < 0)
+            {
+                Debug.LogWarning($"[Colosseum] CardDeck: cannot record applied card for unresolved player {player}");
+                return;
+            }
+
+            int count = GetAppliedCardCountBySlot(slot);
+            if (count >= MaxAppliedCardsPerPlayer)
+            {
+                Debug.LogWarning($"[Colosseum] CardDeck: applied card history full for slot={slot}, card={card.cardName}");
+                return;
+            }
+
+            SetAppliedCardIdBySlot(slot, count, card.cardId);
+            SetAppliedCardCountBySlot(slot, count + 1);
+        }
+
+        private void ClearAppliedCardHistory()
+        {
+            _appliedCardCount0 = 0;
+            _appliedCardCount1 = 0;
+            for (int i = 0; i < MaxAppliedCardsPerPlayer; i++)
+            {
+                _appliedCardIds0.Set(i, InvalidCardId);
+                _appliedCardIds1.Set(i, InvalidCardId);
+            }
+        }
+
+        private int ResolveHudSlot(PlayerRef player)
+        {
+            if (player == default) return -1;
+
+            var roomManager = SceneSearch.FindInScene<RoomManager>(gameObject.scene);
+            if (roomManager != null)
+            {
+                try
+                {
+                    if (player == roomManager.Player1) return 0;
+                    if (player == roomManager.Player2) return 1;
+                }
+                catch (System.Exception ex) when (ex is System.InvalidOperationException || ex is System.FieldAccessException)
+                {
+                    // Fallback below keeps HUD history available while RoomManager network state is not readable.
+                }
+            }
+
+            if (player.RawEncoded == 1) return 0;
+            if (player.RawEncoded == 2) return 1;
+            return -1;
+        }
+
+        private int GetAppliedCardCountBySlot(int slot)
+        {
+            return slot == 0 ? _appliedCardCount0 : _appliedCardCount1;
+        }
+
+        private void SetAppliedCardCountBySlot(int slot, int count)
+        {
+            if (slot == 0)
+            {
+                _appliedCardCount0 = count;
+            }
+            else
+            {
+                _appliedCardCount1 = count;
+            }
+        }
+
+        private int GetAppliedCardIdBySlot(int slot, int index)
+        {
+            return slot == 0 ? _appliedCardIds0[index] : _appliedCardIds1[index];
+        }
+
+        private void SetAppliedCardIdBySlot(int slot, int index, int cardId)
+        {
+            if (slot == 0)
+            {
+                _appliedCardIds0.Set(index, cardId);
+            }
+            else
+            {
+                _appliedCardIds1.Set(index, cardId);
+            }
         }
 
         private bool TryGetPlayerPosition(PlayerRef player, out Vector2 position)
@@ -659,7 +799,7 @@ namespace Colosseum.Card
             }
 
             int randomChoiceIndex = selectableChoices[Random.Range(0, selectableChoices.Count)];
-            Debug.Log($"[Colosseum] Card draw timeout for {player}! Auto-selecting random choice {randomChoiceIndex}.");
+            DiagLog.Log($"[Colosseum] Card draw timeout for {player}! Auto-selecting random choice {randomChoiceIndex}.");
             SelectCard(slot, randomChoiceIndex);
         }
 

@@ -16,7 +16,7 @@ namespace Colosseum.Status
     ///
     /// 효과별 동작은 abstract hook 3개로 분리:
     ///   - OnApply  : 적용 직후 1회 (modifier 적용, 시각 변경 등)
-    ///   - OnTick   : NextTickTimer 만료마다 (DoT 데미지 발행 등)
+    ///   - OnTick   : NextTickTimer 만료마다 (DoT 데미지 발행 등). 전체 만료와 같은 tick이면 OnTick 후 OnExpire.
     ///   - OnExpire : 전체 Timer 만료 시 1회 (modifier 복원, 시각 원복)
     ///
     /// 모든 hook은 PlayerStatusController.FixedUpdateNetwork 안에서 호출되므로
@@ -68,5 +68,12 @@ namespace Colosseum.Status
         /// modifier 복원·시각 원복 등 cleanup.
         /// </summary>
         public abstract void OnExpire(PlayerStatusController target, ref StatusEffectInstance instance);
+
+        public static float CalculateStackedTickDamage(float baseDamagePerTick, float cardStackMagnitude, int statusStacks)
+        {
+            int cardStacks = Mathf.Clamp(Mathf.RoundToInt(Mathf.Max(1f, cardStackMagnitude)), 1, 3);
+            int runtimeStacks = Mathf.Clamp(Mathf.Max(1, statusStacks), 1, 3);
+            return baseDamagePerTick * (cardStacks + runtimeStacks - 1);
+        }
     }
 }

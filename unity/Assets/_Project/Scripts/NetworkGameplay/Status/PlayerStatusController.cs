@@ -1,6 +1,7 @@
 using UnityEngine;
 using Fusion;
 using Colosseum.Contracts;
+using Colosseum.NetworkGameplay.Diagnostics;
 using Colosseum.NetworkGameplay.VFX;
 
 namespace Colosseum.Status
@@ -15,7 +16,7 @@ namespace Colosseum.Status
     ///   - 외부 hook 노출 (PlayerController가 매 stat 계산 시 호출):
     ///       GetMoveSpeedMultiplier / IsStunned / GetVisualTint
     ///
-    /// enum→SO 매핑 (BulletController.StatusEffect와 SO 사이의 어댑터):
+    /// enum→SO 매핑 (StatusEffect와 SO 사이의 어댑터):
     ///   - Inspector에 4개 SO 슬롯 노출 (Freeze/Burn/Poison/Electric)
     ///   - ApplyByEnum이 enum을 받아 해당 SO를 조회 후 Apply
     ///   - 김범승 후속 PR이 카드 wiring 완료하면 enum→SO 매핑은 단계적으로 폐기 가능
@@ -28,25 +29,28 @@ namespace Colosseum.Status
         private const int StatusRefreshVfxSequenceSalt = 62;
 
         [Header("Status Effect 매핑 (enum → SO)")]
-        [Tooltip("BulletController.StatusEffect.Freeze 적용 시 사용할 SO. 미할당 시 효과 발동 안 함.")]
+        [Tooltip("StatusEffect.Freeze 적용 시 사용할 SO. 미할당 시 효과 발동 안 함.")]
         [SerializeField] private StatusEffectDefinition _freeze;
 
-        [Tooltip("BulletController.StatusEffect.Burn 적용 시 사용할 SO.")]
+        [Tooltip("StatusEffect.Burn 적용 시 사용할 SO.")]
         [SerializeField] private StatusEffectDefinition _burn;
 
-        [Tooltip("BulletController.StatusEffect.Poison 적용 시 사용할 SO.")]
+        [Tooltip("StatusEffect.Poison 적용 시 사용할 SO.")]
         [SerializeField] private StatusEffectDefinition _poison;
 
-        [Tooltip("BulletController.StatusEffect.Electric 적용 시 사용할 SO.")]
+        [Tooltip("StatusEffect.Electric 적용 시 사용할 SO.")]
         [SerializeField] private StatusEffectDefinition _electric;
 
         [Networked, Capacity(Capacity)]
         private NetworkArray<StatusEffectInstance> _active { get; }
 
+        [Networked] private TickTimer _stackTriggeredStunTimer { get; set; }
+
         // 주기 modifier 누적 캐시. 매 tick 갱신.
         private float _cachedMoveSpeedMul = 1f;
         private bool _cachedStunned = false;
         private Color _cachedVisualTint = Color.white;
+        private int _statusVfxEventOrdinal;
 
         // ──────────────────────────────────────────────
         //  외부 진입점 (Apply / Remove)
@@ -56,33 +60,39 @@ namespace Colosseum.Status
         /// 직접 SO를 받아 효과를 적용. 카드 wiring 완료 후의 정공법.
         /// State Authority에서만 호출 (Fusion 권위 결정).
         /// </summary>
-        public void Apply(StatusEffectDefinition def, PlayerRef source, float magnitude = 1f)
+        public void Apply(StatusEffectDefinition def, PlayerRef source, float magnitude = 1f, float durationOverride = 0f)
         {
             if (!Object.HasStateAuthority) return;
             if (def == null) return;
             if (string.IsNullOrEmpty(def.effectKey)) return;
+
+            float duration = ResolveDuration(def, durationOverride);
 
             // 같은 키 이미 활성: 정책 적용
             int existingIdx = FindByKey(def.effectKey);
             if (existingIdx >= 0)
             {
                 var existing = _active[existingIdx];
+                float resolvedMagnitude = Mathf.Max(1f, magnitude);
+                existing = RefreshExistingStatusInstance(existing, def.isStackable, def.maxStack, source, resolvedMagnitude);
+                float vfxStackHint = existing.Stacks;
                 if (def.isStackable)
                 {
-                    // 스택형: Stacks +1 (maxStack 클램프) + Timer 갱신
-                    existing.Stacks = Mathf.Min(existing.Stacks + 1, def.maxStack);
-                    existing.Timer = TickTimer.CreateFromSeconds(Runner, def.baseDuration);
+                    // 스택형: 같은 상태 재적중 기준으로 Stacks 증가 + Timer 갱신.
+                    // Electric 같은 trigger형 stun은 임계 도달 순간 stack을 소비하고 별도 stun 타이머로 경직을 유지한다.
+                    StartStackTriggeredStunIfNeeded(def, ref existing, duration);
+                    existing.Timer = TickTimer.CreateFromSeconds(Runner, duration);
                     _active.Set(existingIdx, existing);
-                    Rpc_PublishStatusAppliedVfx(def.effectKey, source, transform.position.x, transform.position.y, def.baseDuration, Mathf.Max(magnitude, existing.Stacks), StatusAppliedVfxSequenceSalt + existing.Stacks);
+                    Rpc_PublishStatusAppliedVfx(def.effectKey, source, transform.position.x, transform.position.y, duration, vfxStackHint, NextStatusVfxSequenceSalt(StatusAppliedVfxSequenceSalt));
                 }
                 else
                 {
-                    // 비스택형: Timer만 갱신 (refresh)
-                    existing.Timer = TickTimer.CreateFromSeconds(Runner, def.baseDuration);
+                    // 비스택형: Timer 갱신 + 더 큰 magnitude 보존
+                    existing.Timer = TickTimer.CreateFromSeconds(Runner, duration);
                     _active.Set(existingIdx, existing);
-                    Rpc_PublishStatusAppliedVfx(def.effectKey, source, transform.position.x, transform.position.y, def.baseDuration, magnitude, StatusRefreshVfxSequenceSalt);
+                    Rpc_PublishStatusAppliedVfx(def.effectKey, source, transform.position.x, transform.position.y, duration, vfxStackHint, NextStatusVfxSequenceSalt(StatusRefreshVfxSequenceSalt));
                 }
-                Debug.Log($"[Colosseum] StatusEffect refresh: {def.effectKey} (stacks={existing.Stacks})");
+                DiagLog.Log($"[Colosseum] StatusEffect refresh: {def.effectKey} (stacks={existing.Stacks})");
                 return;
             }
 
@@ -94,46 +104,128 @@ namespace Colosseum.Status
                 return;
             }
 
+            float initialMagnitude = Mathf.Max(1f, magnitude);
             var instance = new StatusEffectInstance
             {
                 EffectKey = def.effectKey,
-                Timer = TickTimer.CreateFromSeconds(Runner, def.baseDuration),
+                Timer = TickTimer.CreateFromSeconds(Runner, duration),
                 NextTickTimer = def.tickInterval > 0f
                     ? TickTimer.CreateFromSeconds(Runner, def.tickInterval)
                     : TickTimer.None,
                 Stacks = 1,
                 Source = source,
-                Magnitude = magnitude
+                Magnitude = initialMagnitude
             };
             _active.Set(slot, instance);
 
             def.OnApply(this, ref instance);
+            float initialVfxStackHint = instance.Stacks;
+            StartStackTriggeredStunIfNeeded(def, ref instance, duration);
             _active.Set(slot, instance); // OnApply가 instance를 mutate했을 수 있음
 
-            Debug.Log($"[Colosseum] StatusEffect applied: {def.effectKey} from {source} (duration={def.baseDuration}s)");
-            Rpc_PublishStatusAppliedVfx(def.effectKey, source, transform.position.x, transform.position.y, def.baseDuration, magnitude, StatusAppliedVfxSequenceSalt);
+            DiagLog.Log($"[Colosseum] StatusEffect applied: {def.effectKey} from {source} (duration={duration}s)");
+            Rpc_PublishStatusAppliedVfx(def.effectKey, source, transform.position.x, transform.position.y, duration, initialVfxStackHint, NextStatusVfxSequenceSalt(StatusAppliedVfxSequenceSalt));
         }
 
         /// <summary>
         /// enum 기반 진입점 (BulletController / PlayerHealth가 호출).
         /// Inspector에 매핑된 SO를 조회한 뒤 Apply로 위임.
         /// </summary>
-        public void ApplyByEnum(Weapon.BulletController.StatusEffect status, PlayerRef source, float magnitude = 1f)
+        public void ApplyByEnum(Weapon.StatusEffect status, PlayerRef source, float magnitude = 1f, float durationOverride = 0f)
         {
             if (!Object.HasStateAuthority) return;
             var def = GetDefinitionByEnum(status);
             if (def == null) return;
-            Apply(def, source, magnitude);
+            Apply(def, source, magnitude, durationOverride);
         }
 
-        private StatusEffectDefinition GetDefinitionByEnum(Weapon.BulletController.StatusEffect status)
+        public static float ResolveDuration(StatusEffectDefinition def, float durationOverride)
+        {
+            if (durationOverride > 0f)
+            {
+                return durationOverride;
+            }
+
+            return def != null ? Mathf.Max(0f, def.baseDuration) : 0f;
+        }
+
+        public static int CalculatePeriodicTickCount(float duration, float tickInterval)
+        {
+            if (duration <= 0f || tickInterval <= 0f)
+            {
+                return 0;
+            }
+
+            return Mathf.FloorToInt((duration / tickInterval) + 0.0001f);
+        }
+
+        public static int CalculateStatusStackDelta(float magnitude)
+        {
+            return 1;
+        }
+
+        private static StatusEffectInstance RefreshExistingStatusInstance(
+            StatusEffectInstance existing,
+            bool isStackable,
+            int maxStack,
+            PlayerRef source,
+            float resolvedMagnitude)
+        {
+            existing.Source = source;
+            if (isStackable)
+            {
+                existing.Stacks = Mathf.Min(
+                    existing.Stacks + CalculateStatusStackDelta(resolvedMagnitude),
+                    maxStack);
+            }
+
+            existing.Magnitude = Mathf.Max(existing.Magnitude, resolvedMagnitude);
+            return existing;
+        }
+
+        public static bool ShouldTriggerStackStun(StatusEffectDefinition def, StatusEffectInstance instance)
+        {
+            return def is IStunEffect stunner && stunner.IsStunningNow(instance);
+        }
+
+        public static StatusEffectInstance ConsumeStacksAfterTriggeredStun(
+            StatusEffectDefinition def,
+            StatusEffectInstance instance)
+        {
+            if (ShouldTriggerStackStun(def, instance))
+            {
+                instance.Stacks = 0;
+            }
+
+            return instance;
+        }
+
+        public static string GetPresentationEffectKey(string runtimeEffectKey)
+        {
+            switch (runtimeEffectKey)
+            {
+                case "freeze":
+                case "frost":
+                    return "hit_apply_frost";
+                case "burn":
+                    return "hit_apply_burn";
+                case "poison":
+                    return "hit_apply_poison";
+                case "electric":
+                    return "hit_apply_electric_stack";
+                default:
+                    return runtimeEffectKey;
+            }
+        }
+
+        private StatusEffectDefinition GetDefinitionByEnum(Weapon.StatusEffect status)
         {
             switch (status)
             {
-                case Weapon.BulletController.StatusEffect.Freeze:   return _freeze;
-                case Weapon.BulletController.StatusEffect.Burn:     return _burn;
-                case Weapon.BulletController.StatusEffect.Poison:   return _poison;
-                case Weapon.BulletController.StatusEffect.Electric: return _electric;
+                case Weapon.StatusEffect.Freeze:   return _freeze;
+                case Weapon.StatusEffect.Burn:     return _burn;
+                case Weapon.StatusEffect.Poison:   return _poison;
+                case Weapon.StatusEffect.Electric: return _electric;
                 default: return null;
             }
         }
@@ -146,7 +238,7 @@ namespace Colosseum.Status
         {
             // modifier 누적 재계산 (매 tick 1회)
             float moveMul = 1f;
-            bool stunned = false;
+            bool stunned = IsStackTriggeredStunActive();
             Color tint = Color.white;
 
             for (int i = 0; i < _active.Length; i++)
@@ -165,18 +257,18 @@ namespace Colosseum.Status
                 // State Authority만 만료/tick 처리 (결정론)
                 if (Object.HasStateAuthority)
                 {
-                    if (inst.Timer.Expired(Runner))
-                    {
-                        def.OnExpire(this, ref inst);
-                        _active.Set(i, default);
-                        continue;
-                    }
-
                     if (def.tickInterval > 0f && inst.NextTickTimer.Expired(Runner))
                     {
                         def.OnTick(this, ref inst);
                         inst.NextTickTimer = TickTimer.CreateFromSeconds(Runner, def.tickInterval);
                         _active.Set(i, inst);
+                    }
+
+                    if (inst.Timer.Expired(Runner))
+                    {
+                        def.OnExpire(this, ref inst);
+                        _active.Set(i, default);
+                        continue;
                     }
                 }
 
@@ -207,7 +299,7 @@ namespace Colosseum.Status
         // ──────────────────────────────────────────────
 
         public float GetMoveSpeedMultiplier() => _cachedMoveSpeedMul;
-        public bool IsStunned() => _cachedStunned;
+        public bool IsStunned() => _cachedStunned || IsStackTriggeredStunActive();
         public Color GetVisualTint() => _cachedVisualTint;
 
         // ──────────────────────────────────────────────
@@ -242,18 +334,47 @@ namespace Colosseum.Status
             return null;
         }
 
+        private void StartStackTriggeredStunIfNeeded(
+            StatusEffectDefinition def,
+            ref StatusEffectInstance instance,
+            float duration)
+        {
+            if (!ShouldTriggerStackStun(def, instance))
+            {
+                return;
+            }
+
+            _stackTriggeredStunTimer = TickTimer.CreateFromSeconds(Runner, duration);
+            instance = ConsumeStacksAfterTriggeredStun(def, instance);
+        }
+
+        private bool IsStackTriggeredStunActive()
+        {
+            return Runner != null && !_stackTriggeredStunTimer.ExpiredOrNotRunning(Runner);
+        }
+
         private static Color MultiplyColor(Color a, Color b)
         {
             return new Color(a.r * b.r, a.g * b.g, a.b * b.b, a.a * b.a);
         }
 
-        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        private void Rpc_PublishStatusAppliedVfx(string effectKey, PlayerRef source, float x, float y, float duration, float magnitude, int sequenceSalt)
+        private int NextStatusVfxSequenceSalt(int baseSalt)
         {
+            unchecked
+            {
+                _statusVfxEventOrdinal++;
+                return baseSalt + (_statusVfxEventOrdinal * 1000);
+            }
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        private void Rpc_PublishStatusAppliedVfx(string effectKey, PlayerRef source, float x, float y, float duration, float stackHint, int sequenceSalt)
+        {
+            string presentationEffectKey = GetPresentationEffectKey(effectKey);
             VfxEventBus.Publish(VfxPayloadFactory.Create(
                 VfxEventType.StatusApplied,
-                effectKey,
-                effectKey,
+                presentationEffectKey,
+                presentationEffectKey,
                 Runner,
                 Object,
                 source,
@@ -262,7 +383,7 @@ namespace Colosseum.Status
                 Vector2.up,
                 1f,
                 duration,
-                magnitude,
+                stackHint,
                 VfxAttachPoint.CharacterBody,
                 sequenceSalt));
         }

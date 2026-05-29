@@ -55,17 +55,7 @@ namespace Colosseum.DevMode
                 isValid = false;
             }
 
-            // ── bulletPrefab 검증 ──
-            if (!pack.bulletPrefab.IsValid)
-            {
-                Debug.LogError(
-                    $"[Colosseum] PrefabTable Validator: {assetName}.bulletPrefab" +
-                    $" - NetworkPrefabRef가 유효하지 않습니다." +
-                    $" Fusion PrefabTable에 프리팹이 등록되어 있는지 확인하세요." +
-                    $" ({GuidePath})",
-                    pack);
-                isValid = false;
-            }
+            // [A303-171] bulletPrefab 검증은 Visual-only projectile 전환 이후 폐기.
 
             return isValid;
         }

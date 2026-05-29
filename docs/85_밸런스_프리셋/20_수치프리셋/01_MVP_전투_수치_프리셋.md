@@ -43,14 +43,14 @@ audience: ai-first
 | 필드 | 타입 | 단위 | 초기 후보 | 상태 | 의도 |
 |---|---|---|---:|---|---|
 | `baseline.maxHealth` | float | hp | 100 | value_candidate | 피해 비율과 상태이상 총 피해를 읽기 쉽게 한다. |
-| `baseline.directHitDamage` | float | hp | 12 | value_candidate | 기본탄 직접 명중 9회 처치 기준. |
-| `baseline.projectileSpeed` | float | world unit/sec | 10.0 | value_candidate | 플레이 화면 확정 전 계산하기 쉬운 기준값. |
+| `baseline.directHitDamage` | float | hp | 20 | value_candidate | 기본 교전이 늘어진다는 피드백 반영. |
+| `baseline.projectileSpeed` | float | world unit/sec | 32.2 | value_candidate | 플레이테스트에서 탄속 압박감을 보강한 현재 후보값. |
 | `baseline.projectileGravityScale` | float | multiplier | 1.0 | value_candidate | 기본 탄환은 중력 영향을 받는 곡사탄으로 둔다. |
 | `baseline.projectileLifetimeSeconds` | float | seconds | 3.0 | value_candidate | 발사 후 남아 있을 수 있는 기본 탄환 수명. |
-| `baseline.projectileBaseScale` | float | multiplier | 1.0 | value_candidate | 카드 크기 배율을 적용하기 전 탄환 기준 크기. |
-| `baseline.fireInterval` | float | seconds | 0.75 | value_candidate | 기본 사격 리듬. |
-| `baseline.reloadTime` | float | seconds | 1.40 | value_candidate | 장전 리듬 카드의 체감을 만들 수 있는 기준값. |
-| `baseline.ammoCapacity` | int | shots | 6 | value_candidate | 초기 상태 기본 무기는 한 탄창만으로 풀피 대상을 처치하지 못하게 한다. |
+| `baseline.projectileBaseScale` | float | multiplier | 2.0 | value_candidate | 카드 크기 배율을 적용하기 전 탄환 기준 크기. |
+| `baseline.fireInterval` | float | seconds | 0.5 | value_candidate | 기본 사격 리듬. |
+| `baseline.reloadTime` | float | seconds | 1.5 | value_candidate | 장전 리듬 카드의 체감을 만들 수 있는 기준값. |
+| `baseline.ammoCapacity` | int | shots | 6 | value_candidate | 기본 피해 상향 후 한 탄창 전탄 명중 시 풀피 대상을 처치할 수 있다. |
 | `baseline.directHitKnockbackImpulse` | float | physics impulse | TBD | field_candidate | 명중 순간 충격량. 이동 물리와 경계 돌파 판정 단위가 나온 뒤 정한다. |
 | `baseline.respawnInvulnerableSeconds` | float | seconds | 1.0 | value_candidate | 리스폰 직후 억울한 피격 방지. |
 | `baseline.moveSpeed` | float | world unit/sec | 7.0 | value_candidate | 플레이어 좌우 이동 속도(지상·공중 동일). 카드 `moveSpeedMultiplier` 적용 전 값. |
@@ -66,21 +66,32 @@ audience: ai-first
 
 `maxHealth: 100`은 독, 화상, 폭발 피해를 검토하기 위한 기준점이다. 실제 UI에서 체력 숫자를 그대로 노출한다는 뜻은 아니다.
 
-`directHitDamage: 12`이면 기본탄만으로는 9회 직접 명중이 필요하다.
+`directHitDamage: 20`이면 기본탄만으로는 5회 직접 명중이 필요하다.
 
-`ammoCapacity: 6` 기준 한 탄창 전탄 명중 피해는 72다. 따라서 초기 상태 카드 0장 기본 무기는 한 탄창만으로 풀피 대상을 처치하지 못한다.
+`ammoCapacity: 6` 기준 한 탄창 전탄 명중 피해는 120이다. 플레이테스트 피드백상 기본 피해가 낮아 교전이 늘어지는 문제가 있어, 현재 후보는 한 탄창을 모두 맞히면 풀피 대상을 처치할 수 있게 둔다.
 
-이 기준은 공식 밸런스 철학의 "초기 상태 기본 무기는 한 탄창만으로 풀피 대상을 확정 처치하지 못해야 한다"는 기준과 맞춘다. 카드 누적 성장 이후 TTK 단축은 허용된다.
+이는 배포 직전 플레이테스트 후보값이며, 장전/조준/이동 실패가 섞이는 실제 TTK를 기준으로 재평가한다. 카드 누적 성장 이후 TTK 단축은 허용된다.
 
-`projectileSpeed: 10.0`은 플레이 화면, 맵 크기, 카메라 스케일이 확정되기 전 계산 편의를 위한 기준값이다.
+`projectileSpeed: 32.2`는 기본탄 회피 가능성을 남기면서도 교전 지연을 줄이기 위한 현재 플레이테스트 후보값이다.
 
-`projectileGravityScale: 1.0`은 기본 탄환이 중력 영향을 받는다는 뜻이다. 안티-그래비티 같은 카드는 이 값을 0으로 바꾸는 방식으로 해석할 수 있다.
+`projectileGravityScale`은 기본 탄환이 중력 영향을 받는다는 뜻이다. 현재 런타임에서는 `CardEffect.GravityModifier`를 baseline에 더한 뒤 0 이상으로 clamp한다. 안티-그래비티처럼 직선탄을 만드는 카드는 현재 MVP profile의 baseline을 상쇄하는 음수 modifier를 사용하며, `Anti Gravity.asset`은 직선탄 체감 강화를 위해 `speedMultiplier: 1.3`을 함께 사용한다.
+
+상태이상 DoT는 첫 적용 즉시 피해를 주지 않고 `tickInterval` 경과 후부터 피해를 준다. 만료와 같은 simulation tick에 마지막 interval이 도달하면 피해를 먼저 처리한 뒤 만료한다. 현재 MVP16 SO 기준 Burn은 3초 동안 0.5초마다 6회 tick, Poison은 3초 동안 1초마다 3회 tick이다. tick 피해는 상태탄 카드 장수와 피격 대상의 상태이상 runtime stack을 함께 본다.
+
+| 상태 | 카드 장수 | 1스택 tick 피해 | 2스택 tick 피해 | 3스택 tick 피해 |
+|---|---:|---:|---:|---:|
+| 화염탄 | 1장 | 3 | 6 | 9 |
+| 화염탄 | 2장 | 6 | 9 | 12 |
+| 화염탄 | 3장 | 9 | 12 | 15 |
+| 중독탄 | 1장 | 6 | 12 | 18 |
+| 중독탄 | 2장 | 12 | 18 | 24 |
+| 중독탄 | 3장 | 18 | 24 | 30 |
 
 `projectileLifetimeSeconds: 3.0`은 발사된 기본 탄환이 충돌 없이 남아 있을 수 있는 최대 시간이다. 반사, 관통, 지연 폭발처럼 수명을 바꾸는 카드가 붙기 전 기준값이며, 네트워크 오브젝트와 물리 이벤트가 무한히 남지 않게 하는 안전 기준이기도 하다.
 
-`projectileBaseScale: 1.0`은 카드의 `sizeMultiplier`나 후속 크기 보정이 적용되기 전 탄환 프리팹 기준 크기다. 이 값은 표현 리소스의 원본 크기를 바꾸는 값이 아니라, 전투 판정에 쓰이는 탄환 크기 계산의 기준 배율이다.
+`projectileBaseScale: 2.0`은 카드의 `sizeMultiplier`나 후속 크기 보정이 적용되기 전 탄환 프리팹 기준 크기다. 이 값은 표현 리소스의 원본 크기를 바꾸는 값이 아니라, 전투 판정에 쓰이는 탄환 크기 계산의 기준 배율이다. 대형탄은 `sizeMultiplier: 2.0`을 카드 1장당 `+1.0` 선형 step으로 해석하므로 1장 2배, 2장 3배, 3장 4배가 된다. 중량탄은 `sizeMultiplier: 1.3`을 카드 1장당 `+0.3` 선형 step으로 해석하므로 1장 1.3배, 2장 1.6배, 3장 1.9배가 된다. 코드에는 별도 hard cap을 두지 않고 카드 제안/획득 정책의 maxStack을 따른다.
 
-`fireInterval: 0.75`는 기본탄 기준 이론상 6발 전탄 명중까지 최소 3.75초가 걸리는 리듬이다. 처치에는 최소 9발이 필요하므로 한 번의 장전이 끼고, 실제 TTK는 조준, 이동, 장전, 넉백 때문에 더 길어진다.
+`fireInterval: 0.5`는 기본탄 기준 이론상 6발 전탄 명중까지 최소 2.5초가 걸리는 리듬이다. `directHitDamage: 20` 기준 풀피 처치에는 5발 직접 명중이 필요하므로 한 탄창 안에서 처치가 가능하다. 실제 TTK는 조준, 이동, 장전, 넉백 때문에 더 길어진다.
 
 `directHitKnockbackImpulse`는 숫자를 지금 확정하지 않는다. 경계 돌파 판정과 캐릭터 이동 물리가 먼저 나와야 의미 있는 단위로 정할 수 있다.
 
@@ -141,6 +152,8 @@ audience: ai-first
 
 `explosionRadiusMax: 30.00`은 밸런스 제한이 아니라 시스템 폭주 방지용 하드가드다. 폭발 크기 조합의 재미는 전역 cap으로 과하게 제한하지 않는다.
 
+현 MVP 카드 데이터에서 폭발탄은 주 폭발 카드로 `explosionRadius: 1.1333334`를 사용한다. 이는 시각 검수에서 실제 피격 범위가 폭발 VFX보다 작게 느껴진 문제를 보정하기 위해 기존 `0.6666667` 대비 1.7배로 키운 gameplay 반경이다. 폭발탄은 스택마다 반경과 splash damage ratio가 누적된다. 중량탄은 단독으로 폭발을 만들지 않으며 `explosionRadius: 0`, `explosionRadiusMultiplier: 1.4`로 폭발탄 보유 시에만 기존 폭발 반경을 곱연산으로 키운다. presentation runtime key는 `projectile_heavy`를 유지해 무거운 탄환 cue와 폭발 cue가 섞이지 않게 한다. 폭발 VFX는 기존 시각 크기를 유지하기 위해 gameplay `ExplosionRadius`에 `ExplosionVfxRadiusScale=0.5882353`을 곱한 radius hint를 사용한다.
+
 `hitKnockbackImpulseMax: 4.00`은 `baseline.directHitKnockbackImpulse` 기준 배율이다. 기준 충격량 자체가 아직 TBD이므로 반드시 플레이테스트가 필요하다.
 
 ## 전역 조합 규칙 후보
@@ -154,7 +167,7 @@ audience: ai-first
 | `combinationRules.statusApplicationFromMultiProjectilePolicy` | enum | `ApplyPerProjectileHit` | value_candidate | 벅샷 다중 상태 적용 허용 |
 | `combinationRules.statusApplicationFromExplosionPolicy` | enum | `ApplyOncePerProjectilePerTarget` | value_candidate | 폭발 범위에도 상태이상 적용, 같은 탄환-같은 대상은 1회 |
 | `combinationRules.knockbackAggregationMode` | enum | `VectorSumWithMagnitudeCap` | value_candidate | 넉백 방향 벡터를 합산하고 최종 크기는 전역 상한으로 제한 |
-| `combinationRules.damageAggregationMode` | enum | `SeparateChannelsAdditive` | value_candidate | 직격, 폭발, 틱 피해는 별도 채널로 계산하고 합산 |
+| `combinationRules.damageAggregationMode` | enum | `SeparateChannelsAdditive` | value_candidate | 서로 다른 직격, 폭발, 틱 피해는 별도 채널로 계산하고 합산하되, 같은 impact의 직격 대상에게 splash 피해를 중복 적용하지 않음 |
 | `combinationRules.collisionPriorityPolicy` | enum | `TargetExplodeWallReflectFirst` | value_candidate | 대상 명중은 폭발, 반사가 남은 벽 충돌은 반사 우선 |
 
 ## 전역 조합 규칙 해석
@@ -163,19 +176,19 @@ audience: ai-first
 
 폭발 범위 안의 대상에게도 상태이상을 적용한다.
 
-같은 탄환이 같은 대상에게 직격과 폭발을 모두 일으켜도 상태이상은 1회만 적용한다.
+같은 탄환이 같은 대상에게 직격과 폭발을 모두 일으켜도 상태이상은 1회만 적용한다. 같은 impact의 직격 대상에게는 splash 피해도 중복 적용하지 않는다.
 
-같은 탄환이 같은 대상을 맞춘 뒤 벽/바닥 충돌로 재타격 권한이 리셋되고 다시 명중하면 상태이상도 다시 적용한다.
+같은 탄환은 같은 캐릭터 대상에게 직격 상태이상을 중복 적용하지 않는다.
 
-반사탄과 관통탄은 재타격 재미를 남긴다. 같은 탄환이 같은 대상을 다시 때리려면 벽/바닥 같은 월드 충돌로 재타격 권한이 리셋되어야 한다.
+반사탄과 관통탄은 공간 활용 재미를 남긴다. 반사탄은 벽/바닥 반사 후 새 경로에서 다시 피격 판정을 만든다. 관통탄은 벽/지형 충돌을 관통하고, 캐릭터 직격은 관통하지 않고 직격 피해/상태이상/폭발 후 소멸로 해결한다.
 
 다중 탄환, 직격, 폭발 넉백이 겹치면 방향 벡터를 합산하고 최종 크기는 `resolvedCaps.hitKnockbackImpulseMax`로 제한한다.
 
-직격 피해, 폭발 피해, 상태이상 틱 피해는 별도 피해 채널로 계산한 뒤 합산한다.
+직격 피해, 폭발 피해, 상태이상 틱 피해는 별도 피해 채널로 계산한 뒤 합산한다. 단, 폭발 splash는 범위 안의 원 발사자에게도 적용하지만, 같은 impact에서 이미 직격 피해를 받은 대상에게는 추가 splash 피해를 주지 않는다.
 
 피해 합산과 상태이상 적용 횟수는 별도 규칙이다. 상태이상 적용 횟수는 `statusApplicationFromMultiProjectilePolicy`, `statusApplicationFromExplosionPolicy`, `sameProjectileSameTargetHitPolicy`를 따른다.
 
-관통탄과 폭발탄이 함께 있으면 대상 명중마다 폭발이 발생하고, 관통 횟수가 남아 있으면 탄환은 계속 진행한다.
+관통탄과 폭발탄이 함께 있으면 벽/지형 관통 횟수가 남은 충돌에서는 탄환이 계속 진행한다. 캐릭터 대상 명중이나 관통 횟수를 모두 소모한 벽/지형 충돌에서는 폭발이 발생할 수 있다.
 
 반사 횟수가 남아 있는 벽 충돌에서는 반사가 폭발보다 우선한다. 반사 횟수를 모두 소모한 뒤 벽에 충돌하면 폭발이 발생할 수 있다.
 
@@ -190,7 +203,7 @@ audience: ai-first
 - `GameplayProfile.combat.baseline`에 들어갈 필드명과 1차 후보값
 - `GameplayProfile.combat.resolvedCaps`에 들어갈 필드명과 1차 후보값
 - `GameplayProfile.combat.combinationRules`에 들어갈 필드명과 1차 후보 정책
-- 카드 0장 기본 무기는 한 탄창만으로 풀피 대상을 처치하지 못한다는 기준
+- 기본 피해 상향 후 한 탄창 전탄 명중 시 풀피 대상을 처치할 수 있다는 기준
 - 기본 탄환은 중력 영향을 받는 곡사탄이라는 기준
 - 기본 탄환 수명과 크기 배율은 카드 효과 적용 전 기준값으로 둔다는 기준
 - 같은 탄환이 같은 대상을 다시 타격하려면 월드 충돌 이후 재타격 가능 상태가 되어야 한다는 기준
@@ -224,17 +237,18 @@ audience: ai-first
 
 | 필드 | 타입 | 단위 | 기준값 | 상태 | 의도 |
 |---|---|---|---:|---|---|
-| `baseline.fireInterval` | float | seconds | 1.0 | value_candidate | 현재 GameplayProfile baseline 값 반영 |
-| `baseline.ammoCapacity` | int | shots | 3 | value_candidate | 기존 탄창 수 유지 |
+| `baseline.fireInterval` | float | seconds | 0.5 | value_candidate | 발사 간 딜레이를 기존 1.0초 대비 절반으로 축소 |
+| `baseline.ammoCapacity` | int | shots | 6 | value_candidate | 기본 탄환 수를 3발에서 6발로 확대 |
 | `baseline.reloadTime` | float | seconds | 1.5 | value_candidate | 기존 장전 리듬 유지 |
-| `baseline.directHitDamage` | float | hp | 10 | value_candidate | 기존 직격 피해 유지 |
-| `baseline.projectileSpeed` | float | world unit/sec | 23 | value_candidate | A303-305 총알 무게감 1차 튜닝 — 추진력 강화 |
+| `baseline.directHitDamage` | float | hp | 20 | value_candidate | 기본 교전이 늘어진다는 피드백 반영 |
+| `baseline.projectileSpeed` | float | world unit/sec | 32.2 | value_candidate | 기존 23 대비 40% 증속 |
 | `baseline.projectileGravityScale` | float | multiplier | 2.7 | value_candidate | A303-305 총알 무게감 1차 튜닝 — 가파른 포물선 |
 | `baseline.projectileLifetimeSeconds` | float | seconds | 5.0 | value_candidate | 기존 프리팹 수명 유지 |
-| `baseline.projectileBaseScale` | float | multiplier | 1.0 | value_candidate | 기존 기준 스케일 유지 |
+| `baseline.projectileBaseScale` | float | multiplier | 2.0 | value_candidate | 현재 GameplayProfile 기준 스케일 유지 |
 | `baseline.directHitKnockbackImpulse` | float | physics impulse | 0.0 | value_candidate | baseline 적용 후에도 기존 무카드 넉백 체감 동결 |
 
 메모:
 - 본 스냅샷 값은 `unity/Assets/_Project/Data/GameplayProfile.asset`의 `combat.baseline`을 기준으로 한다.
+- 2026-05-18 기준 현재 튜닝: 장전 시간은 1.5초로 유지하고, 기본 탄환 수 6발, 발사 간격 0.5초, 기본 탄속 32.2로 조정한다.
 - A303-245에서 사격·탄환 legacy flat 6필드가 제거되어, Inspector `combat.baseline` 값이 즉시 런타임 기준값이 된다.
 - 프리셋 후보값과 차이가 있는 항목은 `A303-245-ballistics-mapping.md`에 충돌로 기록한다.

@@ -16,17 +16,21 @@ MonoBehaviour:
     RawGuidValue: fcc8bfbf139b3df4ab377219ca038a82
   cardDataList:
   - {fileID: 11400000, guid: 482df03776743c9418f05cba1c9397b8, type: 2}
-  - {fileID: 11400000, guid: f8a51dd52d26178468cd23716c61da68, type: 2}
-  - {fileID: 11400000, guid: 1716d30337d6fbb4085f71840b994fed, type: 2}
-  - {fileID: 11400000, guid: 3ea3157c699afa649b21203fae01e342, type: 2}
-  - {fileID: 11400000, guid: 89655c98458bab7458ea4c2ee6563a8a, type: 2}
-  - {fileID: 11400000, guid: 26f27039649fbac45a2c03ee99796cf9, type: 2}
-  - {fileID: 11400000, guid: 2f11d9cd80177fd4aa7ba165acea33e0, type: 2}
-  - {fileID: 11400000, guid: 79f0fb3e567139344bbc6e249de4121d, type: 2}
-  - {fileID: 11400000, guid: 9c258dfb75c1f3743b636bbcccd0ccb3, type: 2}
   - {fileID: 11400000, guid: 0128f14a9480d1844a090f7002504201, type: 2}
-  bulletPrefab:
-    RawGuidValue: 1075d2600ef914f4a93fc37322960869
+  - {fileID: 11400000, guid: 9c258dfb75c1f3743b636bbcccd0ccb3, type: 2}
+  - {fileID: 11400000, guid: 79f0fb3e567139344bbc6e249de4121d, type: 2}
+  - {fileID: 11400000, guid: a3f1d930cb5b42e38be6582f381c8e01, type: 2}
+  - {fileID: 11400000, guid: b4fd37a2f9de4f618a2434ef9b675f12, type: 2}
+  - {fileID: 11400000, guid: c5e8a91d4d4a4c57b8929d1ebcbf4303, type: 2}
+  - {fileID: 11400000, guid: d6a7bc2156b24dfdad63319be7235414, type: 2}
+  - {fileID: 11400000, guid: e7b2943cf5f84d6f8eea2cc9d8c66525, type: 2}
+  - {fileID: 11400000, guid: f812a5de671e4f8e9c1dbceab7f47636, type: 2}
+  - {fileID: 11400000, guid: 26f27039649fbac45a2c03ee99796cf9, type: 2}
+  - {fileID: 11400000, guid: 1716d30337d6fbb4085f71840b994fed, type: 2}
+  - {fileID: 11400000, guid: f8a51dd52d26178468cd23716c61da68, type: 2}
+  - {fileID: 11400000, guid: 2f11d9cd80177fd4aa7ba165acea33e0, type: 2}
+  - {fileID: 11400000, guid: 3ea3157c699afa649b21203fae01e342, type: 2}
+  - {fileID: 11400000, guid: 0a93b6ef782f4a1cab2ecdfbc9068747, type: 2}
   uiSprites: []
   materials: []
   audioClips: []

@@ -15,13 +15,16 @@ namespace Colosseum.UI
     /// 4개 패널: MainPanel, CreateRoomPanel, FindRoomPanel, LobbyPanel
     ///
     /// Dedicated Server 구조:
-    ///   1) Create Room / Find Room 클릭 → 로비 접속 (ConnectToLobby)
-    ///   2) 방 생성 → ReliableData로 서버에 요청 → ROOM_CREATED 수신 → 방 세션에 접속
-    ///   3) 방 찾기 → ReliableData로 서버에 요청 → ROOM_LIST 수신 → 목록 표시
-    ///   4) 방 입장 → 방 세션에 Client 접속 → Ready → 카운트다운 → 게임 시작
+    ///   1) 닉네임 확인 시 로비 선접속 (ConnectToLobby)
+    ///   2) Create Room / Find Room 은 기존 로비 연결 재사용, 미접속 시 fallback 재접속
+    ///   3) 방 생성 → ReliableData로 서버에 요청 → ROOM_CREATED 수신 → 방 세션에 접속
+    ///   4) 방 찾기 → ReliableData로 서버에 요청 → ROOM_LIST 수신 → 목록 표시
+    ///   5) 방 입장 → 방 세션에 Client 접속 → Ready → 카운트다운 → 게임 시작
     /// </summary>
     public class MainMenuUI : MonoBehaviour
     {
+        private const string CreateRoomLobbyConnectingMessage = "로비 접속 중입니다.";
+
         [Header("Style")]
         [SerializeField] private float _buttonWidth = 400f;
         [SerializeField] private float _buttonHeight = 70f;
@@ -38,8 +41,42 @@ namespace Colosseum.UI
         [SerializeField] private Color _goldColor = new Color32(0xFF, 0x5A, 0x1F, 0xFF);            // #FF5A1F
 
         [Header("Logo")]
-        [SerializeField] private Sprite _logoSprite;  // MainPanel 로고 이미지. 미할당 시 로고 미표시.
-        [SerializeField] private Sprite _fightSprite; // MainPanel 우하단 장식 이미지.
+        [SerializeField] private Sprite _logoSprite;  // (legacy) MainPanel 로고 이미지. A303-334 후 _beansLogoSprite 로 대체.
+        [SerializeField] private Sprite _fightSprite; // (legacy) MainPanel 우하단 장식 이미지. A303-334에서 우하단 비움으로 미사용.
+
+        // ── A303-334 Beans 비주얼 톤 (메인메뉴 풀 리디자인) ──
+        [Header("Beans Visual Tone (A303-334)")]
+        [SerializeField] private Sprite _beansLogoSprite;    // beans_logo.png — 시안 글로우 BEANS 로고
+        [SerializeField] private Sprite _bgArenaSprite;      // bg_main_arena.png — 다크 우주 + 별 + 시안 라인 배경
+        [SerializeField] private Sprite _peanyAimingSprite;  // peany_aiming.png — 좌측 완두콩
+        [SerializeField] private Sprite _beanyAimingSprite;  // beany_aiming.png — 우측 분홍콩
+        [SerializeField] private Color _beansMenuNormalColor = new Color(1f, 1f, 1f, 0.7f);
+        [SerializeField] private Color _beansMenuHoverColor = new Color(0x7C / 255f, 0xE6 / 255f, 0xD8 / 255f, 1f);
+        [SerializeField] private Color _beansBottomInfoColor = new Color(1f, 1f, 1f, 0.55f);
+        [SerializeField] private int _beansMenuFontSize = 56;
+        [SerializeField] private float _beansMenuItemHeight = 72f;
+        [SerializeField] private float _beansMenuBlockSpacing = 18f;
+        [SerializeField] private float _beansLogoHeight = 216f; // 240 × 0.9
+        [SerializeField] private float _beansLogoTopOffset = 120f;
+        [SerializeField] private float _beansMenuBlockOffsetY = -135f; // MenuBlock center y (logo와 baseline-to-baseline 간격 ≈ 메뉴줄 간격 ×1.5)
+        [SerializeField] private float _beansCharacterHeight = 494f;  // peany/beany 본체 높이 (1.3× 키움)
+        [SerializeField] private Vector2 _beansPeanyAnchor = new Vector2(0f, 0.34f);  // x=0 → 화면 좌측 끝에 캐릭터 left edge 붙임
+        [SerializeField] private Vector2 _beansBeanyAnchor = new Vector2(1f, 0.34f);  // x=1 → 화면 우측 끝에 캐릭터 right edge 붙임
+        [SerializeField] private float _peanyIdleAmplitude = 4f;
+        [SerializeField] private float _peanyIdlePeriod = 3.6f;  // 더 느린 호흡 (1.5× 기존)
+        [SerializeField] private float _beanyIdleAmplitude = 5f;
+        [SerializeField] private float _beanyIdlePeriod = 4.0f;  // 더 느린 호흡 (1.5× 기존), 위상 어긋남 유지
+        [SerializeField] private float _beanyIdleStartDelay = 0.5f;
+        [SerializeField] private bool _beansLogoPulse = true;
+        [SerializeField] private float _beansLogoPulsePeriod = 3.5f;
+        [SerializeField] private string _beansVersionText = "BEANS · Team A303";
+
+        // ── Dev Controls: 시연 빌드 직전에 _beansShowDevControls=false 또는 GameObject 삭제 ──
+        [Header("Dev Controls (개발 전용, 시연 빌드 직전 끄기)")]
+        [SerializeField] private bool _beansShowDevControls = true;
+        [SerializeField] private Vector2 _beansDevControlsAnchor = new Vector2(1f, 0f); // 우하단
+        [SerializeField] private Vector2 _beansDevControlsOffset = new Vector2(-60f, 50f);
+        [SerializeField] private int _beansDevTextFontSize = 16;
 
         // ── 패널별 토큰 (Nickname / CreateRoom / FindRoom / Lobby) ──
         [SerializeField] private int _pageTitleFontSize = 70;
@@ -57,6 +94,50 @@ namespace Colosseum.UI
         [SerializeField] private float _actionButtonTextOutlineWidth = 0.15f;
         [SerializeField] private Color _inputFieldBgColor = new Color32(0x1E, 0x1E, 0x26, 0xF2);
 
+        // ── A303-354 메뉴 톤 통일 (Nickname / CreateRoom / FindRoom) ──
+        [Header("Beans Cyber Tone (A303-354)")]
+        [SerializeField] private Sprite _cyberBtnOutlineSprite;     // cyber_btn_outline.png — 9-slice 시안 outline 박스
+        [SerializeField] private Sprite _createRoomTitleSprite;     // create_room_title.png — "- CREATE ROOM -" 타이틀
+        [SerializeField] private Sprite _findRoomTitleSprite;       // find_room_title.png — "- FIND ROOM -" 타이틀
+        [SerializeField] private float _cyberTitleHeight = 140f;    // 타이틀 sprite 기준 표시 높이
+        [SerializeField] private float _cyberTitleScale = 0.8f;     // 위 기준값에 곱해질 스케일 (BEANS 로고 대비 비율 조절)
+        [SerializeField] private float _cyberTitleTopOffset = 80f;  // 화면 상단에서의 여백 (anchor top, pivot top) — FindRoom 기본값
+        // CreateRoom 전용 anchoredY 오버라이드 — BEANS 로고 (height 216, topOffset 120) center y = -228.
+        // 0.8 scale 적용된 CREATE ROOM 로고 height 112 가 같은 center 를 가지려면 anchoredY = -228 + 56 = -172.
+        [SerializeField] private float _createRoomTitleAnchoredY = -172f;
+        // 입력 필드/액션 버튼/Status/Back MenuItem 의 anchored Y (Inspector 에서 튜닝)
+        [SerializeField] private float _cyberInputAnchorY = 0f;            // anchor center → 화면 세로 가운데
+        [SerializeField] private float _cyberStatusTextAnchorY = -100f;    // anchor center → input 아래, 버튼 위
+        [SerializeField] private float _cyberActionButtonAnchorY = 200f;   // anchor bottom → 화면 하단에서 위로 px
+        [SerializeField] private float _cyberBackMenuItemAnchorY = 80f;    // anchor bottom → CreateRoom 이전으로
+        [SerializeField] private float _findRoomStatsTextAnchorY = -260f;  // anchor top → FIND ROOM 로고와 패널 사이
+        [SerializeField] private float _findRoomBottomButtonsAnchorY = 140f; // anchor bottom → 새로고침/이전으로 위치
+        // ScrollRect 휠 sensitivity. Unity default 1.0 은 사실상 불가, 100 정도가 일반 웹 휠 체감과 유사.
+        // 휠 raw delta * 이 값 = 이동 px. 60~150 범위에서 취향 조정.
+        [SerializeField] private float _findRoomScrollSensitivity = 100f;
+
+        // ── A303-354 추가: Create Room 맵 선택 카드 ──
+        [Header("Create Room — Map Selection (A303-354)")]
+        [SerializeField] private float _createRoomInputAnchorY = 180f;          // anchor center → 화면 가운데 위쪽
+        [SerializeField] private float _createRoomMapsLabelAnchorY = 80f;       // anchor center → "맵을 선택하세요" (위로)
+        [SerializeField] private float _createRoomMapsAreaAnchorY = -100f;      // anchor center → 카드 영역 중앙 (위로). label↔카드 여백 = input↔label 여백 ≈ 52
+        [SerializeField] private float _createRoomMapCardWidth = 320f;
+        [SerializeField] private float _createRoomMapCardHeight = 220f;
+        [SerializeField] private float _createRoomMapCardGap = 60f;
+        [SerializeField] private float _createRoomStatusTextAnchorY = -250f;    // anchor center → 카드 하단 / 버튼 상단 사이
+        [SerializeField] private float _createRoomActionButtonBottomY = 200f;   // anchor bottom → 방 생성하기 (위로)
+        [SerializeField] private float _createRoomBackMenuItemBottomY = 100f;   // anchor bottom → 이전으로 (위로)
+        [SerializeField] private float _cyberButtonWidth = 300f;
+        [SerializeField] private float _cyberButtonHeight = 70f;
+        [SerializeField] private int _cyberButtonFontSize = 34;
+        [SerializeField] private float _cyberInputWidth = 700f;
+        [SerializeField] private float _cyberInputHeight = 60f;
+        [SerializeField] private int _cyberInputFontSize = 36;
+        [SerializeField] private int _cyberInputPlaceholderFontSize = 28;
+        [SerializeField] private Color _cyberAccentColor = new Color(0x7C / 255f, 0xE6 / 255f, 0xD8 / 255f, 1f);
+        [SerializeField] private Color _cyberPlaceholderColor = new Color(1f, 1f, 1f, 0.4f);
+        [SerializeField] private Color _cyberColumnHeaderColor = new Color(1f, 1f, 1f, 0.5f);
+
         [Header("Fonts")]
         [SerializeField] private TMP_FontAsset _menuFont; // MainPanel 타이틀/버튼 전용. 미할당 시 TMP 기본 폰트 사용.
 
@@ -72,11 +153,15 @@ namespace Colosseum.UI
         private TMP_InputField _nicknameInput;
         private TextMeshProUGUI _nicknameErrorText;
         private Coroutine _nicknameErrorFade;
+        private MainMenu.CyberButton _nicknameStartButton;
 
         // ── Create Room ──
         private TMP_InputField _roomNameInput;
         private TextMeshProUGUI _createRoomErrorText;
         private Coroutine _createRoomErrorFade;
+        private MainMenu.CyberButton _createRoomConfirmButton;
+        private MainMenu.MapCardItem _universeMapCard;
+        private MainMenu.MapCardItem _cityMapCard;
 
         // ── Find Room ──
         private Transform _roomListContent;
@@ -93,6 +178,9 @@ namespace Colosseum.UI
         private Button _readyButton;
         private TextMeshProUGUI _readyButtonText;
         private bool _isReady = false;
+        private bool _readyRequestPending;
+
+        private SettingsUI _settingsUI;
 
         // ── 상태 ──
         private string _currentRoomName;
@@ -102,16 +190,19 @@ namespace Colosseum.UI
         // ── 알림 ──
         private TextMeshProUGUI _noticeText;
         private float _noticeTimer;
+        private bool _menuDuplicatesDisabled;
 
         // ── Map Selector ──
         private const string MapPrefsKey = "Colosseum.UI.SelectedMap";
-        private SelectableScene _selectedMap = SelectableScene.SampleScene;
-        private Button _btnMapSample;
+        private SelectableScene _selectedMap = SelectableScene.MVPArena;
+        private Button _btnMapDuskCity;
         private Button _btnMapMVPArena;
         private TextMeshProUGUI _mapSelectorLabel;
 
         private void Start()
         {
+            if (Application.isBatchMode) return;
+
             LoadSelectedMap();
             CreateCanvas();
             CreateNicknamePanel();
@@ -120,6 +211,7 @@ namespace Colosseum.UI
             CreateFindRoomPanel();
             CreateLobbyPanel();
             CreateNoticeText();
+            _settingsUI = gameObject.AddComponent<SettingsUI>();
 
             if (NetworkManager.Instance != null && !string.IsNullOrEmpty(NetworkManager.Instance.Nickname))
                 ShowPanel(_mainPanel);
@@ -137,11 +229,14 @@ namespace Colosseum.UI
             NetworkManager.OnPlayerJoinedRoom += OnPlayerJoined;
             NetworkManager.OnPlayerLeftRoom += OnPlayerLeft;
             NetworkManager.OnReadyUpdate += OnReadyUpdate;
+            NetworkManager.OnLocalReadyStateChanged += OnLocalReadyStateChanged;
             NetworkManager.OnCountdownStart += OnCountdownStart;
             NetworkManager.OnCountdownTick += OnCountdownTick;
             NetworkManager.OnCountdownCancel += OnCountdownCancel;
             NetworkManager.OnGameStart += OnGameStart;
             NetworkManager.OnDisconnected += OnDisconnected;
+
+            SceneManager.sceneLoaded += OnGameSceneLoaded;
         }
 
         private void OnDestroy()
@@ -156,11 +251,14 @@ namespace Colosseum.UI
             NetworkManager.OnPlayerJoinedRoom -= OnPlayerJoined;
             NetworkManager.OnPlayerLeftRoom -= OnPlayerLeft;
             NetworkManager.OnReadyUpdate -= OnReadyUpdate;
+            NetworkManager.OnLocalReadyStateChanged -= OnLocalReadyStateChanged;
             NetworkManager.OnCountdownStart -= OnCountdownStart;
             NetworkManager.OnCountdownTick -= OnCountdownTick;
             NetworkManager.OnCountdownCancel -= OnCountdownCancel;
             NetworkManager.OnGameStart -= OnGameStart;
             NetworkManager.OnDisconnected -= OnDisconnected;
+
+            SceneManager.sceneLoaded -= OnGameSceneLoaded;
         }
 
         private void Update()
@@ -222,66 +320,48 @@ namespace Colosseum.UI
 
         private void CreateNicknamePanel()
         {
+            // A303-355: Beans 톤 풀 리디자인.
+            // 구조: bg_main_arena → BeansLogo(top) → Input(center y=0) → StartButton(bottom y=200) → Error(input 아래).
             _nicknamePanel = CreatePanelBase("NicknamePanel");
+            ApplyBeansBackground(_nicknamePanel);
 
-            // 입력 한 개에 집중하는 화면 → 메인 메뉴와 달리 가운데 정렬, 컨테이너는 입력 필드 길이를 살리기 위해 확장.
-            var container = CreateVerticalContainer(_nicknamePanel.transform, _buttonWidth + 200f);
+            CreateBeansLogoTitle(_nicknamePanel.transform, pulse: _beansLogoPulse);
 
-            CreateLabel(container.transform, "사용할 닉네임을 입력하세요", _backButtonFontSize, _textColor, _menuFont);
-            CreateSpacer(container.transform, 6f);
-
-            // 입력 텍스트는 _inputFieldFontSize(42) 그대로, placeholder 만 28 로 작게 분리.
-            // 박스 세로 높이는 75 로 컴팩트하게 (기존 자동 계산 ~62 보다 살짝 여유).
-            _nicknameInput = CreateInputField(
-                container.transform,
-                "한글 2~8자 또는 영문/숫자/_ 1~16자",
-                _inputFieldFontSize,
-                _menuFont,
-                _placeholderColor,
-                placeholderFontSize: 28f,
-                fieldHeight: 75f,
-                textAlign: TextAlignmentOptions.Center);
+            // Input — anchor center, y=0 (화면 세로 가운데)
+            var cyberInput = CreateCyberInputField(_nicknamePanel.transform, "사용하실 닉네임을 입력하세요", _cyberInputWidth, _cyberInputHeight);
+            AnchorAtCenter(cyberInput.GetComponent<RectTransform>(), _cyberInputWidth, _cyberInputHeight, _cyberInputAnchorY);
+            _nicknameInput = cyberInput.input;
             _nicknameInput.characterLimit = NicknameValidator.AsciiMaxLength;
             _nicknameInput.onSubmit.AddListener(_ => OnConfirmNickname());
-            // 입력 필드 폭 명시 (컨테이너 VLG 의 childForceExpandWidth 와 함께 동작)
-            var inputLE = _nicknameInput.GetComponent<LayoutElement>();
-            if (inputLE != null) inputLE.preferredWidth = 600f;
-            CreateSpacer(container.transform, 12f);
 
-            // 에러 메시지 — 버튼 바로 위에 위치.
-            var errObj = new GameObject("NicknameError");
-            errObj.transform.SetParent(container.transform, false);
-            var errLE = errObj.AddComponent<LayoutElement>();
-            errLE.preferredHeight = 28f;
-            _nicknameErrorText = errObj.AddComponent<TextMeshProUGUI>();
-            _nicknameErrorText.fontSize = 24;
+            // Start button — anchor bottom, y=_cyberActionButtonAnchorY (화면 하단에서 위)
+            _nicknameStartButton = CreateCyberButton(_nicknamePanel.transform, "시작하기",
+                OnConfirmNickname,
+                _cyberButtonWidth, _cyberButtonHeight, _cyberButtonFontSize);
+            AnchorAtBottom(_nicknameStartButton.GetComponent<RectTransform>(), _cyberButtonWidth, _cyberButtonHeight, _cyberActionButtonAnchorY);
+            _nicknameStartButton.Interactable = false;
+
+            // Error slot — input 바로 아래, anchor center
+            var errGO = new GameObject("NicknameError");
+            errGO.transform.SetParent(_nicknamePanel.transform, false);
+            var errRt = errGO.AddComponent<RectTransform>();
+            errRt.anchorMin = new Vector2(0.5f, 0.5f);
+            errRt.anchorMax = new Vector2(0.5f, 0.5f);
+            errRt.pivot = new Vector2(0.5f, 0.5f);
+            errRt.anchoredPosition = new Vector2(0f, _cyberInputAnchorY - 50f);
+            errRt.sizeDelta = new Vector2(_cyberInputWidth, 30f);
+            _nicknameErrorText = errGO.AddComponent<TextMeshProUGUI>();
+            _nicknameErrorText.fontSize = 22;
             _nicknameErrorText.color = _errorTextColor;
             _nicknameErrorText.alignment = TextAlignmentOptions.Center;
             _nicknameErrorText.text = "";
+            _nicknameErrorText.raycastTarget = false;
             if (_menuFont != null) _nicknameErrorText.font = _menuFont;
 
-            // Start: 입력 비어있으면 Disabled. 비활성 상태로 클릭하면 에러 텍스트로 안내.
-            var startBtn = CreateActionButton(
-                container.transform,
-                "Start",
-                OnConfirmNickname,
-                _menuFont,
-                widthOverride: _buttonWidth * 0.7f,
-                disabledTextColor: _actionButtonDisabledTextColor,
-                onDisabledClick: () =>
-                {
-                    if (_nicknameErrorText != null)
-                        ShowErrorWithFade(_nicknameErrorText, NicknameValidator.ToKoreanMessage(NicknameValidator.Result.Empty), ref _nicknameErrorFade);
-                });
-            var startBtnTmp = startBtn.GetComponentInChildren<TextMeshProUGUI>();
-            startBtn.interactable = false;
-            if (startBtnTmp != null) startBtnTmp.color = _actionButtonDisabledTextColor;
             _nicknameInput.onValueChanged.AddListener(text =>
             {
                 bool valid = !string.IsNullOrWhiteSpace(text);
-                startBtn.interactable = valid;
-                if (startBtnTmp != null)
-                    startBtnTmp.color = valid ? _textColor : _actionButtonDisabledTextColor;
+                _nicknameStartButton.Interactable = valid;
                 if (valid && _nicknameErrorText != null)
                 {
                     if (_nicknameErrorFade != null) { StopCoroutine(_nicknameErrorFade); _nicknameErrorFade = null; }
@@ -289,6 +369,24 @@ namespace Colosseum.UI
                     _nicknameErrorText.color = _errorTextColor;
                 }
             });
+        }
+
+        private static void AnchorAtCenter(RectTransform rt, float width, float height, float anchoredY)
+        {
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(0f, anchoredY);
+            rt.sizeDelta = new Vector2(width, height);
+        }
+
+        private static void AnchorAtBottom(RectTransform rt, float width, float height, float anchoredY)
+        {
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, anchoredY);
+            rt.sizeDelta = new Vector2(width, height);
         }
 
         private void OnConfirmNickname()
@@ -304,6 +402,7 @@ namespace Colosseum.UI
             }
 
             NetworkManager.Instance?.SetNickname(nick);
+            NetworkManager.Instance?.ConnectToLobby();
             ShowPanel(_mainPanel);
         }
 
@@ -316,71 +415,127 @@ namespace Colosseum.UI
 
         private void CreateMainPanel()
         {
+            // A303-334: Beans 비주얼 톤 풀 리디자인.
+            // 구조: Background → CharactersLayer(PeanyLeft, BeanyRight) → TitleBlock(BeansLogo)
+            //       → MenuBlock(Create/Find/Settings/Quit) → BottomCenter(Version) → (옵션) DevControls.
             _mainPanel = CreatePanelBase("MainPanel");
 
-            // 장식 이미지: 우하단 고정. container보다 먼저 생성해서 sibling index를 낮게 유지 → 뒤에 렌더링
-            if (_fightSprite != null)
+            // CreatePanelBase 가 만든 background Image 를 bg_main_arena 로 덮어쓴다 (단색 → 일러스트).
+            var panelImg = _mainPanel.GetComponent<Image>();
+            if (_bgArenaSprite != null)
             {
-                const float fightH = 874f;
-                var fightObj = new GameObject("FightBgImage");
-                fightObj.transform.SetParent(_mainPanel.transform, false);
-                var fightRect = fightObj.AddComponent<RectTransform>();
-                fightRect.anchorMin = new Vector2(1f, 0f); // 우하단 anchor
-                fightRect.anchorMax = new Vector2(1f, 0f);
-                fightRect.pivot    = new Vector2(1f, 0f); // 이미지 우하단 기준점
-                fightRect.anchoredPosition = Vector2.zero;
-                float fightAspect = _fightSprite.rect.width / _fightSprite.rect.height;
-                fightRect.sizeDelta = new Vector2(fightH * fightAspect, fightH);
-                var fightImg = fightObj.AddComponent<Image>();
-                fightImg.sprite = _fightSprite;
-                fightImg.color  = Color.white;
-                fightImg.raycastTarget = false; // 우하단 큰 이미지가 버튼 클릭을 가로채지 않도록
-            }
-
-            var container = CreateVerticalContainer(_mainPanel.transform, _buttonWidth, leftAlign: true, leftMargin: 90f);
-
-            // 로고: 미할당 시 wrapper 자체를 만들지 않아 흰 박스가 그려지지 않게 함
-            if (_logoSprite != null)
-            {
-                const float logoH = 257f;          // 본체 높이
-                const float logoBottomGap = 50f;   // wrapper 하단 여백 → 버튼과의 시각적 간격
-                float aspectRatio = _logoSprite.rect.width / _logoSprite.rect.height;
-
-                // VLG childControlHeight=false이므로 wrapper의 sizeDelta.y를 직접 설정해야 함
-                var logoWrapper = new GameObject("LogoWrapper");
-                logoWrapper.transform.SetParent(container.transform, false);
-                var logoWrapperLE = logoWrapper.AddComponent<LayoutElement>();
-                logoWrapperLE.preferredHeight = logoH + logoBottomGap;
-                logoWrapper.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, logoH + logoBottomGap);
-
-                var logoObj = new GameObject("LogoImage");
-                logoObj.transform.SetParent(logoWrapper.transform, false);
-                var logoRect = logoObj.AddComponent<RectTransform>();
-                // 상단 고정: 여백이 wrapper 하단에 남아 버튼과의 간격이 됨
-                logoRect.anchorMin = new Vector2(0f, 1f);
-                logoRect.anchorMax = new Vector2(0f, 1f);
-                logoRect.pivot = new Vector2(0f, 1f);
-                logoRect.anchoredPosition = new Vector2(20f, 0f);
-                logoRect.sizeDelta = new Vector2(logoH * aspectRatio, logoH);
-
-                var logoImg = logoObj.AddComponent<Image>();
-                logoImg.sprite = _logoSprite;
-                logoImg.color = Color.white;
-                logoImg.raycastTarget = false; // 로고 위 클릭은 차단
+                panelImg.sprite = _bgArenaSprite;
+                panelImg.color = Color.white;
+                panelImg.preserveAspect = false; // 화면에 stretch
             }
             else
             {
-                Debug.LogWarning("[MainMenuUI] _logoSprite 미할당 — 로고 미표시");
+                Debug.LogWarning("[MainMenuUI] _bgArenaSprite 미할당 — 단색 fallback");
+            }
+            panelImg.raycastTarget = false;
+
+            // ── CharactersLayer (Logo 보다 뒤, 즉 더 깊은 z) ──
+            var charsLayer = new GameObject("CharactersLayer");
+            charsLayer.transform.SetParent(_mainPanel.transform, false);
+            var charsRect = charsLayer.AddComponent<RectTransform>();
+            charsRect.anchorMin = Vector2.zero;
+            charsRect.anchorMax = Vector2.one;
+            charsRect.offsetMin = Vector2.zero;
+            charsRect.offsetMax = Vector2.zero;
+
+            if (_peanyAimingSprite != null)
+            {
+                CreateMainMenuCharacter(charsLayer.transform, "PeanyLeft", _peanyAimingSprite,
+                    _beansPeanyAnchor, _beansCharacterHeight,
+                    _peanyIdleAmplitude, _peanyIdlePeriod, 0f);
+            }
+            else
+            {
+                Debug.LogWarning("[MainMenuUI] _peanyAimingSprite 미할당 — Peany 미표시");
+            }
+            if (_beanyAimingSprite != null)
+            {
+                CreateMainMenuCharacter(charsLayer.transform, "BeanyRight", _beanyAimingSprite,
+                    _beansBeanyAnchor, _beansCharacterHeight,
+                    _beanyIdleAmplitude, _beanyIdlePeriod, _beanyIdleStartDelay);
+            }
+            else
+            {
+                Debug.LogWarning("[MainMenuUI] _beanyAimingSprite 미할당 — Beany 미표시");
             }
 
-            CreateStyledButton(container.transform, "Create Room", OnCreateRoomClicked, _menuFont, TextAlignmentOptions.MidlineLeft, textOnly: true);
-            CreateStyledButton(container.transform, "Find Room", OnFindRoomClicked, _menuFont, TextAlignmentOptions.MidlineLeft, textOnly: true);
-            CreateStyledButton(container.transform, "Dev Mode", OnDevModeClicked, _menuFont, TextAlignmentOptions.MidlineLeft, textOnly: true);
-            CreateStyledButton(container.transform, "Settings", OnSettingsClicked, _menuFont, TextAlignmentOptions.MidlineLeft, textOnly: true);
-            CreateSpacer(container.transform, 18f);
-            CreateMapSelectorRow(container.transform);
-            CreateSpacer(container.transform, 12f);
-            CreateStyledButton(container.transform, "Quit Game", OnQuitClicked, _menuFont, TextAlignmentOptions.MidlineLeft, textOnly: true);
+            // ── TitleBlock (BeansLogo, 상단 가운데) ──
+            if (_beansLogoSprite != null)
+            {
+                var titleBlock = new GameObject("TitleBlock");
+                titleBlock.transform.SetParent(_mainPanel.transform, false);
+                var titleRect = titleBlock.AddComponent<RectTransform>();
+                titleRect.anchorMin = new Vector2(0.5f, 1f);
+                titleRect.anchorMax = new Vector2(0.5f, 1f);
+                titleRect.pivot = new Vector2(0.5f, 1f);
+                titleRect.anchoredPosition = new Vector2(0f, -_beansLogoTopOffset);
+                float aspect = _beansLogoSprite.rect.width / _beansLogoSprite.rect.height;
+                titleRect.sizeDelta = new Vector2(_beansLogoHeight * aspect, _beansLogoHeight);
+
+                var logoImg = titleBlock.AddComponent<Image>();
+                logoImg.sprite = _beansLogoSprite;
+                logoImg.preserveAspect = true;
+                logoImg.raycastTarget = false;
+
+                if (_beansLogoPulse)
+                    StartCoroutine(BeansLogoPulseLoop(logoImg, _beansLogoPulsePeriod));
+            }
+            else
+            {
+                Debug.LogWarning("[MainMenuUI] _beansLogoSprite 미할당 — 로고 미표시");
+            }
+
+            // ── MenuBlock (가운데, 4 메뉴) ──
+            var menuBlock = new GameObject("MenuBlock");
+            menuBlock.transform.SetParent(_mainPanel.transform, false);
+            var menuRect = menuBlock.AddComponent<RectTransform>();
+            menuRect.anchorMin = new Vector2(0.5f, 0.5f);
+            menuRect.anchorMax = new Vector2(0.5f, 0.5f);
+            menuRect.pivot = new Vector2(0.5f, 0.5f);
+            menuRect.anchoredPosition = new Vector2(0f, _beansMenuBlockOffsetY);
+            menuRect.sizeDelta = new Vector2(480f, 400f);
+
+            var menuVLG = menuBlock.AddComponent<VerticalLayoutGroup>();
+            menuVLG.spacing = _beansMenuBlockSpacing;
+            menuVLG.childAlignment = TextAnchor.MiddleCenter;
+            menuVLG.childControlWidth = true;
+            menuVLG.childControlHeight = false;
+            menuVLG.childForceExpandWidth = true;
+            menuVLG.childForceExpandHeight = false;
+
+            var menuFitter = menuBlock.AddComponent<ContentSizeFitter>();
+            menuFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            CreateBeansMenuItem(menuBlock.transform, "Create Room", OnCreateRoomClicked);
+            CreateBeansMenuItem(menuBlock.transform, "Find Room", OnFindRoomClicked);
+            CreateBeansMenuItem(menuBlock.transform, "Settings", OnSettingsClicked);
+            CreateBeansMenuItem(menuBlock.transform, "Quit", OnQuitClicked);
+
+            // ── BottomCenter (Version) ──
+            var bottomCenter = new GameObject("BottomCenter");
+            bottomCenter.transform.SetParent(_mainPanel.transform, false);
+            var bcRect = bottomCenter.AddComponent<RectTransform>();
+            bcRect.anchorMin = new Vector2(0.5f, 0f);
+            bcRect.anchorMax = new Vector2(0.5f, 0f);
+            bcRect.pivot = new Vector2(0.5f, 0f);
+            bcRect.anchoredPosition = new Vector2(0f, 30f);
+            bcRect.sizeDelta = new Vector2(600f, 32f);
+
+            string versionLine = string.IsNullOrEmpty(_beansVersionText)
+                ? $"v{Application.version} · alpha"
+                : $"{_beansVersionText} · v{Application.version}";
+            CreateBeansBottomInfo(bottomCenter.transform, versionLine, 20, TextAlignmentOptions.Center);
+
+            // ── Dev Controls (개발 전용 토글바) ──
+#if UNITY_EDITOR
+            if (_beansShowDevControls)
+                CreateBeansDevControlsBar(_mainPanel.transform);
+#endif
         }
 
         // ──────────────────────────────────────────────
@@ -389,82 +544,168 @@ namespace Colosseum.UI
 
         private void CreateCreateRoomPanel()
         {
+            // A303-356 / A303-354: Beans 톤 + 맵 선택 카드.
+            // 구조: bg → title(top) → Input(center) → "맵을 선택하세요" → MapCards(Universe/City)
+            //       → Status(input/cards/button 사이) → CreateButton(bottom) → BackMenuItem(bottom).
+            // 위치는 모두 SerializeField (`_createRoom*AnchorY` / `_createRoomMap*`) 로 Inspector 튜닝 가능.
             _createRoomPanel = CreatePanelBase("CreateRoomPanel");
+            ApplyBeansBackground(_createRoomPanel);
 
-            var container = CreateVerticalContainer(_createRoomPanel.transform, _buttonWidth + 200f);
+            CreateCyberTitleSprite(_createRoomPanel.transform, _createRoomTitleSprite, "UI/MainMenu/create_room_title", "CreateRoomTitle", _createRoomTitleAnchoredY);
 
-            CreateTitleText(container.transform, "CREATE ROOM", _pageTitleFontSize, _goldColor, _menuFont, TextAlignmentOptions.Center, useOutline: false);
-            CreateSpacer(container.transform, 10f);
+            // Input — anchor center, y=_createRoomInputAnchorY
+            var cyberInput = CreateCyberInputField(_createRoomPanel.transform, "방 이름을 입력하세요", _cyberInputWidth, _cyberInputHeight);
+            AnchorAtCenter(cyberInput.GetComponent<RectTransform>(), _cyberInputWidth, _cyberInputHeight, _createRoomInputAnchorY);
+            _roomNameInput = cyberInput.input;
+            _roomNameInput.characterLimit = 20;
+            _roomNameInput.onSubmit.AddListener(_ => { if (_createRoomConfirmButton != null && _createRoomConfirmButton.Interactable) OnConfirmCreateRoom(); });
 
-            CreateLabel(container.transform, "방 이름을 입력하세요", _backButtonFontSize, _textColor, _menuFont, TextAlignmentOptions.Center);
-            CreateSpacer(container.transform, 4f);
+            // "맵을 선택하세요" 라벨
+            var mapsLabelGO = new GameObject("MapsLabel");
+            mapsLabelGO.transform.SetParent(_createRoomPanel.transform, false);
+            var mapsLabelRt = mapsLabelGO.AddComponent<RectTransform>();
+            mapsLabelRt.anchorMin = new Vector2(0.5f, 0.5f);
+            mapsLabelRt.anchorMax = new Vector2(0.5f, 0.5f);
+            mapsLabelRt.pivot = new Vector2(0.5f, 0.5f);
+            mapsLabelRt.anchoredPosition = new Vector2(0f, _createRoomMapsLabelAnchorY);
+            mapsLabelRt.sizeDelta = new Vector2(400f, 36f);
+            var mapsLabelTmp = mapsLabelGO.AddComponent<TextMeshProUGUI>();
+            mapsLabelTmp.text = "맵을 선택하세요";
+            mapsLabelTmp.fontSize = 26;
+            mapsLabelTmp.color = Color.white;
+            mapsLabelTmp.fontStyle = FontStyles.Bold;
+            mapsLabelTmp.alignment = TextAlignmentOptions.Center;
+            mapsLabelTmp.raycastTarget = false;
+            if (_menuFont != null) mapsLabelTmp.font = _menuFont;
 
-            _roomNameInput = CreateInputField(
-                container.transform,
-                "방 이름 (최대 20자)",
-                _inputFieldFontSize,
-                _menuFont,
-                _placeholderColor,
-                placeholderFontSize: 28f,
-                fieldHeight: 75f,
-                textAlign: TextAlignmentOptions.Center);
-            var inputLE = _roomNameInput.GetComponent<LayoutElement>();
-            if (inputLE != null) inputLE.preferredWidth = 600f;
-            CreateSpacer(container.transform, 12f);
+            // Map cards (HLG, 가운데, anchor center)
+            var mapsGO = new GameObject("MapCards");
+            mapsGO.transform.SetParent(_createRoomPanel.transform, false);
+            var mapsRt = mapsGO.AddComponent<RectTransform>();
+            float mapsAreaWidth = _createRoomMapCardWidth * 2f + _createRoomMapCardGap;
+            mapsRt.anchorMin = new Vector2(0.5f, 0.5f);
+            mapsRt.anchorMax = new Vector2(0.5f, 0.5f);
+            mapsRt.pivot = new Vector2(0.5f, 0.5f);
+            mapsRt.anchoredPosition = new Vector2(0f, _createRoomMapsAreaAnchorY);
+            mapsRt.sizeDelta = new Vector2(mapsAreaWidth, _createRoomMapCardHeight);
 
-            // 에러 메시지 — 버튼 바로 위에 위치.
-            var errObj = new GameObject("CreateRoomError");
-            errObj.transform.SetParent(container.transform, false);
-            var errLE = errObj.AddComponent<LayoutElement>();
-            errLE.preferredHeight = 28f;
-            _createRoomErrorText = errObj.AddComponent<TextMeshProUGUI>();
+            var mapsHLG = mapsGO.AddComponent<HorizontalLayoutGroup>();
+            mapsHLG.spacing = _createRoomMapCardGap;
+            mapsHLG.childAlignment = TextAnchor.MiddleCenter;
+            mapsHLG.childControlWidth = false;
+            mapsHLG.childControlHeight = false;
+            mapsHLG.childForceExpandWidth = false;
+            mapsHLG.childForceExpandHeight = false;
+
+            _universeMapCard = BuildMapCard(mapsGO.transform, "Universe Map",
+                "UI/MainMenu/map_universe_color", "UI/MainMenu/map_universe_gray", isSelectedDefault: true);
+            _cityMapCard = BuildMapCard(mapsGO.transform, "City Map",
+                "UI/MainMenu/map_city_color", "UI/MainMenu/map_city_gray", isSelectedDefault: false);
+
+            // 카드 클릭 — 두 카드 토글 + _selectedMap 동기 (A303-361: Universe = MVPArena, City = DuskCity)
+            _universeMapCard.OnClicked += () => SelectMap(_universeMapCard, _cityMapCard, SelectableScene.MVPArena);
+            _cityMapCard.OnClicked     += () => SelectMap(_cityMapCard, _universeMapCard, SelectableScene.DuskCity);
+
+            // Status/Error slot — 카드 하단 / 버튼 상단 사이.
+            // 평소 빈 텍스트, "방을 생성하는 중..." / "방 이름을 입력하세요." 등이 SetCreateRoomStatus 로 표시됨.
+            var errGO = new GameObject("CreateRoomError");
+            errGO.transform.SetParent(_createRoomPanel.transform, false);
+            var errRt = errGO.AddComponent<RectTransform>();
+            errRt.anchorMin = new Vector2(0.5f, 0.5f);
+            errRt.anchorMax = new Vector2(0.5f, 0.5f);
+            errRt.pivot = new Vector2(0.5f, 0.5f);
+            errRt.anchoredPosition = new Vector2(0f, _createRoomStatusTextAnchorY);
+            errRt.sizeDelta = new Vector2(_cyberInputWidth, 30f);
+            _createRoomErrorText = errGO.AddComponent<TextMeshProUGUI>();
             _createRoomErrorText.fontSize = 22;
-            _createRoomErrorText.color = _errorTextColor;
+            _createRoomErrorText.color = _textColor;
             _createRoomErrorText.alignment = TextAlignmentOptions.Center;
             _createRoomErrorText.text = "";
+            _createRoomErrorText.raycastTarget = false;
             if (_menuFont != null) _createRoomErrorText.font = _menuFont;
 
-            var createBtn = CreateActionButton(
-                container.transform,
-                "방 생성",
+            // Create button — anchor bottom, y=_createRoomActionButtonBottomY
+            float createBtnWidth = _cyberButtonWidth + 40f;
+            _createRoomConfirmButton = CreateCyberButton(_createRoomPanel.transform, "방 생성하기",
                 OnConfirmCreateRoom,
-                _menuFont,
-                widthOverride: _buttonWidth * 0.7f,
-                fontSizeOverride: 36,
-                hoverTextColor: _textColor,
-                disabledTextColor: _actionButtonDisabledTextColor,
-                onDisabledClick: () =>
-                {
-                    if (_createRoomErrorText != null)
-                        ShowErrorWithFade(_createRoomErrorText, "방 이름을 입력하세요.", ref _createRoomErrorFade);
-                });
-            var createBtnTmp = createBtn.GetComponentInChildren<TextMeshProUGUI>();
-            createBtn.interactable = false;
-            if (createBtnTmp != null) createBtnTmp.color = _actionButtonDisabledTextColor;
-            _roomNameInput.onValueChanged.AddListener(text =>
-            {
-                bool valid = !string.IsNullOrWhiteSpace(text);
-                createBtn.interactable = valid;
-                if (createBtnTmp != null)
-                    createBtnTmp.color = valid ? _textColor : _actionButtonDisabledTextColor;
-                if (valid && _createRoomErrorText != null)
-                {
-                    if (_createRoomErrorFade != null) { StopCoroutine(_createRoomErrorFade); _createRoomErrorFade = null; }
-                    _createRoomErrorText.text = "";
-                    _createRoomErrorText.color = _errorTextColor;
-                }
-            });
+                createBtnWidth, _cyberButtonHeight, _cyberButtonFontSize);
+            AnchorAtBottom(_createRoomConfirmButton.GetComponent<RectTransform>(), createBtnWidth, _cyberButtonHeight, _createRoomActionButtonBottomY);
 
-            CreateStyledButton(
-                container.transform,
-                "< 이전으로",
-                OnCreateRoomBack,
-                _menuFont,
-                TextAlignmentOptions.Center,
-                textOnly: true,
-                overrideTextColor: _backButtonColor,
-                fontSizeOverride: _backButtonFontSize,
-                showHoverBullet: false);
+            // 이전으로 — 화면 하단 가까이 (anchor bottom, y=_createRoomBackMenuItemBottomY)
+            var back = CreateBackMenuItem(_createRoomPanel.transform, "이전으로", OnCreateRoomBack, fontSize: 28);
+            var backRt = back.GetComponent<RectTransform>();
+            AnchorAtBottom(backRt, 240f, 48f, _createRoomBackMenuItemBottomY);
+
+            _roomNameInput.onValueChanged.AddListener(_ => UpdateCreateRoomButtonState());
+            UpdateCreateRoomButtonState();
+        }
+
+        // ──────────────────────────────────────────────
+        //  A303-354 맵 선택 카드 헬퍼
+        // ──────────────────────────────────────────────
+
+        private MainMenu.MapCardItem BuildMapCard(Transform parent, string label,
+            string colorResourcePath, string grayResourcePath, bool isSelectedDefault)
+        {
+            Sprite colorSprite = Resources.Load<Sprite>(colorResourcePath);
+            Sprite graySprite  = Resources.Load<Sprite>(grayResourcePath);
+
+            var go = new GameObject($"MapCard_{label}");
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(_createRoomMapCardWidth, _createRoomMapCardHeight);
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = _createRoomMapCardWidth;
+            le.preferredHeight = _createRoomMapCardHeight;
+
+            // raycast hit zone
+            var hit = go.AddComponent<Image>();
+            hit.color = new Color(0f, 0f, 0f, 0f);
+            hit.raycastTarget = true;
+
+            // Thumbnail Image (color/gray sprite swap)
+            var thumbGO = new GameObject("Thumbnail");
+            thumbGO.transform.SetParent(go.transform, false);
+            var thumbRt = thumbGO.AddComponent<RectTransform>();
+            thumbRt.anchorMin = Vector2.zero;
+            thumbRt.anchorMax = Vector2.one;
+            thumbRt.offsetMin = Vector2.zero;
+            thumbRt.offsetMax = Vector2.zero;
+            var thumbImg = thumbGO.AddComponent<Image>();
+            thumbImg.sprite = isSelectedDefault ? colorSprite : graySprite;
+            thumbImg.preserveAspect = false;
+            thumbImg.raycastTarget = false;
+            if (colorSprite == null || graySprite == null)
+                Debug.LogWarning($"[MainMenuUI] MapCard '{label}' sprite 로드 실패 — Resources/{colorResourcePath} 또는 {grayResourcePath}");
+
+            // PNG 자체가 시안 테두리 + 카드 이름 라벨을 포함 — 추가 outline / TMP 없음.
+            // 선택/비선택 표시는 MapCardItem.ApplyState() 가 color↔gray sprite 만 교체.
+
+            var card = go.AddComponent<MainMenu.MapCardItem>();
+            card.thumbnail = thumbImg;
+            card.label = null;          // PNG 가 라벨 포함 — label TMP 미사용
+            card.outlineImages = null;  // PNG 가 테두리 포함 — 4-strip outline 미사용
+            card.colorSprite = colorSprite;
+            card.graySprite = graySprite;
+            card.outlineColor = _cyberAccentColor;
+            card.IsSelected = isSelectedDefault;
+            return card;
+        }
+
+        /// <summary>
+        /// 카드 클릭 → 선택한 카드만 IsSelected=true, 나머지 false.
+        /// _selectedMap 동기 갱신 — Universe = MVPArena, City = DuskCity (A303-361).
+        /// </summary>
+        private void SelectMap(MainMenu.MapCardItem selected, MainMenu.MapCardItem other, SelectableScene scene)
+        {
+            if (selected != null) selected.IsSelected = true;
+            if (other    != null) other.IsSelected    = false;
+            if (_selectedMap != scene)
+            {
+                _selectedMap = scene;
+                SaveSelectedMap();
+                UpdateMapSelectorVisual();
+            }
         }
 
         // ──────────────────────────────────────────────
@@ -473,153 +714,194 @@ namespace Colosseum.UI
 
         private void CreateFindRoomPanel()
         {
+            // A303-356: Beans 톤 통일.
+            // 구조: bg → title(top) → SearchStatus → RoomListPanel{ColumnHeader, Divider, ScrollList}
+            //       → NoticeText → Refresh/Back (CyberButton 작게).
             _findRoomPanel = CreatePanelBase("FindRoomPanel");
+            ApplyBeansBackground(_findRoomPanel);
 
-            // 타이틀
-            var titleObj = new GameObject("Title");
-            titleObj.transform.SetParent(_findRoomPanel.transform, false);
-            var titleRect = titleObj.AddComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0.15f, 0.85f);
-            titleRect.anchorMax = new Vector2(0.85f, 0.95f);
-            titleRect.offsetMin = Vector2.zero;
-            titleRect.offsetMax = Vector2.zero;
-            var titleTMP = titleObj.AddComponent<TextMeshProUGUI>();
-            titleTMP.text = "FIND ROOM";
-            titleTMP.fontSize = _pageTitleFontSize;
-            titleTMP.color = _goldColor;
-            titleTMP.alignment = TextAlignmentOptions.Center;
-            titleTMP.fontStyle = FontStyles.Bold;
-            if (_menuFont != null) titleTMP.font = _menuFont;
+            CreateCyberTitleSprite(_findRoomPanel.transform, _findRoomTitleSprite, "UI/MainMenu/find_room_title", "FindRoomTitle");
 
-            // 상태 텍스트
-            var statusObj = new GameObject("SearchStatus");
-            statusObj.transform.SetParent(_findRoomPanel.transform, false);
-            var statusRect = statusObj.AddComponent<RectTransform>();
-            statusRect.anchorMin = new Vector2(0.15f, 0.78f);
-            statusRect.anchorMax = new Vector2(0.85f, 0.84f);
-            statusRect.offsetMin = Vector2.zero;
-            statusRect.offsetMax = Vector2.zero;
-            _searchStatusText = statusObj.AddComponent<TextMeshProUGUI>();
+            const float panelWidth = 1152f;   // 1920 * 0.6 → 화면 가로 60%
+            const float panelHeight = 500f;
+            const float headerRowHeight = 40f;
+
+            // ── SearchStatus (title 과 RoomListPanel 사이) ──
+            var statusGO = new GameObject("SearchStatus");
+            statusGO.transform.SetParent(_findRoomPanel.transform, false);
+            var statusRt = statusGO.AddComponent<RectTransform>();
+            statusRt.anchorMin = new Vector2(0.5f, 1f);
+            statusRt.anchorMax = new Vector2(0.5f, 1f);
+            statusRt.pivot = new Vector2(0.5f, 1f);
+            statusRt.anchoredPosition = new Vector2(0f, _findRoomStatsTextAnchorY);
+            statusRt.sizeDelta = new Vector2(900f, 26f);
+            _searchStatusText = statusGO.AddComponent<TextMeshProUGUI>();
             _searchStatusText.text = "로비 접속 중...";
-            _searchStatusText.fontSize = 26;
-            _searchStatusText.color = new Color(0.63f, 0.63f, 0.63f, 1f);
+            _searchStatusText.fontSize = 18;
+            _searchStatusText.color = new Color(1f, 1f, 1f, 0.45f);
             _searchStatusText.alignment = TextAlignmentOptions.Center;
+            _searchStatusText.raycastTarget = false;
             if (_menuFont != null) _searchStatusText.font = _menuFont;
 
-            // 방 목록 스크롤 영역
-            var scrollObj = new GameObject("ScrollArea");
-            scrollObj.transform.SetParent(_findRoomPanel.transform, false);
-            var scrollRectTransform = scrollObj.AddComponent<RectTransform>();
-            scrollRectTransform.anchorMin = new Vector2(0.15f, 0.28f);
-            scrollRectTransform.anchorMax = new Vector2(0.85f, 0.77f);
-            scrollRectTransform.offsetMin = Vector2.zero;
-            scrollRectTransform.offsetMax = Vector2.zero;
+            // ── RoomListPanel (다크 컨테이너; 안에 ColumnHeader + Divider + ScrollList 통합) ──
+            var panelGO = new GameObject("RoomListPanel");
+            panelGO.transform.SetParent(_findRoomPanel.transform, false);
+            var panelRt = panelGO.AddComponent<RectTransform>();
+            AnchorAtCenter(panelRt, panelWidth, panelHeight, -40f);
+            var panelImg = panelGO.AddComponent<Image>();
+            panelImg.color = new Color(0.04f, 0.04f, 0.12f, 0.55f);
+            panelImg.raycastTarget = false;
 
-            var scrollImage = scrollObj.AddComponent<Image>();
-            scrollImage.color = new Color(0.13f, 0.13f, 0.18f, 0.6f);
+            var panelVLG = panelGO.AddComponent<VerticalLayoutGroup>();
+            panelVLG.spacing = 6f;
+            panelVLG.padding = new RectOffset(0, 0, 14, 14);
+            panelVLG.childAlignment = TextAnchor.UpperCenter;
+            panelVLG.childControlWidth = true;
+            panelVLG.childControlHeight = true;
+            panelVLG.childForceExpandWidth = true;
+            panelVLG.childForceExpandHeight = false;
 
-            var scrollRect = scrollObj.AddComponent<ScrollRect>();
+            // ── ColumnHeader (RoomListPanel 안 첫 row) ──
+            var headerGO = new GameObject("ColumnHeader");
+            headerGO.transform.SetParent(panelGO.transform, false);
+            headerGO.AddComponent<RectTransform>();
+            var headerLE = headerGO.AddComponent<LayoutElement>();
+            headerLE.preferredHeight = headerRowHeight;
+            headerLE.flexibleHeight = 0f;
+
+            var headerHLG = headerGO.AddComponent<HorizontalLayoutGroup>();
+            headerHLG.spacing = 0f;
+            headerHLG.padding = new RectOffset(40, 40, 0, 0);
+            headerHLG.childAlignment = TextAnchor.MiddleLeft;
+            headerHLG.childControlWidth = true;
+            headerHLG.childControlHeight = true;
+            headerHLG.childForceExpandWidth = false;
+            headerHLG.childForceExpandHeight = true;
+            CreateRoomColumnText(headerGO.transform, "방 이름", 1f, TextAlignmentOptions.MidlineLeft, 0f,    18, false, _cyberColumnHeaderColor);
+            CreateRoomColumnText(headerGO.transform, "인원",   0f, TextAlignmentOptions.Center,      180f,  18, false, _cyberColumnHeaderColor);
+            CreateRoomColumnText(headerGO.transform, "상태",   0f, TextAlignmentOptions.Center,      180f,  18, false, _cyberColumnHeaderColor);
+
+            // ── Divider (얇은 시안 가로 라인) ──
+            var dividerGO = new GameObject("Divider");
+            dividerGO.transform.SetParent(panelGO.transform, false);
+            dividerGO.AddComponent<RectTransform>();
+            var divLE = dividerGO.AddComponent<LayoutElement>();
+            divLE.preferredHeight = 1f;
+            divLE.flexibleHeight = 0f;
+            var divImg = dividerGO.AddComponent<Image>();
+            divImg.color = new Color(_cyberAccentColor.r, _cyberAccentColor.g, _cyberAccentColor.b, 0.35f);
+            divImg.raycastTarget = false;
+
+            // ── ScrollArea (남은 세로 공간 채움) ──
+            var scrollGO = new GameObject("ScrollArea");
+            scrollGO.transform.SetParent(panelGO.transform, false);
+            scrollGO.AddComponent<RectTransform>();
+            var scrollLE = scrollGO.AddComponent<LayoutElement>();
+            scrollLE.flexibleHeight = 1f;
+            scrollLE.minHeight = 200f;
+
+            var scrollRect = scrollGO.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
             scrollRect.vertical = true;
             scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            // 마우스 휠 delta(보통 0.1~0.5) × scrollSensitivity = 이동 픽셀.
+            // Unity default 1.0 / 직전 30 모두 너무 작음. _findRoomScrollSensitivity (default 100) 로 적용 — 일반 웹 휠 체감.
+            scrollRect.scrollSensitivity = _findRoomScrollSensitivity;
 
-            // 빈 상태 오버레이 (방 없을 때 표시)
-            var emptyStateObj = new GameObject("EmptyState");
-            emptyStateObj.transform.SetParent(scrollObj.transform, false);
-            var emptyRect = emptyStateObj.AddComponent<RectTransform>();
-            emptyRect.anchorMin = Vector2.zero;
-            emptyRect.anchorMax = Vector2.one;
-            emptyRect.offsetMin = Vector2.zero;
-            emptyRect.offsetMax = Vector2.zero;
-            _emptyStateText = emptyStateObj.AddComponent<TextMeshProUGUI>();
-            _emptyStateText.text = "열려 있는 방이 없습니다.\n새로고침을 눌러주세요.";
-            _emptyStateText.fontSize = 22;
-            _emptyStateText.color = _placeholderColor;
-            _emptyStateText.alignment = TextAlignmentOptions.Center;
-            if (_menuFont != null) _emptyStateText.font = _menuFont;
+            var viewportGO = new GameObject("Viewport");
+            viewportGO.transform.SetParent(scrollGO.transform, false);
+            var viewportRt = viewportGO.AddComponent<RectTransform>();
+            viewportRt.anchorMin = Vector2.zero;
+            viewportRt.anchorMax = Vector2.one;
+            viewportRt.offsetMin = Vector2.zero;
+            viewportRt.offsetMax = Vector2.zero;
+            var viewportImg = viewportGO.AddComponent<Image>();
+            viewportImg.color = Color.white;
+            // 휠 이벤트를 ScrollRect 가 받으려면 viewport 영역 어딘가가 raycast target 이어야 함.
+            // 카드 사이 빈 공간/카드 위 휠 모두 viewport 가 잡아 ScrollRect 에 IScrollHandler 로 bubble.
+            viewportImg.raycastTarget = true;
+            viewportGO.AddComponent<Mask>().showMaskGraphic = false;
 
-            // Viewport (Mask)
-            var viewportObj = new GameObject("Viewport");
-            viewportObj.transform.SetParent(scrollObj.transform, false);
-            var viewportRect = viewportObj.AddComponent<RectTransform>();
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = Vector2.zero;
-            viewportRect.offsetMax = Vector2.zero;
-            viewportObj.AddComponent<Image>().color = Color.white;
-            viewportObj.AddComponent<Mask>().showMaskGraphic = false;
+            var contentGO = new GameObject("Content");
+            contentGO.transform.SetParent(viewportGO.transform, false);
+            var contentRt = contentGO.AddComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.offsetMin = Vector2.zero;
+            contentRt.offsetMax = Vector2.zero;
+            contentRt.sizeDelta = new Vector2(0f, 0f);
 
-            // Content
-            var contentObj = new GameObject("Content");
-            contentObj.transform.SetParent(viewportObj.transform, false);
-            var contentRect = contentObj.AddComponent<RectTransform>();
-            contentRect.anchorMin = new Vector2(0f, 1f);
-            contentRect.anchorMax = new Vector2(1f, 1f);
-            contentRect.pivot = new Vector2(0.5f, 1f);
-            contentRect.offsetMin = Vector2.zero;
-            contentRect.offsetMax = Vector2.zero;
-            contentRect.sizeDelta = new Vector2(0f, 0f);
-
-            var contentVLG = contentObj.AddComponent<VerticalLayoutGroup>();
-            contentVLG.spacing = 6f;
+            var contentVLG = contentGO.AddComponent<VerticalLayoutGroup>();
+            contentVLG.spacing = 8f;
             contentVLG.childControlWidth = true;
             contentVLG.childControlHeight = false;
             contentVLG.childForceExpandWidth = true;
             contentVLG.childForceExpandHeight = false;
-            contentVLG.padding = new RectOffset(10, 10, 8, 8);
-
-            var contentFitter = contentObj.AddComponent<ContentSizeFitter>();
+            contentVLG.padding = new RectOffset(0, 0, 8, 8);
+            var contentFitter = contentGO.AddComponent<ContentSizeFitter>();
             contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            scrollRect.content = contentRect;
-            scrollRect.viewport = viewportRect.GetComponent<RectTransform>();
-            _roomListContent = contentObj.transform;
+            scrollRect.content = contentRt;
+            scrollRect.viewport = viewportRt;
+            _roomListContent = contentGO.transform;
 
-            // 새로고침 버튼 위 진행/에러 알림 슬롯 (방 입장 중·실패 등 흐름성 메시지)
-            var noticeObj = new GameObject("FindRoomNotice");
-            noticeObj.transform.SetParent(_findRoomPanel.transform, false);
-            var noticeRect = noticeObj.AddComponent<RectTransform>();
-            noticeRect.anchorMin = new Vector2(0.15f, 0.235f);
-            noticeRect.anchorMax = new Vector2(0.85f, 0.275f);
-            noticeRect.offsetMin = Vector2.zero;
-            noticeRect.offsetMax = Vector2.zero;
-            _findRoomNoticeText = noticeObj.AddComponent<TextMeshProUGUI>();
+            // ── EmptyState (overlay, 방 0개 일 때만 active) ──
+            var emptyGO = new GameObject("EmptyState");
+            emptyGO.transform.SetParent(scrollGO.transform, false);
+            var emptyRt = emptyGO.AddComponent<RectTransform>();
+            emptyRt.anchorMin = Vector2.zero;
+            emptyRt.anchorMax = Vector2.one;
+            emptyRt.offsetMin = Vector2.zero;
+            emptyRt.offsetMax = Vector2.zero;
+            _emptyStateText = emptyGO.AddComponent<TextMeshProUGUI>();
+            _emptyStateText.text = "No rooms — Create one!";
+            _emptyStateText.fontSize = 26;
+            _emptyStateText.color = new Color(1f, 1f, 1f, 0.5f);
+            _emptyStateText.alignment = TextAlignmentOptions.Center;
+            _emptyStateText.raycastTarget = false;
+            if (_menuFont != null) _emptyStateText.font = _menuFont;
+
+            // ── NoticeText (panel 과 하단 버튼 사이) ──
+            var noticeGO = new GameObject("FindRoomNotice");
+            noticeGO.transform.SetParent(_findRoomPanel.transform, false);
+            var noticeRt = noticeGO.AddComponent<RectTransform>();
+            noticeRt.anchorMin = new Vector2(0.5f, 0f);
+            noticeRt.anchorMax = new Vector2(0.5f, 0f);
+            noticeRt.pivot = new Vector2(0.5f, 0f);
+            noticeRt.anchoredPosition = new Vector2(0f, _findRoomBottomButtonsAnchorY + 70f);
+            noticeRt.sizeDelta = new Vector2(900f, 26f);
+            _findRoomNoticeText = noticeGO.AddComponent<TextMeshProUGUI>();
             _findRoomNoticeText.text = "";
             _findRoomNoticeText.fontSize = 20;
             _findRoomNoticeText.color = _textColor;
             _findRoomNoticeText.alignment = TextAlignmentOptions.Center;
+            _findRoomNoticeText.raycastTarget = false;
             if (_menuFont != null) _findRoomNoticeText.font = _menuFont;
 
-            // Refresh 버튼 — CreateRoom 의 '방 생성' 액션 버튼과 톤·크기 통일.
-            var refreshBtn = CreateAnchoredButton(_findRoomPanel.transform, "새로고침",
-                new Vector2(0.4f, 0.15f), new Vector2(0.6f, 0.23f),
-                _actionButtonBoxColor, OnRefreshRooms,
-                hoverBgColor: _actionButtonHoverBoxColor,
-                textColor: _textColor,
-                hoverTextColor: _textColor,
-                fontSize: 36);
-            // CreateActionButton 과 동일한 outline 강조 효과 적용.
-            var refreshTmp = refreshBtn.GetComponentInChildren<TextMeshProUGUI>();
-            if (refreshTmp != null && refreshTmp.fontSharedMaterial != null)
-            {
-                refreshTmp.fontMaterial = new Material(refreshTmp.fontSharedMaterial);
-                refreshTmp.outlineColor = _actionButtonTextOutlineColor;
-                refreshTmp.outlineWidth = _actionButtonTextOutlineWidth;
+            // ── Refresh / Back (CyberButton, 메인 액션보다 작음, 가운데 정렬 + gap 30) ──
+            const float subBtnWidth = 180f;
+            const float subBtnHeight = 44f;
+            const int subBtnFontSize = 22;
+            const float subBtnHalfGap = 15f;  // 두 버튼 사이 gap 30 = ±15 offset
 
-                // CreateAnchoredButton 안에서 HoverStateResetter 가 outline 기본값(투명)을 캡처해 둔 상태.
-                // 위에서 outline 을 변경했으므로 resetter 의 normalOutlineColor 도 새 값으로 재설정 →
-                // 패널 전환으로 OnEnable 시 outline 이 투명으로 되돌아가 사라지는 회귀 차단.
-                var refreshResetter = refreshBtn.GetComponent<HoverStateResetter>();
-                refreshResetter?.Setup(refreshTmp, "새로고침", _textColor, _actionButtonTextOutlineColor);
-            }
+            var refresh = CreateCyberButton(_findRoomPanel.transform, "새로고침",
+                OnRefreshRooms, subBtnWidth, subBtnHeight, subBtnFontSize);
+            var refreshRt = refresh.GetComponent<RectTransform>();
+            refreshRt.anchorMin = new Vector2(0.5f, 0f);
+            refreshRt.anchorMax = new Vector2(0.5f, 0f);
+            refreshRt.pivot = new Vector2(0.5f, 0f);
+            refreshRt.anchoredPosition = new Vector2(-(subBtnWidth * 0.5f + subBtnHalfGap), _findRoomBottomButtonsAnchorY);
+            refreshRt.sizeDelta = new Vector2(subBtnWidth, subBtnHeight);
 
-            // Back 버튼 (투명 배경, 회색 텍스트) — CreateRoom 의 < 이전으로 와 톤 통일.
-            CreateAnchoredButton(_findRoomPanel.transform, "< 이전으로",
-                new Vector2(0.35f, 0.05f), new Vector2(0.65f, 0.13f),
-                Color.clear, OnFindRoomBack,
-                hoverTextColor: _buttonHoverColor,
-                textColor: _backButtonColor,
-                fontSize: _backButtonFontSize);
+            var back = CreateCyberButton(_findRoomPanel.transform, "이전으로",
+                OnFindRoomBack, subBtnWidth, subBtnHeight, subBtnFontSize);
+            var backRt = back.GetComponent<RectTransform>();
+            backRt.anchorMin = new Vector2(0.5f, 0f);
+            backRt.anchorMax = new Vector2(0.5f, 0f);
+            backRt.pivot = new Vector2(0.5f, 0f);
+            backRt.anchoredPosition = new Vector2((subBtnWidth * 0.5f + subBtnHalfGap), _findRoomBottomButtonsAnchorY);
+            backRt.sizeDelta = new Vector2(subBtnWidth, subBtnHeight);
         }
 
         private GameObject CreateAnchoredButton(Transform parent, string label,
@@ -816,7 +1098,7 @@ namespace Colosseum.UI
             ShowPanel(_createRoomPanel);
             if (_roomNameInput != null)
                 _roomNameInput.text = "";
-            SetCreateRoomStatus("", isError: false);
+            UpdateCreateRoomButtonState();
             // 로비 접속은 Create 버튼 클릭 시 처리 (OnConfirmCreateRoom)
         }
 
@@ -843,6 +1125,7 @@ namespace Colosseum.UI
             }
         }
 
+#if UNITY_EDITOR
         private void OnDevModeClicked()
         {
             // Dev Mode는 기존 Host 모드 (서버 불필요)
@@ -853,8 +1136,8 @@ namespace Colosseum.UI
             var path = _selectedMap.ToScenePath();
             if (SceneUtility.GetBuildIndexByScenePath(path) < 0)
             {
-                ShowNotice($"{_selectedMap.ToDisplayName()} not in Build Settings yet — falling back to Sample Arena.");
-                _selectedMap = SelectableScene.SampleScene;
+                ShowNotice($"{_selectedMap.ToDisplayName()} not in Build Settings yet — falling back to MVP Arena.");
+                _selectedMap = SelectableScene.MVPArena;
                 SaveSelectedMap();
                 UpdateMapSelectorVisual();
                 path = _selectedMap.ToScenePath();
@@ -864,10 +1147,12 @@ namespace Colosseum.UI
             NetworkManager.AutoStartDevModeScene = _selectedMap;
             SceneManager.LoadScene(path);
         }
+#endif
 
         private void OnSettingsClicked()
         {
-            ShowNotice("설정은 준비 중입니다.");
+            if (_settingsUI != null)
+                _settingsUI.Show();
         }
 
         private void OnQuitClicked()
@@ -896,14 +1181,6 @@ namespace Colosseum.UI
 
             if (NetworkManager.Instance == null) return;
 
-            // Create Room scene routing은 후속 PR (A303-275-2 [NETWORK])에서 지원.
-            // 본 PR scope에서는 MVPArena Create Room 진입 시 SampleScene fallback이 발생하므로 차단.
-            if (_selectedMap == SelectableScene.MVPArena)
-            {
-                SetCreateRoomStatus("MVPArena 방 생성은 후속 PR에서 지원됩니다. Dev Mode를 사용하세요.", isError: true);
-                return;
-            }
-
             if (!NetworkManager.Instance.IsInLobby)
             {
                 // 로비 미접속 → 접속 후 자동으로 방 생성
@@ -914,7 +1191,8 @@ namespace Colosseum.UI
             }
 
             _currentRoomName = roomName;
-            NetworkManager.Instance.RequestCreateRoom(roomName);
+            NetworkManager.Instance.SetCurrentRoomName(roomName);
+            NetworkManager.Instance.RequestCreateRoom(roomName, _selectedMap);
             SetCreateRoomStatus("방을 생성하는 중...", isError: false);
         }
 
@@ -926,6 +1204,27 @@ namespace Colosseum.UI
             if (_createRoomErrorFade != null) { StopCoroutine(_createRoomErrorFade); _createRoomErrorFade = null; }
             _createRoomErrorText.text = message;
             _createRoomErrorText.color = isError ? _errorTextColor : _textColor;
+        }
+
+        private void UpdateCreateRoomButtonState()
+        {
+            bool hasLobbyConnection = NetworkManager.Instance != null && NetworkManager.Instance.IsInLobby;
+            bool hasRoomName = _roomNameInput != null && !string.IsNullOrWhiteSpace(_roomNameInput.text);
+
+            if (_createRoomConfirmButton != null)
+                _createRoomConfirmButton.Interactable = hasLobbyConnection && hasRoomName;
+
+            if (_createRoomErrorText == null || _createRoomPanel == null || !_createRoomPanel.activeSelf)
+                return;
+
+            if (!hasLobbyConnection)
+            {
+                SetCreateRoomStatus(CreateRoomLobbyConnectingMessage, isError: false);
+                return;
+            }
+
+            if (_createRoomErrorText.text == CreateRoomLobbyConnectingMessage || string.IsNullOrWhiteSpace(_createRoomErrorText.text))
+                SetCreateRoomStatus("", isError: false);
         }
 
         private void OnCreateRoomBack()
@@ -1002,133 +1301,53 @@ namespace Colosseum.UI
         {
             if (_roomListContent == null) return;
 
-            bool isFull = room.players >= room.max;
-            bool isPlaying = room.status == "playing";
-            bool isCountdown = room.status == "countdown";
-            bool canJoin = !isFull && !isPlaying && !isCountdown;
+            // A303-356: 카드 프레임 없는 3-column row. RoomCardItem 이 hover/scale/색 분기를 관리.
+            var itemGO = new GameObject($"RoomCard_{room.name}");
+            itemGO.transform.SetParent(_roomListContent, false);
 
-            var itemObj = new GameObject($"Room_{room.name}");
-            itemObj.transform.SetParent(_roomListContent, false);
+            var le = itemGO.AddComponent<LayoutElement>();
+            le.preferredHeight = 58f;
 
-            var itemLE = itemObj.AddComponent<LayoutElement>();
-            itemLE.preferredHeight = 70f;
+            // 투명 raycast Image — row 전체 hover/클릭 hot zone.
+            var bg = itemGO.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0f);
+            bg.raycastTarget = true;
 
-            var itemImage = itemObj.AddComponent<Image>();
-
-            Color itemNormalColor;
-            if (isPlaying || isCountdown)
-                itemNormalColor = new Color(0.12f, 0.1f, 0.14f, 0.6f);
-            else if (isFull)
-                itemNormalColor = new Color(0.15f, 0.13f, 0.18f, 0.7f);
-            else
-                itemNormalColor = new Color(0.18f, 0.16f, 0.22f, 0.9f);
-
-            if (canJoin)
-            {
-                itemImage.color = Color.white;
-                itemImage.sprite = GetRoundedRectSprite();
-                itemImage.type = Image.Type.Sliced;
-                itemImage.pixelsPerUnitMultiplier = 1f;
-
-                var btn = itemObj.AddComponent<Button>();
-                btn.targetGraphic = itemImage;
-                string sName = room.session;
-                string rName = room.name;
-                btn.onClick.AddListener(() => OnJoinRoom(sName, rName));
-
-                var colors = btn.colors;
-                colors.normalColor = itemNormalColor;
-                colors.highlightedColor = _actionButtonHoverBoxColor;
-                colors.pressedColor = Color.Lerp(_actionButtonHoverBoxColor, Color.black, 0.15f);
-                colors.selectedColor = itemNormalColor;
-                colors.colorMultiplier = 1f;
-                btn.colors = colors;
-            }
-            else
-            {
-                itemImage.color = itemNormalColor;
-            }
-
-            // HorizontalLayoutGroup으로 자식 배치
-            var hlg = itemObj.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 10f;
-            hlg.padding = new RectOffset(20, 20, 0, 0);
-            hlg.childAlignment = TextAnchor.MiddleCenter;
+            var hlg = itemGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 0f;
+            hlg.padding = new RectOffset(40, 40, 0, 0);
+            hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.childControlWidth = true;
             hlg.childControlHeight = true;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = true;
 
-            // 방 이름 (왼쪽)
-            var nameObj = new GameObject("RoomName");
-            nameObj.transform.SetParent(itemObj.transform, false);
-            var nameLE = nameObj.AddComponent<LayoutElement>();
-            nameLE.flexibleWidth = 1f;
+            var nameTmp = CreateRoomColumnText(itemGO.transform, room.name, 1f,
+                TextAlignmentOptions.MidlineLeft, 0f, 28, true, Color.white);
+            var capTmp = CreateRoomColumnText(itemGO.transform, "", 0f,
+                TextAlignmentOptions.Center, 180f, 24, false, _cyberAccentColor);
+            var statusTmp = CreateRoomColumnText(itemGO.transform, "", 0f,
+                TextAlignmentOptions.Center, 180f, 24, false, _cyberAccentColor);
 
-            var nameTMP = nameObj.AddComponent<TextMeshProUGUI>();
-            nameTMP.text = room.name;
-            nameTMP.fontSize = 28;
-            nameTMP.fontStyle = FontStyles.Bold;
-            nameTMP.color = (isPlaying || isCountdown) ? new Color(0.4f, 0.4f, 0.4f) : _textColor;
-            nameTMP.alignment = TextAlignmentOptions.Midline;
-            nameTMP.enableWordWrapping = false;
-            nameTMP.overflowMode = TextOverflowModes.Ellipsis;
-            if (_menuFont != null) nameTMP.font = _menuFont;
+            var card = itemGO.AddComponent<MainMenu.RoomCardItem>();
+            card.nameLabel = nameTmp;
+            card.capacityLabel = capTmp;
+            card.statusLabel = statusTmp;
 
-            // 상태 (오른쪽)
-            var infoObj = new GameObject("RoomInfo");
-            infoObj.transform.SetParent(itemObj.transform, false);
-            var infoLE = infoObj.AddComponent<LayoutElement>();
-            infoLE.minWidth = 160f;
-            infoLE.preferredWidth = 200f;
+            MainMenu.RoomCardItem.RoomStatus rs;
+            if (room.players >= room.max) rs = MainMenu.RoomCardItem.RoomStatus.Full;
+            else if (room.status == "playing" || room.status == "countdown") rs = MainMenu.RoomCardItem.RoomStatus.Playing;
+            else rs = MainMenu.RoomCardItem.RoomStatus.Waiting;
 
-            var infoTMP = infoObj.AddComponent<TextMeshProUGUI>();
-            string statusLabel = isPlaying ? "게임 중" : isCountdown ? "시작 중" : isFull ? "만석" : "입장 가능";
-            infoTMP.text = $"{room.players}/{room.max}  {statusLabel}";
-            infoTMP.fontSize = 24;
-            infoTMP.fontStyle = FontStyles.Bold;
-            infoTMP.alignment = TextAlignmentOptions.MidlineRight;
-            infoTMP.enableWordWrapping = false;
-            infoTMP.overflowMode = TextOverflowModes.Overflow;
-            infoTMP.color = canJoin ? _actionButtonBoxColor : _placeholderColor;
-            if (_menuFont != null) infoTMP.font = _menuFont;
-
-            if (canJoin)
-            {
-                // hover 시 infoTMP 텍스트를 흰색으로, exit 시 오렌지 복원
-                Color infoNormal = _actionButtonBoxColor;
-                var infoTrigger = itemObj.AddComponent<EventTrigger>();
-
-                var infoEnter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
-                infoEnter.callback.AddListener(_ => infoTMP.color = _textColor);
-                infoTrigger.triggers.Add(infoEnter);
-
-                var infoExit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
-                infoExit.callback.AddListener(_ => infoTMP.color = infoNormal);
-                infoTrigger.triggers.Add(infoExit);
-            }
-
-            // ">" 화살표 (입장 가능 카드에만)
-            if (canJoin)
-            {
-                var arrowObj = new GameObject("Arrow");
-                arrowObj.transform.SetParent(itemObj.transform, false);
-                var arrowLE = arrowObj.AddComponent<LayoutElement>();
-                arrowLE.preferredWidth = 30f;
-                arrowLE.flexibleWidth = 0f;
-
-                var arrowTMP = arrowObj.AddComponent<TextMeshProUGUI>();
-                arrowTMP.text = ">";
-                arrowTMP.fontSize = 28;
-                arrowTMP.color = _textColor;
-                arrowTMP.alignment = TextAlignmentOptions.MidlineRight;
-                if (_menuFont != null) arrowTMP.font = _menuFont;
-            }
+            string sName = room.session;
+            string rName = room.name;
+            card.Setup(room.name, room.players, room.max, rs, () => OnJoinRoom(sName, rName));
         }
 
         private void OnJoinRoom(string sessionName, string roomName)
         {
             _currentRoomName = roomName;
+            NetworkManager.Instance?.SetCurrentRoomName(roomName);
             NetworkManager.Instance?.JoinGameRoom(sessionName);
             SetFindRoomStatus("방에 입장 중...", isError: false);
         }
@@ -1158,6 +1377,7 @@ namespace Colosseum.UI
             ShowPanel(_lobbyPanel);
 
             _currentRoomName = roomName;
+            NetworkManager.Instance?.SetCurrentRoomName(roomName);
 
             if (_lobbyRoomNameText != null)
                 _lobbyRoomNameText.text = roomName;
@@ -1170,44 +1390,36 @@ namespace Colosseum.UI
                 _lobbyReadyStatusText.text = "준비: 0/0";
 
             // Ready 초기화
-            _isReady = false;
-            if (_readyButtonText != null)
-                _readyButtonText.text = "준비";
-            if (_readyButton != null)
-            {
-                _readyButton.interactable = true;
-                var img = _readyButton.GetComponent<Image>();
-                if (img != null) img.color = new Color(0.1f, 0.4f, 0.1f, 0.95f);
-            }
+            ApplyReadyButtonState(false, interactable: true);
             if (_lobbyCountdownText != null)
                 _lobbyCountdownText.gameObject.SetActive(false);
         }
 
         private void OnReadyClicked()
         {
-            _isReady = !_isReady;
+            if (_readyRequestPending) return;
 
-            if (_isReady)
-                NetworkManager.Instance?.SendReady();
-            else
-                NetworkManager.Instance?.SendUnready();
-
-            if (_readyButtonText != null)
-                _readyButtonText.text = _isReady ? "준비 취소" : "준비";
-
-            if (_readyButton != null)
+            bool targetReady = !_isReady;
+            bool sent = targetReady
+                ? NetworkManager.Instance?.SendReady() == true
+                : NetworkManager.Instance?.SendUnready() == true;
+            if (!sent)
             {
-                var img = _readyButton.GetComponent<Image>();
-                if (img != null)
-                    img.color = _isReady
-                        ? new Color(0.5f, 0.15f, 0.1f, 0.95f)
-                        : new Color(0.1f, 0.4f, 0.1f, 0.95f);
+                ShowNotice("준비 요청을 보낼 수 없습니다.");
+                return;
             }
+
+            _readyRequestPending = true;
+            if (_readyButtonText != null)
+                _readyButtonText.text = "처리 중...";
+            if (_readyButton != null)
+                _readyButton.interactable = false;
         }
 
         private void OnLeaveRoomClicked()
         {
             NetworkManager.Instance?.LeaveGameRoom();
+            _readyRequestPending = false;
             _isReady = false;
 
             if (NetworkManager.Instance == null || string.IsNullOrEmpty(NetworkManager.Instance.Nickname))
@@ -1230,13 +1442,17 @@ namespace Colosseum.UI
         {
             Debug.Log("[Colosseum UI] Lobby connected!");
 
+            if (_createRoomPanel != null && _createRoomPanel.activeSelf)
+                UpdateCreateRoomButtonState();
+
             // 대기 중인 방 생성 요청이 있으면 자동 실행
             if (!string.IsNullOrEmpty(_pendingCreateRoomName))
             {
                 string roomName = _pendingCreateRoomName;
                 _pendingCreateRoomName = null;
                 _currentRoomName = roomName;
-                NetworkManager.Instance?.RequestCreateRoom(roomName);
+                NetworkManager.Instance?.SetCurrentRoomName(roomName);
+                NetworkManager.Instance?.RequestCreateRoom(roomName, _selectedMap);
                 SetCreateRoomStatus("방을 생성하는 중...", isError: false);
                 return;
             }
@@ -1255,7 +1471,10 @@ namespace Colosseum.UI
             // 방 생성 / 방 찾기 흐름에서 시작된 로비 접속 시도라면 해당 패널의 상태 슬롯에 표시.
             // 그 외에는 기존대로 전역 토스트로.
             if (_createRoomPanel != null && _createRoomPanel.activeSelf)
+            {
+                UpdateCreateRoomButtonState();
                 SetCreateRoomStatus($"연결 실패: {reason}", isError: true);
+            }
             else if (_findRoomPanel != null && _findRoomPanel.activeSelf)
                 SetFindRoomStatus($"연결 실패: {reason}", isError: true);
             else
@@ -1284,6 +1503,8 @@ namespace Colosseum.UI
 
         private void OnServerError(string error)
         {
+            if (_readyRequestPending)
+                ApplyReadyButtonState(_isReady, interactable: true);
             ShowNotice($"오류: {error}");
         }
 
@@ -1341,9 +1562,35 @@ namespace Colosseum.UI
                 _lobbyReadyStatusText.text = $"준비: {info}";
         }
 
+        private void OnLocalReadyStateChanged(bool isReady)
+        {
+            if (_lobbyPanel == null || !_lobbyPanel.activeSelf) return;
+            ApplyReadyButtonState(isReady, interactable: true);
+        }
+
+        private void ApplyReadyButtonState(bool isReady, bool interactable)
+        {
+            _isReady = isReady;
+            _readyRequestPending = false;
+
+            if (_readyButtonText != null)
+                _readyButtonText.text = _isReady ? "준비 취소" : "준비";
+
+            if (_readyButton != null)
+            {
+                _readyButton.interactable = interactable;
+                var img = _readyButton.GetComponent<Image>();
+                if (img != null)
+                    img.color = _isReady
+                        ? new Color(0.5f, 0.15f, 0.1f, 0.95f)
+                        : new Color(0.1f, 0.4f, 0.1f, 0.95f);
+            }
+        }
+
         private void OnCountdownStart()
         {
             Debug.Log("[Colosseum UI] Countdown started!");
+            _readyRequestPending = false;
             if (_lobbyCountdownText != null)
             {
                 _lobbyCountdownText.gameObject.SetActive(true);
@@ -1368,51 +1615,48 @@ namespace Colosseum.UI
                 _readyButton.interactable = true;
 
             // Ready 상태 리셋
-            _isReady = false;
-            if (_readyButtonText != null)
-                _readyButtonText.text = "준비";
-            if (_readyButton != null)
+            ApplyReadyButtonState(false, interactable: true);
+        }
+
+        // Fusion NetworkSceneManagerDefault가 게임 씬을 additive로 로드하면
+        // MainMenu 씬이 언로드되지 않아 Camera / EventSystem / AudioListener가
+        // 게임 씬의 것과 중복된다. sceneLoaded 콜백에서 즉시 비활성화하여
+        // pre-game lobby 동안의 매 프레임 에러 스팸을 방지한다.
+        private void OnGameSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.path == gameObject.scene.path) return;
+            DisableMenuSceneDuplicates();
+        }
+
+        private void DisableMenuSceneDuplicates()
+        {
+            if (_menuDuplicatesDisabled) return;
+            _menuDuplicatesDisabled = true;
+
+            foreach (var root in gameObject.scene.GetRootGameObjects())
             {
-                var img = _readyButton.GetComponent<Image>();
-                if (img != null) img.color = new Color(0.1f, 0.4f, 0.1f, 0.95f);
+                foreach (var cam in root.GetComponentsInChildren<Camera>(true))
+                    cam.enabled = false;
+                foreach (var al in root.GetComponentsInChildren<AudioListener>(true))
+                    al.enabled = false;
+                foreach (var es in root.GetComponentsInChildren<UnityEngine.EventSystems.EventSystem>(true))
+                    es.enabled = false;
             }
         }
 
         private void OnGameStart()
         {
             Debug.Log("[Colosseum UI] Game starting! Disabling menu scene components.");
-            // Fusion NetworkSceneManagerDefault가 이미 게임 씬을 로드했으므로
-            // 직접 SceneManager.LoadScene()을 호출하면 씬이 재로드되어
-            // Fusion이 스폰한 NetworkObject가 파괴됨 → 버그.
-            // 대신 메뉴 씬의 렌더/입력/오디오 컴포넌트만 전부 끈다.
-            //
-            // 문제: MainMenu 씬이 언로드되지 않은 채 SampleScene이 additive로
-            // 로드되면, MainMenu 카메라(depth 0, SolidColor clear)가
-            // SampleScene 카메라(depth -1) 위에 매 프레임 덮어써서
-            // 월드 스프라이트(캐릭터/바닥/총알)가 전혀 보이지 않게 된다.
-            // Screen Space Overlay Canvas(HP바/방 인디케이터)는 카메라
-            // 파이프라인 밖이라 살아남음 → 증상과 일치.
-            //
-            // 이 씬의 Camera / EventSystem / AudioListener 만 선택적으로
-            // 끈다. GameObject 전체를 비활성화하면 MainMenuUI 자신이 꺼져서
-            // 이후 OnDisconnected 같은 콜백이 못 돌아오기 때문.
             if (_canvas != null)
                 _canvas.gameObject.SetActive(false);
-
-            foreach (var root in gameObject.scene.GetRootGameObjects())
-            {
-                foreach (var cam in root.GetComponentsInChildren<Camera>(true))
-                    cam.enabled = false;
-                foreach (var es in root.GetComponentsInChildren<UnityEngine.EventSystems.EventSystem>(true))
-                    es.enabled = false;
-                foreach (var al in root.GetComponentsInChildren<AudioListener>(true))
-                    al.enabled = false;
-            }
+            DisableMenuSceneDuplicates();
         }
 
         private void OnDisconnected(string reason)
         {
             Debug.Log($"[Colosseum UI] Disconnected: {reason}");
+            _readyRequestPending = false;
+            _isReady = false;
             ShowNotice(reason);
             ShowPanel(_mainPanel);
         }
@@ -2064,7 +2308,7 @@ namespace Colosseum.UI
             hlg.childControlWidth = true;
             hlg.childControlHeight = true;
 
-            _btnMapSample = CreateToggleMapButton(rowObj.transform, "Sample", SelectableScene.SampleScene);
+            _btnMapDuskCity = CreateToggleMapButton(rowObj.transform, "DuskCity", SelectableScene.DuskCity);
             _btnMapMVPArena = CreateToggleMapButton(rowObj.transform, "MVPArena", SelectableScene.MVPArena);
             UpdateMapSelectorVisual();
         }
@@ -2111,7 +2355,7 @@ namespace Colosseum.UI
         {
             if (_mapSelectorLabel != null)
                 _mapSelectorLabel.text = $"MAP (Dev Mode): {_selectedMap.ToDisplayName()}";
-            ApplyToggleVisual(_btnMapSample, _selectedMap == SelectableScene.SampleScene);
+            ApplyToggleVisual(_btnMapDuskCity, _selectedMap == SelectableScene.DuskCity);
             ApplyToggleVisual(_btnMapMVPArena, _selectedMap == SelectableScene.MVPArena);
         }
 
@@ -2128,18 +2372,573 @@ namespace Colosseum.UI
 
         private void LoadSelectedMap()
         {
-            int v = PlayerPrefs.GetInt(MapPrefsKey, (int)SelectableScene.SampleScene);
-            // Unspecified=0은 sentinel — user-selectable 아니므로 SampleScene fallback.
+            int v = PlayerPrefs.GetInt(MapPrefsKey, (int)SelectableScene.MVPArena);
+            // Unspecified=0은 sentinel — user-selectable 아니므로 MVPArena fallback.
             if (System.Enum.IsDefined(typeof(SelectableScene), v) && (SelectableScene)v != SelectableScene.Unspecified)
                 _selectedMap = (SelectableScene)v;
             else
-                _selectedMap = SelectableScene.SampleScene;
+                _selectedMap = SelectableScene.MVPArena;
         }
 
         private void SaveSelectedMap()
         {
             PlayerPrefs.SetInt(MapPrefsKey, (int)_selectedMap);
             PlayerPrefs.Save();
+        }
+
+        // ──────────────────────────────────────────────
+        //  A303-334 Beans 비주얼 톤 헬퍼
+        // ──────────────────────────────────────────────
+
+        private void CreateMainMenuCharacter(Transform parent, string objName, Sprite sprite,
+            Vector2 anchor, float height,
+            float idleAmplitude, float idlePeriod, float idleStartDelay)
+        {
+            var obj = new GameObject(objName);
+            obj.transform.SetParent(parent, false);
+
+            var rect = obj.AddComponent<RectTransform>();
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            // pivot.x = anchor.x → anchor 0이면 좌측 끝, 1이면 우측 끝에 캐릭터 edge가 정렬.
+            // pivot.y = 0.5 → 캐릭터 vertical center가 anchor.y 높이에 옴.
+            rect.pivot = new Vector2(anchor.x, 0.5f);
+            float aspect = sprite.rect.width / sprite.rect.height;
+            rect.sizeDelta = new Vector2(height * aspect, height);
+            rect.anchoredPosition = Vector2.zero;
+
+            var img = obj.AddComponent<Image>();
+            img.sprite = sprite;
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+
+            var bob = obj.AddComponent<MainMenu.IdleBob>();
+            bob.amplitude = idleAmplitude;
+            bob.period = idlePeriod;
+            bob.startDelay = idleStartDelay;
+        }
+
+        private void CreateBeansMenuItem(Transform parent, string label, System.Action onClick)
+        {
+            var itemGO = new GameObject(label.Replace(" ", "") + "MenuItem");
+            itemGO.transform.SetParent(parent, false);
+            itemGO.AddComponent<RectTransform>();
+
+            // VerticalLayoutGroup 가 row 폭을 결정. 높이는 LayoutElement.preferredHeight 로 고정.
+            var itemLE = itemGO.AddComponent<LayoutElement>();
+            itemLE.preferredHeight = _beansMenuItemHeight;
+
+            // 점·텍스트 사이/주변 빈 공간도 hover 영역에 들어가도록 보이지 않는 raycast target.
+            var bg = itemGO.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0f);
+            bg.raycastTarget = true;
+
+            var hlg = itemGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 22f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            var leftDot = CreateBeansMenuText(itemGO.transform, "·", _beansMenuFontSize, "LeftDot");
+            var labelTMP = CreateBeansMenuText(itemGO.transform, label, _beansMenuFontSize, "Label");
+            var rightDot = CreateBeansMenuText(itemGO.transform, "·", _beansMenuFontSize, "RightDot");
+
+            // 점은 초기 alpha 0 (Normal 상태)
+            var hidden = new Color(_beansMenuNormalColor.r, _beansMenuNormalColor.g, _beansMenuNormalColor.b, 0f);
+            leftDot.color = hidden;
+            rightDot.color = hidden;
+
+            var menuItem = itemGO.AddComponent<MainMenu.MenuItem>();
+            menuItem.label = labelTMP;
+            menuItem.leftDot = leftDot;
+            menuItem.rightDot = rightDot;
+            menuItem.normalColor = _beansMenuNormalColor;
+            menuItem.hoverColor = _beansMenuHoverColor;
+            menuItem.OnClicked += onClick;
+        }
+
+        private TextMeshProUGUI CreateBeansMenuText(Transform parent, string text, int fontSize, string objName)
+        {
+            var go = new GameObject(objName);
+            go.transform.SetParent(parent, false);
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.color = _beansMenuNormalColor;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.enableWordWrapping = false;
+            tmp.raycastTarget = false; // pointer 이벤트는 부모 row 의 raycast Image 가 받음
+            if (_menuFont != null) tmp.font = _menuFont;
+            return tmp;
+        }
+
+        private void CreateBeansBottomInfo(Transform parent, string text, int fontSize, TextAlignmentOptions align)
+        {
+            var go = new GameObject("Info");
+            go.transform.SetParent(parent, false);
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = fontSize + 6f;
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.color = _beansBottomInfoColor;
+            tmp.alignment = align;
+            tmp.raycastTarget = false;
+            tmp.enableWordWrapping = false;
+            if (_menuFont != null) tmp.font = _menuFont;
+        }
+
+        private IEnumerator BeansLogoPulseLoop(Image img, float period)
+        {
+            const float minAlpha = 0.7f;
+            const float maxAlpha = 1f;
+            float half = Mathf.Max(0.2f, period * 0.5f);
+            while (img != null)
+            {
+                float t = 0f;
+                while (t < half)
+                {
+                    if (img == null) yield break;
+                    t += Time.deltaTime;
+                    float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / half));
+                    var c = img.color; c.a = Mathf.Lerp(minAlpha, maxAlpha, u); img.color = c;
+                    yield return null;
+                }
+                t = 0f;
+                while (t < half)
+                {
+                    if (img == null) yield break;
+                    t += Time.deltaTime;
+                    float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / half));
+                    var c = img.color; c.a = Mathf.Lerp(maxAlpha, minAlpha, u); img.color = c;
+                    yield return null;
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────
+        //  A303-354 Cyber 톤 헬퍼 (Nickname / CreateRoom / FindRoom)
+        // ──────────────────────────────────────────────
+
+        private void ApplyBeansBackground(GameObject panel)
+        {
+            var img = panel.GetComponent<Image>();
+            if (img == null) return;
+            if (_bgArenaSprite != null)
+            {
+                img.sprite = _bgArenaSprite;
+                img.color = Color.white;
+                img.preserveAspect = false;
+            }
+            else
+            {
+                Debug.LogWarning("[MainMenuUI] _bgArenaSprite 미할당 — 단색 fallback");
+            }
+            img.raycastTarget = false;
+        }
+
+        private void CreateBeansLogoTitle(Transform parent, bool pulse)
+        {
+            if (_beansLogoSprite == null)
+            {
+                Debug.LogWarning("[MainMenuUI] _beansLogoSprite 미할당 — 로고 미표시");
+                return;
+            }
+            var go = new GameObject("BeansLogoTitle");
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -_beansLogoTopOffset);
+            float aspect = _beansLogoSprite.rect.width / _beansLogoSprite.rect.height;
+            rt.sizeDelta = new Vector2(_beansLogoHeight * aspect, _beansLogoHeight);
+            var img = go.AddComponent<Image>();
+            img.sprite = _beansLogoSprite;
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            if (pulse) StartCoroutine(BeansLogoPulseLoop(img, _beansLogoPulsePeriod));
+        }
+
+        private void CreateCyberTitleSprite(Transform parent, Sprite serializedSprite, string resourcePath, string objName, float? anchoredYOverride = null)
+        {
+            // 1순위: Inspector 에서 wiring 된 SerializeField
+            // 2순위: Resources.Load — Assets/_Project/Resources/UI/MainMenu/{path}.png 자동 로드
+            // TMP 텍스트 fallback 은 사용하지 않는다 (PNG 가 안 보이는 회귀 차단).
+            Sprite sprite = serializedSprite;
+            if (sprite == null && !string.IsNullOrEmpty(resourcePath))
+                sprite = Resources.Load<Sprite>(resourcePath);
+            if (sprite == null)
+            {
+                Debug.LogError($"[MainMenuUI] {objName} sprite 로드 실패 — SerializeField 미할당 + Resources.Load('{resourcePath}') 실패. PNG 가 Resources 폴더에 있는지 확인.");
+                return;
+            }
+            var go = new GameObject(objName);
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            float anchoredY = anchoredYOverride ?? -_cyberTitleTopOffset;
+            rt.anchoredPosition = new Vector2(0f, anchoredY);
+            float effectiveHeight = _cyberTitleHeight * _cyberTitleScale;
+            float aspect = sprite.rect.width / sprite.rect.height;
+            rt.sizeDelta = new Vector2(effectiveHeight * aspect, effectiveHeight);
+            var img = go.AddComponent<Image>();
+            img.sprite = sprite;
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+        }
+
+        private MainMenu.CyberInputField CreateCyberInputField(Transform parent, string placeholder, float width, float height)
+        {
+            var rootGO = new GameObject("CyberInputField");
+            rootGO.transform.SetParent(parent, false);
+            var rootRt = rootGO.AddComponent<RectTransform>();
+            rootRt.sizeDelta = new Vector2(width, height);
+            var rootLE = rootGO.AddComponent<LayoutElement>();
+            rootLE.preferredWidth = width;
+            rootLE.preferredHeight = height;
+            rootLE.flexibleWidth = 0f;
+
+            // Input row (TMP_InputField + transparent raycast Image)
+            var inputGO = new GameObject("Input");
+            inputGO.transform.SetParent(rootGO.transform, false);
+            var inputRt = inputGO.AddComponent<RectTransform>();
+            inputRt.anchorMin = Vector2.zero;
+            inputRt.anchorMax = Vector2.one;
+            inputRt.offsetMin = new Vector2(0f, 6f);    // leave room for underline at bottom
+            inputRt.offsetMax = Vector2.zero;
+            var inputBg = inputGO.AddComponent<Image>();
+            inputBg.color = new Color(0f, 0f, 0f, 0f);
+
+            var textAreaGO = new GameObject("TextArea");
+            textAreaGO.transform.SetParent(inputGO.transform, false);
+            var taRt = textAreaGO.AddComponent<RectTransform>();
+            taRt.anchorMin = Vector2.zero;
+            taRt.anchorMax = Vector2.one;
+            taRt.offsetMin = new Vector2(12f, 4f);
+            taRt.offsetMax = new Vector2(-12f, -4f);
+
+            var phGO = new GameObject("Placeholder");
+            phGO.transform.SetParent(textAreaGO.transform, false);
+            var phRt = phGO.AddComponent<RectTransform>();
+            phRt.anchorMin = Vector2.zero;
+            phRt.anchorMax = Vector2.one;
+            phRt.offsetMin = Vector2.zero;
+            phRt.offsetMax = Vector2.zero;
+            var phTmp = phGO.AddComponent<TextMeshProUGUI>();
+            phTmp.text = placeholder;
+            phTmp.fontSize = _cyberInputPlaceholderFontSize;
+            phTmp.color = _cyberPlaceholderColor;
+            phTmp.alignment = TextAlignmentOptions.Center;
+            phTmp.fontStyle = FontStyles.Normal;
+            phTmp.raycastTarget = false;
+            if (_menuFont != null) phTmp.font = _menuFont;
+
+            var textGO = new GameObject("Text");
+            textGO.transform.SetParent(textAreaGO.transform, false);
+            var textRt = textGO.AddComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+            var textTmp = textGO.AddComponent<TextMeshProUGUI>();
+            textTmp.fontSize = _cyberInputFontSize;
+            textTmp.color = Color.white;
+            textTmp.alignment = TextAlignmentOptions.Center;
+            textTmp.raycastTarget = false;
+            if (_menuFont != null) textTmp.font = _menuFont;
+
+            var input = inputGO.AddComponent<TMP_InputField>();
+            input.textViewport = taRt;
+            input.textComponent = textTmp;
+            input.placeholder = phTmp;
+            input.lineType = TMP_InputField.LineType.SingleLine;
+            input.contentType = TMP_InputField.ContentType.Standard;
+            input.caretColor = _cyberAccentColor;
+            input.selectionColor = new Color(_cyberAccentColor.r, _cyberAccentColor.g, _cyberAccentColor.b, 0.35f);
+
+            // Underline at bottom
+            var ulGO = new GameObject("Underline");
+            ulGO.transform.SetParent(rootGO.transform, false);
+            var ulRt = ulGO.AddComponent<RectTransform>();
+            ulRt.anchorMin = new Vector2(0f, 0f);
+            ulRt.anchorMax = new Vector2(1f, 0f);
+            ulRt.pivot = new Vector2(0.5f, 0f);
+            ulRt.anchoredPosition = Vector2.zero;
+            ulRt.sizeDelta = new Vector2(0f, 3f);
+            var ulImg = ulGO.AddComponent<Image>();
+            ulImg.color = _cyberAccentColor;
+            ulImg.raycastTarget = false;
+
+            var cyber = rootGO.AddComponent<MainMenu.CyberInputField>();
+            cyber.input = input;
+            cyber.underline = ulImg;
+            cyber.placeholderText = phTmp;
+            cyber.inputText = textTmp;
+            cyber.underlineColor = _cyberAccentColor;
+            cyber.placeholderColor = _cyberPlaceholderColor;
+            cyber.textColor = Color.white;
+            return cyber;
+        }
+
+        private MainMenu.CyberButton CreateCyberButton(Transform parent, string label, System.Action onClicked, float width, float height, int fontSize)
+        {
+            // 4 Image strip 방식 — PNG sprite 사용 안 함. 모서리 radius 없는 얇은 직사각형 outline.
+            // CyberInputField underline (3px) 보다 살짝 얇은 2px 로 visual hierarchy 확보.
+            const float strokeThickness = 2f;
+
+            var go = new GameObject($"CyberBtn_{label}");
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(width, height);
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = width;
+            le.preferredHeight = height;
+            le.flexibleWidth = 0f;
+
+            // raycast hit zone — 투명 Image 로 클릭/hover 영역만 확보.
+            var hit = go.AddComponent<Image>();
+            hit.color = new Color(0f, 0f, 0f, 0f);
+            hit.raycastTarget = true;
+
+            // 4 strip — 항상 같은 색으로 동기화됨.
+            Color stripCol = new Color(_cyberAccentColor.r, _cyberAccentColor.g, _cyberAccentColor.b, 0.7f);
+            var top    = CreateOutlineStrip(go.transform, "Top",    new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, strokeThickness), stripCol);
+            var bottom = CreateOutlineStrip(go.transform, "Bottom", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, strokeThickness), stripCol);
+            var left   = CreateOutlineStrip(go.transform, "Left",   new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(strokeThickness, 0f), stripCol);
+            var right  = CreateOutlineStrip(go.transform, "Right",  new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(strokeThickness, 0f), stripCol);
+
+            // Label
+            var labelGO = new GameObject("Label");
+            labelGO.transform.SetParent(go.transform, false);
+            var labelRt = labelGO.AddComponent<RectTransform>();
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = new Vector2(20f, 0f);
+            labelRt.offsetMax = new Vector2(-20f, 0f);
+            var tmp = labelGO.AddComponent<TextMeshProUGUI>();
+            tmp.text = label;
+            tmp.fontSize = fontSize;
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.raycastTarget = false;
+            if (_menuFont != null) tmp.font = _menuFont;
+
+            var btn = go.AddComponent<MainMenu.CyberButton>();
+            btn.outlineImage = null;
+            btn.outlineImages = new[] { top, bottom, left, right };
+            btn.label = tmp;
+            btn.borderColor = _cyberAccentColor;
+            btn.OnClicked += onClicked;
+            return btn;
+        }
+
+        private Image CreateOutlineStrip(Transform parent, string name,
+            Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 sizeDelta, Color color)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.pivot = pivot;
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = sizeDelta;
+            var img = go.AddComponent<Image>();
+            img.color = color;
+            img.raycastTarget = false;
+            return img;
+        }
+
+        private TextMeshProUGUI CreateRoomColumnText(Transform parent, string text, float flexibleWidth, TextAlignmentOptions align, float preferredWidth, int fontSize, bool bold, Color color)
+        {
+            string goName = string.IsNullOrEmpty(text) ? "Col" : $"Col_{text}";
+            var go = new GameObject(goName);
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+            var le = go.AddComponent<LayoutElement>();
+            le.flexibleWidth = flexibleWidth;
+            if (preferredWidth > 0f) le.preferredWidth = preferredWidth;
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.color = color;
+            tmp.alignment = align;
+            tmp.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
+            tmp.raycastTarget = false;
+            tmp.enableWordWrapping = false;
+            tmp.overflowMode = TextOverflowModes.Ellipsis;
+            if (_menuFont != null) tmp.font = _menuFont;
+            return tmp;
+        }
+
+        private MainMenu.MenuItem CreateBackMenuItem(Transform parent, string label, System.Action onClick, int fontSize = 28)
+        {
+            // Normal/Hover 색을 SerializeField (_beansMenuNormalColor) 에 의존하지 않고 명시 고정.
+            // 시나리오: 이 헬퍼는 secondary 액션(Back/Refresh)에만 쓰이며, 메인메뉴 톤 토큰의 동시 변경이
+            // 의도치 않게 cyan 으로 보이게 만드는 회귀를 차단한다.
+            var normalCol = new Color(1f, 1f, 1f, 0.7f);
+            var hoverCol = _beansMenuHoverColor;
+
+            var itemGO = new GameObject(label.Replace(" ", "") + "MenuItem");
+            itemGO.transform.SetParent(parent, false);
+            var rt = itemGO.AddComponent<RectTransform>();
+
+            var le = itemGO.AddComponent<LayoutElement>();
+            le.preferredHeight = fontSize + 16f;
+
+            var bg = itemGO.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0f);
+            bg.raycastTarget = true;
+
+            var textGO = new GameObject("Label");
+            textGO.transform.SetParent(itemGO.transform, false);
+            var textRt = textGO.AddComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+            var tmp = textGO.AddComponent<TextMeshProUGUI>();
+            tmp.text = label;
+            tmp.fontSize = fontSize;
+            tmp.color = normalCol;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.raycastTarget = false;
+            if (_menuFont != null) tmp.font = _menuFont;
+
+            var item = itemGO.AddComponent<MainMenu.MenuItem>();
+            item.label = tmp;
+            item.leftDot = null;
+            item.rightDot = null;
+            item.normalColor = normalCol;
+            item.hoverColor = hoverCol;
+            item.OnClicked += onClick;
+            return item;
+        }
+
+        // ── A303-334 Dev Controls (개발 단계 임시) ──
+        // 4 메뉴와 분리된 우하단 코너 한 줄 바: "· Dev Mode  [Sample] [MVPArena]".
+        // 시연 빌드 직전 _beansShowDevControls=false 또는 DevControls GameObject 삭제로 무영향 제거.
+
+        private void CreateBeansDevControlsBar(Transform parent)
+        {
+            var root = new GameObject("DevControls");
+            root.transform.SetParent(parent, false);
+
+            var rect = root.AddComponent<RectTransform>();
+            rect.anchorMin = _beansDevControlsAnchor;
+            rect.anchorMax = _beansDevControlsAnchor;
+            rect.pivot = _beansDevControlsAnchor;
+            rect.anchoredPosition = _beansDevControlsOffset;
+            rect.sizeDelta = new Vector2(280f, 32f);
+
+            var hlg = root.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 8f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+            hlg.padding = new RectOffset(2, 2, 2, 2);
+
+#if UNITY_EDITOR
+            CreateBeansDevModeButton(root.transform);
+#endif
+            _btnMapDuskCity = CreateBeansCompactMapToggle(root.transform, "DuskCity", SelectableScene.DuskCity);
+            _btnMapMVPArena = CreateBeansCompactMapToggle(root.transform, "MVPArena", SelectableScene.MVPArena);
+            UpdateMapSelectorVisual();
+        }
+
+#if UNITY_EDITOR
+        private void CreateBeansDevModeButton(Transform parent)
+        {
+            var btnObj = new GameObject("DevModeButton");
+            btnObj.transform.SetParent(parent, false);
+
+            var le = btnObj.AddComponent<LayoutElement>();
+            le.preferredHeight = 28f;
+            le.preferredWidth = 110f;
+            le.minWidth = 90f;
+
+            // 보이지 않는 raycast 영역 = 클릭 핫스팟
+            var bg = btnObj.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0f);
+            bg.raycastTarget = true;
+
+            var btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            btn.onClick.AddListener(OnDevModeClicked);
+            // Button.colors 가 bg(Image, alpha 0)에만 영향 → 텍스트 색은 그대로. 미세하게 hover 시 bg alpha 만 살짝 올림.
+            var colors = btn.colors;
+            colors.normalColor = new Color(1f, 1f, 1f, 0f);
+            colors.highlightedColor = new Color(1f, 1f, 1f, 0.06f);
+            colors.pressedColor = new Color(1f, 1f, 1f, 0.12f);
+            colors.fadeDuration = 0.1f;
+            btn.colors = colors;
+
+            var textObj = new GameObject("Text");
+            textObj.transform.SetParent(btnObj.transform, false);
+            var textRect = textObj.AddComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            var tmp = textObj.AddComponent<TextMeshProUGUI>();
+            tmp.text = "· Dev Mode";
+            tmp.fontSize = _beansDevTextFontSize;
+            tmp.color = _beansBottomInfoColor;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.raycastTarget = false;
+            tmp.enableWordWrapping = false;
+            if (_menuFont != null) tmp.font = _menuFont;
+        }
+#endif
+
+        private Button CreateBeansCompactMapToggle(Transform parent, string label, SelectableScene target)
+        {
+            var btnObj = new GameObject($"BtnMap_{label}");
+            btnObj.transform.SetParent(parent, false);
+
+            var le = btnObj.AddComponent<LayoutElement>();
+            le.preferredHeight = 28f;
+            le.preferredWidth = label.Length > 6 ? 92f : 76f;
+            le.minHeight = 28f;
+            le.minWidth = 60f;
+
+            var img = btnObj.AddComponent<Image>();
+            img.color = _buttonColor;
+
+            var btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() => OnMapToggleClicked(target));
+
+            var textObj = new GameObject("Text");
+            textObj.transform.SetParent(btnObj.transform, false);
+            var textRect = textObj.AddComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(6f, 0f);
+            textRect.offsetMax = new Vector2(-6f, 0f);
+
+            var tmp = textObj.AddComponent<TextMeshProUGUI>();
+            tmp.text = label;
+            tmp.fontSize = _beansDevTextFontSize - 2; // 살짝 작게
+            tmp.color = _textColor;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.raycastTarget = false;
+            tmp.enableWordWrapping = false;
+            if (_menuFont != null) tmp.font = _menuFont;
+
+            return btn;
         }
 
         // SetActive(false) 시 PointerExit 미발화로 hover 색·텍스트가 남는 버그 대응.

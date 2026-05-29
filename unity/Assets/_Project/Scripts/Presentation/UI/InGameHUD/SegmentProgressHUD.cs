@@ -14,10 +14,10 @@ namespace Colosseum.UI
     public class SegmentProgressHUD : MonoBehaviour
     {
         // 색상 상수 (시안 기반)
-        private static readonly Color P1Color = new Color(1f, 0.557f, 0.361f, 1f);       // #FF8E5C
-        private static readonly Color P2Color = new Color(0.290f, 0.565f, 0.886f, 1f);   // #4A90E2
+        private static readonly Color P1Color = new Color(0.843f, 0.451f, 0.537f, 1f);   // #D77389 핑크 (Beans P1)
+        private static readonly Color P2Color = new Color(0.561f, 0.749f, 0.247f, 1f);   // #8FBF3F 라임 (Beans P2)
         private static readonly Color WhiteHighlight = Color.white;                      // #FFFFFF
-        private static readonly Color CurrentBorderColor = new Color(1f, 0.2f, 0.2f, 1f); // 현재 라운드 강조 빨강
+        private static readonly Color CurrentBorderColor = new Color(1f, 1f, 1f, 1f);    // #FFFFFF 현재 라운드 강조 흰색
 
         // 사이즈 상수
         private const float SegmentWidth = 100f;
@@ -104,6 +104,7 @@ namespace Colosseum.UI
                 seg.transform.SetParent(transform, false);
                 Image segImage = seg.AddComponent<Image>();
                 segImage.sprite = _whiteSprite;
+                segImage.raycastTarget = false;
 
                 RectTransform segRect = seg.GetComponent<RectTransform>();
                 segRect.anchorMin = new Vector2(0f, 0.5f);
@@ -120,6 +121,7 @@ namespace Colosseum.UI
                 Image rightImage = rightHalf.AddComponent<Image>();
                 rightImage.sprite = _whiteSprite;
                 rightImage.color = P2Color;
+                rightImage.raycastTarget = false;
                 RectTransform rightRect = rightHalf.GetComponent<RectTransform>();
                 rightRect.anchorMin = new Vector2(0.5f, 0f);
                 rightRect.anchorMax = new Vector2(1f, 1f);
@@ -134,6 +136,7 @@ namespace Colosseum.UI
                 Image divImage = divider.AddComponent<Image>();
                 divImage.sprite = _whiteSprite;
                 divImage.color = WhiteHighlight;
+                divImage.raycastTarget = false;
                 RectTransform divRect = divider.GetComponent<RectTransform>();
                 divRect.anchorMin = new Vector2(0.5f, 0f);
                 divRect.anchorMax = new Vector2(0.5f, 1f);
@@ -167,6 +170,7 @@ namespace Colosseum.UI
             Image img = edge.AddComponent<Image>();
             img.sprite = _whiteSprite;
             img.color = CurrentBorderColor;
+            img.raycastTarget = false;
             RectTransform rt = edge.GetComponent<RectTransform>();
             rt.anchorMin = anchorMin;
             rt.anchorMax = anchorMax;

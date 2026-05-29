@@ -14,6 +14,15 @@ set "TARGET_JAR=%LOCALBUILD_DIR%\server-0.0.1-SNAPSHOT.jar"
 set "WORKER_BASE_URL=http://127.0.0.1:8080"
 set "ROOM_API_BASE_URL=http://127.0.0.1:8081/api/v1"
 
+REM ───── A303-171 임시: EC2 Lobby와 SessionName 격리 ─────
+REM 공유 AppId의 "ColosseumLobby"와 분리하기 위해 로컬 전용 이름 사용.
+REM 아래 두 줄로 인해 이 배치에서 띄우는 모든 자식 프로세스(Worker/Lobby/Client)가
+REM COLOSSEUM_LOBBY_SESSION 환경변수를 상속받아 EC2와 다른 매치메이킹 풀로 격리됨.
+REM 테스트 끝나면 두 줄 모두 삭제 또는 주석 처리.
+set "LOBBY_SESSION=Local_171"
+set "COLOSSEUM_LOBBY_SESSION=%LOBBY_SESSION%"
+REM ──────────────────────────────────────────────────────
+
 echo ============================================
 echo Colosseum Local Launcher
 echo Root: %ROOT_DIR%
@@ -76,7 +85,7 @@ echo [5/7] Starting Worker Agent in a new terminal...
 start "Colosseum Worker Agent" cmd /k "cd /d ""%WORKER_DIR%"" && dotnet run -- --game-server-exe ""%UNITY_SERVER_EXE%"" --listen-url ""http://0.0.0.0:8080"" --room-api-base-url ""%ROOM_API_BASE_URL%"""
 
 echo [6/7] Starting Lobby Server in a new terminal...
-start "Colosseum Lobby Server" cmd /k "set COLOSSEUM_WORKER_BASE_URL=%WORKER_BASE_URL% && set COLOSSEUM_ROOM_API_BASE_URL=%ROOM_API_BASE_URL% && ""%UNITY_SERVER_EXE%"" --mode lobby"
+start "Colosseum Lobby Server" cmd /k "set COLOSSEUM_LOBBY_SESSION=%LOBBY_SESSION% && set COLOSSEUM_WORKER_BASE_URL=%WORKER_BASE_URL% && set COLOSSEUM_ROOM_API_BASE_URL=%ROOM_API_BASE_URL% && ""%UNITY_SERVER_EXE%"" --mode lobby"
 
 echo [7/7] Starting Unity clients...
 start "Colosseum Client 1" "%UNITY_CLIENT_EXE%"
